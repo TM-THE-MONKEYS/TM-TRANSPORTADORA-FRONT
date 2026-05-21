@@ -23,7 +23,7 @@ const schema = z.object({
   cnh_number: z.string().min(5),
   cnh_category: z.string().min(1),
   cnh_expires_at: z.string().min(1),
-  status: z.enum(["disponivel", "em_viagem", "folga", "inativo"]),
+  status: z.enum(["ativo", "inativo", "suspenso", "ferias"]),
   phone: z.string().optional(),
   commission_pct: z.coerce.number().optional(),
 })
@@ -40,7 +40,7 @@ export function DriverForm() {
     formState: { isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { status: "disponivel", cnh_category: "E" },
+    defaultValues: { status: "ativo", cnh_category: "E" },
   })
 
   async function onSubmit(data: FormData) {
@@ -80,10 +80,10 @@ export function DriverForm() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="disponivel">Disponível</SelectItem>
-            <SelectItem value="em_viagem">Em viagem</SelectItem>
-            <SelectItem value="folga">Folga</SelectItem>
+            <SelectItem value="ativo">Ativo</SelectItem>
             <SelectItem value="inativo">Inativo</SelectItem>
+            <SelectItem value="suspenso">Suspenso</SelectItem>
+            <SelectItem value="ferias">Férias</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -25,7 +25,7 @@ const schema = z.object({
   model: z.string().min(1),
   year: z.coerce.number().min(1990).max(2030),
   type: z.string().min(1),
-  status: z.enum(["ativo", "manutencao", "inativo", "viagem"]),
+  status: z.enum(["disponivel", "em_viagem", "em_manutencao", "inativo"]),
   mileage_km: z.coerce.number().nonnegative(),
   renavam: z.string().optional(),
   capacity_kg: z.coerce.number().optional(),
@@ -44,7 +44,7 @@ export function TruckForm() {
     formState: { isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { status: "ativo", type: "cavalo", mileage_km: 0 },
+    defaultValues: { status: "disponivel", type: "cavalo", mileage_km: 0 },
   })
 
   async function onSubmit(data: FormData) {
@@ -96,10 +96,10 @@ export function TruckForm() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ativo">Ativo</SelectItem>
-            <SelectItem value="manutencao">Manutenção</SelectItem>
+            <SelectItem value="disponivel">Disponível</SelectItem>
+            <SelectItem value="em_viagem">Em viagem</SelectItem>
+            <SelectItem value="em_manutencao">Manutenção</SelectItem>
             <SelectItem value="inativo">Inativo</SelectItem>
-            <SelectItem value="viagem">Em viagem</SelectItem>
           </SelectContent>
         </Select>
       </div>

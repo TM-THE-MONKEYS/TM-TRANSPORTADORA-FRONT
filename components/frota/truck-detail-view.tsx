@@ -5,12 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
-import { getTruck, listImplements } from "@/lib/api/services/fleet"
+import { getTruck } from "@/lib/api/services/fleet"
 import { formatDateBR } from "@/lib/format/dates"
 
 export function TruckDetailView({ id }: { id: string }) {
   const { data: truck } = useSWR(["truck", id], () => getTruck(id))
-  const { data: implements_ } = useSWR(["implements", id], () => listImplements(id))
+  const implements_: { id: string; type: string; identifier: string }[] = []
 
   if (!truck) return <Skeleton className="h-96 w-full" />
 

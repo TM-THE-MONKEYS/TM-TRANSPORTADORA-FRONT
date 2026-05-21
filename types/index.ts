@@ -1,17 +1,23 @@
-export type UserRole = "admin" | "operacional" | "financeiro" | "motorista" | "cliente"
+// ── Enums — aligned with backend StrEnum values ─────────────────────────────
 
+export type UserRole = "admin" | "operacional" | "operador" | "financeiro" | "motorista" | "cliente"
+
+/** Aligned with backend FreightStatus enum */
 export type FreightStatus =
-  | "cotacao"
-  | "aprovacao"
-  | "embarque"
-  | "em_transito"
+  | "orcamento"
+  | "confirmado"
+  | "em_coleta"
+  | "em_transporte"
   | "entregue"
-  | "finalizado"
   | "cancelado"
 
-export type TruckStatus = "ativo" | "manutencao" | "inativo" | "viagem"
+/** Aligned with backend TruckStatus enum */
+export type TruckStatus = "disponivel" | "em_viagem" | "em_manutencao" | "inativo"
 
-export type DriverStatus = "disponivel" | "em_viagem" | "folga" | "inativo"
+/** Aligned with backend DriverStatus enum */
+export type DriverStatus = "ativo" | "inativo" | "suspenso" | "ferias"
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
 
 export interface Tenant {
   id: string
@@ -42,7 +48,10 @@ export interface AuthTokens {
   access_token: string
   refresh_token: string
   token_type: string
+  expires_in?: number
 }
+
+// ── Pagination ───────────────────────────────────────────────────────────────
 
 export interface Paginated<T> {
   items: T[]
@@ -52,14 +61,21 @@ export interface Paginated<T> {
   pages: number
 }
 
+// ── Clients / Customers ──────────────────────────────────────────────────────
+
 export interface Customer {
   id: string
   tenant_id: string
-  name: string
+  nome?: string          // backend field
+  name?: string          // alias used in mocks
   document?: string
+  cpf_cnpj?: string      // backend field
   email?: string
   phone?: string
+  telefone?: string      // backend field
 }
+
+// ── Trucks ───────────────────────────────────────────────────────────────────
 
 export interface Truck {
   id: string
@@ -88,6 +104,8 @@ export interface TruckImplement {
   capacity_kg?: number
 }
 
+// ── Drivers ──────────────────────────────────────────────────────────────────
+
 export interface Driver {
   id: string
   tenant_id: string
@@ -102,6 +120,8 @@ export interface Driver {
   commission_pct?: number
   created_at: string
 }
+
+// ── Freights ─────────────────────────────────────────────────────────────────
 
 export interface FreightOrder {
   id: string
@@ -144,6 +164,85 @@ export interface FreightOccurrence {
   description: string
   created_at: string
 }
+
+// ── Finance ──────────────────────────────────────────────────────────────────
+
+export type FinanceEntryType = "receita" | "despesa"
+export type FinanceEntryStatus = "pendente" | "pago" | "cancelado" | "vencido"
+
+export interface FinanceEntry {
+  id: string
+  tipo: FinanceEntryType
+  categoria: string
+  descricao?: string
+  valor: number
+  status: FinanceEntryStatus
+  data_vencimento?: string
+  freight_id?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CashFlowSummary {
+  total_receitas: number
+  total_despesas: number
+  saldo: number
+  receitas_pendentes: number
+  despesas_pendentes: number
+  receitas_pagas: number
+  despesas_pagas: number
+}
+
+// ── Maintenance ───────────────────────────────────────────────────────────────
+
+export type MaintenanceType = "preventiva" | "corretiva"
+export type MaintenanceStatus = "agendada" | "em_andamento" | "concluida" | "cancelada"
+
+export interface Maintenance {
+  id: string
+  truck_id: string
+  tipo: MaintenanceType
+  status: MaintenanceStatus
+  descricao?: string
+  custo?: number
+  oficina?: string
+  data_agendada?: string
+  data_inicio?: string
+  data_conclusao?: string
+  km_na_manutencao?: number
+  proxima_manutencao_km?: number
+  proxima_manutencao_data?: string
+  created_at: string
+  updated_at: string
+}
+
+// ── Tracking ──────────────────────────────────────────────────────────────────
+
+export type TrackingStatus =
+  | "coletado"
+  | "em_transito"
+  | "saiu_para_entrega"
+  | "tentativa_entrega"
+  | "entregue"
+  | "devolvido"
+
+export interface TrackingUpdate {
+  id: string
+  freight_id: string
+  status: TrackingStatus
+  latitude?: number
+  longitude?: number
+  observacao?: string
+  evento_at: string
+  created_at: string
+}
+
+export interface TrackingTimeline {
+  freight_id: string
+  updates: TrackingUpdate[]
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export interface DashboardKpis {
   freights_in_progress: number

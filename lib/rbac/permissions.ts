@@ -15,18 +15,21 @@ export const PERMISSIONS = {
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
 
+const _OPERACIONAL_PERMISSIONS: Permission[] = [
+  PERMISSIONS.dashboard,
+  PERMISSIONS.fleetRead,
+  PERMISSIONS.fleetWrite,
+  PERMISSIONS.driversRead,
+  PERMISSIONS.driversWrite,
+  PERMISSIONS.freightRead,
+  PERMISSIONS.freightWrite,
+  PERMISSIONS.freightStatus,
+]
+
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   admin: Object.values(PERMISSIONS),
-  operacional: [
-    PERMISSIONS.dashboard,
-    PERMISSIONS.fleetRead,
-    PERMISSIONS.fleetWrite,
-    PERMISSIONS.driversRead,
-    PERMISSIONS.driversWrite,
-    PERMISSIONS.freightRead,
-    PERMISSIONS.freightWrite,
-    PERMISSIONS.freightStatus,
-  ],
+  operacional: _OPERACIONAL_PERMISSIONS,
+  operador: _OPERACIONAL_PERMISSIONS,   // backend uses 'operador'; same permissions as 'operacional'
   financeiro: [PERMISSIONS.dashboard, PERMISSIONS.financeRead, PERMISSIONS.freightRead],
   motorista: [PERMISSIONS.freightRead, PERMISSIONS.freightStatus],
   cliente: [PERMISSIONS.freightRead],

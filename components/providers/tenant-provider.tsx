@@ -1,7 +1,6 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { listBranches } from "@/lib/api/services/freight"
 import { getStoredBranchId, setStoredBranchId } from "@/lib/api/storage"
 import { useAuth } from "@/components/providers/auth-provider"
 import type { Branch } from "@/types"
@@ -25,13 +24,11 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     if (!isAuthenticated) return
     setBranchIdState(getStoredBranchId())
     setLoading(true)
-    listBranches()
+    // Backend does not expose a /branches endpoint; branches are part of the auth response.
+    // Branches functionality is deferred until multi-tenancy is implemented.
+    Promise.resolve([])
       .then((b) => {
         setBranches(b)
-        if (!getStoredBranchId() && b[0]) {
-          setBranchIdState(b[0].id)
-          setStoredBranchId(b[0].id)
-        }
       })
       .finally(() => setLoading(false))
   }, [isAuthenticated])

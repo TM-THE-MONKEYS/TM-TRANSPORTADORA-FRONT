@@ -5,9 +5,8 @@ import type { FreightStatus } from "@/types"
 const variantMap: Partial<
   Record<FreightStatus, "default" | "secondary" | "success" | "outline" | "destructive">
 > = {
-  em_transito: "default",
+  em_transporte: "default",
   entregue: "success",
-  finalizado: "success",
   cancelado: "destructive",
 }
 

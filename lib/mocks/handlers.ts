@@ -163,7 +163,7 @@ export async function mockCreateFreight(
     id: generateId("frt"),
     tenant_id: DEMO_TENANT.id,
     code: `OF-2026-${String(n).padStart(4, "0")}`,
-    status: data.status ?? "cotacao",
+    status: data.status ?? "orcamento",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }

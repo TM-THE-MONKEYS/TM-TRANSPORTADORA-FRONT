@@ -15,10 +15,10 @@ import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 
 const statusLabel: Record<string, string> = {
-  ativo: "Ativo",
-  manutencao: "Manutenção",
+  disponivel: "Disponível",
+  em_viagem: "Em viagem",
+  em_manutencao: "Manutenção",
   inativo: "Inativo",
-  viagem: "Em viagem",
 }
 
 export function FleetListView() {
@@ -59,7 +59,7 @@ export function FleetListView() {
                       {t.brand} {t.model} · {t.year}
                     </p>
                   </div>
-                  <Badge variant={t.status === "ativo" ? "success" : "secondary"}>
+                  <Badge variant={t.status === "disponivel" ? "success" : "secondary"}>
                     {statusLabel[t.status] ?? t.status}
                   </Badge>
                 </div>

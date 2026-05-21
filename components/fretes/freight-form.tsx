@@ -54,7 +54,7 @@ export function FreightForm() {
       const freight = await createFreight({
         ...data,
         branch_id: branchId ?? undefined,
-        status: "cotacao",
+        status: "orcamento",
       })
       toast.success("Ordem de frete criada")
       router.push(`/dashboard/fretes/${freight.id}`)

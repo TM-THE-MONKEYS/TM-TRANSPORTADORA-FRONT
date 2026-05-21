@@ -5,7 +5,7 @@ import type { Driver, Paginated } from "@/types"
 
 export async function listDrivers(page = 1, pageSize = 20): Promise<Paginated<Driver>> {
   if (shouldUseMocks()) return mock.mockListDrivers(page, pageSize)
-  return apiRequest(`/drivers?page=${page}&page_size=${pageSize}`, { auth: true })
+  return apiRequest(`/drivers?page=${page}&size=${pageSize}`, { auth: true })
 }
 
 export async function getDriver(id: string): Promise<Driver> {
