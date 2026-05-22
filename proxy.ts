@@ -2,28 +2,19 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 const PUBLIC = ["/", "/login", "/cadastro", "/termos", "/privacidade"]
-const AUTH_ONLY = ["/login", "/cadastro"]
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const session = request.cookies.get("tmt_session")?.value
 
-  const isPublic = PUBLIC.some((p) => pathname === p || pathname.startsWith(`${p}/`))
   const isDashboard = pathname.startsWith("/dashboard")
-  const isAuthPage = AUTH_ONLY.includes(pathname)
 
+  // Dashboard: cookie is a coarse gate only; client auth uses sessionStorage.
+  // Do not redirect /login or /cadastro when a stale cookie exists — that caused a blank dashboard.
   if (isDashboard && !session) {
     const login = new URL("/login", request.url)
     login.searchParams.set("from", pathname)
     return NextResponse.redirect(login)
-  }
-
-  if (isAuthPage && session) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-
-  if (!isPublic && !isDashboard && pathname !== "/") {
-    return NextResponse.next()
   }
 
   return NextResponse.next()

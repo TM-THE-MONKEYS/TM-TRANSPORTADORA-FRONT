@@ -35,6 +35,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hydrate = useCallback(async () => {
     const token = getStoredAccessToken()
     if (!token) {
+      try {
+        await fetch("/api/auth/session", { method: "DELETE" })
+      } catch {
+        /* ignore */
+      }
       setIsReady(true)
       return
     }

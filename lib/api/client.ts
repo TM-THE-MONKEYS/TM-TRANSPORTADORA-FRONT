@@ -43,7 +43,16 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     if (bid) headers["X-Branch-Id"] = bid
   }
 
-  const res = await fetch(url, { method, headers, body: payload, cache: "no-store" })
+  let res: Response
+  try {
+    res = await fetch(url, { method, headers, body: payload, cache: "no-store" })
+  } catch (err) {
+    const hint =
+      err instanceof TypeError && err.message === "Failed to fetch"
+        ? `Não foi possível conectar à API em ${base}. Verifique se o backend está rodando (porta 8000).`
+        : "Erro de rede ao chamar a API."
+    throw new ApiError(0, hint)
+  }
   const text = await res.text()
   let json: unknown = {}
   if (text) {
