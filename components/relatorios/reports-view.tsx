@@ -1,6 +1,8 @@
 "use client"
 
 import useSWR from "swr"
+import { RecentFuelRefillsReport } from "@/components/relatorios/recent-fuel-refills-report"
+import { RecentFreightsReport } from "@/components/relatorios/recent-freights-report"
 import { PageHeader } from "@/components/shared/page-header"
 import { getDashboardKpis, getFreightsByStatus, getRevenueSeries } from "@/lib/api/services/dashboard"
 import { formatBRL } from "@/lib/format/currency"
@@ -65,6 +67,10 @@ export function ReportsView() {
           </ul>
         </div>
       </div>
+
+      <RecentFuelRefillsReport />
+
+      <RecentFreightsReport />
     </div>
   )
 }
