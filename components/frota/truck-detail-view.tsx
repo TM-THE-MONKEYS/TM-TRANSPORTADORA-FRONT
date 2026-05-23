@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { getTruck, deleteTruck } from "@/lib/api/services/fleet"
 import { formatDateBR } from "@/lib/format/dates"
 import { findActiveFreightByTruck } from "@/lib/freight/active-trip"
+import { getEffectiveTruckStatus, TRUCK_STATUS_LABELS } from "@/lib/fleet/truck-availability"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
@@ -28,6 +29,7 @@ export function TruckDetailView({ id }: { id: string }) {
   const { freights } = useOperationContext()
   const { data: truck } = useSWR(["truck", id], () => getTruck(id))
   const activeTrip = truck ? findActiveFreightByTruck(freights, truck.id) : undefined
+  const effectiveStatus = truck ? getEffectiveTruckStatus(truck, freights) : null
   const implements_: { id: string; type: string; identifier: string }[] = []
 
   async function handleDelete() {
@@ -83,7 +85,15 @@ export function TruckDetailView({ id }: { id: string }) {
         <TabsContent value="dados" className="mt-4">
           <Card>
             <CardContent className="grid gap-2 pt-6 sm:grid-cols-2">
-              <p><span className="text-muted-foreground">Status:</span> {truck.status}</p>
+              <p>
+                <span className="text-muted-foreground">Status:</span>{" "}
+                {effectiveStatus ? TRUCK_STATUS_LABELS[effectiveStatus] : "—"}
+                {effectiveStatus && truck.status !== effectiveStatus && (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    (cadastro: {TRUCK_STATUS_LABELS[truck.status] ?? truck.status})
+                  </span>
+                )}
+              </p>
               <p><span className="text-muted-foreground">Km:</span> {truck.mileage_km.toLocaleString("pt-BR")}</p>
               <p><span className="text-muted-foreground">Capacidade:</span> {truck.capacity_kg ?? "—"} kg</p>
               <p><span className="text-muted-foreground">Consumo médio:</span> {truck.avg_consumption_km_l ?? "—"} km/l</p>

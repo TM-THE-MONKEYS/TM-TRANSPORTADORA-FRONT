@@ -18,17 +18,11 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { listTrucks, deleteTruck } from "@/lib/api/services/fleet"
 import { formatDateBR } from "@/lib/format/dates"
 import { findActiveFreightByTruck } from "@/lib/freight/active-trip"
+import { getEffectiveTruckStatus, TRUCK_STATUS_LABELS } from "@/lib/fleet/truck-availability"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
-
-const statusLabel: Record<string, string> = {
-  disponivel: "Disponível",
-  em_viagem: "Em viagem",
-  em_manutencao: "Manutenção",
-  inativo: "Inativo",
-}
 
 export function FleetListView() {
   const router = useRouter()
@@ -96,7 +90,9 @@ export function FleetListView() {
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {data.items.map((t) => (
+          {data.items.map((t) => {
+            const effectiveStatus = getEffectiveTruckStatus(t, freights)
+            return (
             <Card key={t.id}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
@@ -109,8 +105,8 @@ export function FleetListView() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={t.status === "disponivel" ? "success" : "secondary"}>
-                      {statusLabel[t.status] ?? t.status}
+                    <Badge variant={effectiveStatus === "disponivel" ? "success" : "secondary"}>
+                      {TRUCK_STATUS_LABELS[effectiveStatus] ?? effectiveStatus}
                     </Badge>
                     {canWrite && (
                       <div className="flex gap-1">
@@ -140,7 +136,7 @@ export function FleetListView() {
                 )}
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
       )}
 
