@@ -1,67 +1,53 @@
+import { mutate } from "swr"
 import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
+import { mockFinanceEntries } from "@/lib/mocks/finance-sync"
 import type { CashFlowSummary, FinanceEntry, FinanceEntryStatus, FinanceEntryType, Paginated } from "@/types"
 
-// ── Mock data ────────────────────────────────────────────────────────────────
+function computeMockCashFlow(): CashFlowSummary {
+  let total_receitas = 0
+  let total_despesas = 0
+  let receitas_pendentes = 0
+  let despesas_pendentes = 0
+  let receitas_pagas = 0
+  let despesas_pagas = 0
 
-const mockEntries: FinanceEntry[] = [
-  {
-    id: "fin-1",
-    tipo: "receita",
-    categoria: "Frete",
-    descricao: "Frete OF-2026-0001",
-    valor: 18500,
-    status: "pago",
-    data_vencimento: "2026-05-15",
-    created_at: "2026-05-10T08:00:00Z",
-    updated_at: "2026-05-15T10:00:00Z",
-  },
-  {
-    id: "fin-2",
-    tipo: "despesa",
-    categoria: "Combustível",
-    descricao: "Abastecimento Volvo ABC1D23",
-    valor: 3200,
-    status: "pago",
-    data_vencimento: "2026-05-12",
-    created_at: "2026-05-12T08:00:00Z",
-    updated_at: "2026-05-12T08:00:00Z",
-  },
-  {
-    id: "fin-3",
-    tipo: "despesa",
-    categoria: "Manutenção",
-    descricao: "Revisão preventiva Scania XYZ9K87",
-    valor: 4500,
-    status: "pendente",
-    data_vencimento: "2026-05-30",
-    created_at: "2026-05-20T08:00:00Z",
-    updated_at: "2026-05-20T08:00:00Z",
-  },
-]
+  for (const e of mockFinanceEntries) {
+    if (e.tipo === "receita") {
+      total_receitas += e.valor
+      if (e.status === "pendente") receitas_pendentes += e.valor
+      if (e.status === "pago") receitas_pagas += e.valor
+    } else if (e.tipo === "despesa") {
+      total_despesas += e.valor
+      if (e.status === "pendente") despesas_pendentes += e.valor
+      if (e.status === "pago") despesas_pagas += e.valor
+    }
+  }
 
-const mockCashFlow: CashFlowSummary = {
-  total_receitas: 18500,
-  total_despesas: 7700,
-  saldo: 10800,
-  receitas_pendentes: 0,
-  despesas_pendentes: 4500,
-  receitas_pagas: 18500,
-  despesas_pagas: 3200,
+  return {
+    total_receitas,
+    total_despesas,
+    saldo: total_receitas - total_despesas,
+    receitas_pendentes,
+    despesas_pendentes,
+    receitas_pagas,
+    despesas_pagas,
+  }
 }
 
 // ── Service functions ─────────────────────────────────────────────────────────
-
 export async function listFinanceEntries(
   page = 1,
   pageSize = 20,
   tipo?: FinanceEntryType,
   status?: FinanceEntryStatus,
+  freightId?: string,
 ): Promise<Paginated<FinanceEntry>> {
   if (shouldUseMocks()) {
-    let items = [...mockEntries]
+    let items = [...mockFinanceEntries]
     if (tipo) items = items.filter((e) => e.tipo === tipo)
     if (status) items = items.filter((e) => e.status === status)
+    if (freightId) items = items.filter((e) => e.freight_id === freightId)
     const start = (page - 1) * pageSize
     return {
       items: items.slice(start, start + pageSize),
@@ -74,12 +60,88 @@ export async function listFinanceEntries(
   const qs = new URLSearchParams({ page: String(page), size: String(pageSize) })
   if (tipo) qs.set("tipo", tipo)
   if (status) qs.set("status", status)
+  if (freightId) qs.set("freight_id", freightId)
   return apiRequest(`/finance?${qs}`, { auth: true })
 }
 
+export async function listFinanceByFreight(
+  freightId: string,
+  pageSize = 50,
+): Promise<FinanceEntry[]> {
+  const page = await listFinanceEntries(1, pageSize, undefined, undefined, freightId)
+  return page.items
+}
+
 export async function getCashFlow(): Promise<CashFlowSummary> {
-  if (shouldUseMocks()) return mockCashFlow
+  if (shouldUseMocks()) return computeMockCashFlow()
   return apiRequest("/finance/cash-flow", { auth: true })
+}
+
+/** Gera receitas (fretes) e despesas (abastecimentos/custos) no financeiro. */
+export async function syncFinanceFromFreights(): Promise<{ receitas: number; despesas: number }> {
+  if (shouldUseMocks()) return syncMockFinanceFromFreights()
+  return apiRequest("/finance/sync-from-freights", { method: "POST", auth: true })
+}
+
+async function syncMockFinanceFromFreights(): Promise<{ receitas: number; despesas: number }> {
+  const { mockStore, generateId } = await import("@/lib/mocks/store")
+  let receitas = 0
+  let despesas = 0
+
+  for (const freight of mockStore.freights) {
+    const hasRevenue = mockFinanceEntries.some(
+      (e) => e.freight_id === freight.id && e.tipo === "receita",
+    )
+    if (!hasRevenue && freight.value_brl > 0) {
+      const { ensureMockFreightRevenue } = await import("@/lib/mocks/finance-sync")
+      ensureMockFreightRevenue(freight)
+      receitas++
+    }
+  }
+
+  for (const refill of mockStore.fuelRefills ?? []) {
+    const exists = mockFinanceEntries.some(
+      (e) => e.freight_id === refill.freight_id && e.tipo === "despesa" && e.valor === refill.valor_total,
+    )
+    if (exists) continue
+    const { addMockFuelExpense } = await import("@/lib/mocks/finance-sync")
+    addMockFuelExpense(refill, refill.posto ?? "Abastecimento")
+    despesas++
+  }
+
+  for (const cost of mockStore.freightCosts) {
+    const linked = (mockStore.fuelRefills ?? []).some((r) => r.freight_cost_id === cost.id)
+    if (linked) continue
+    const has = mockFinanceEntries.some(
+      (e) => e.freight_id === cost.freight_id && e.valor === cost.valor && e.tipo === "despesa",
+    )
+    if (has) continue
+    mockFinanceEntries.unshift({
+      id: generateId("fin"),
+      tipo: "despesa",
+      categoria: cost.tipo === "combustivel" ? "Combustível" : cost.tipo,
+      descricao: cost.descricao ?? cost.tipo,
+      valor: cost.valor,
+      status: "pago",
+      freight_id: cost.freight_id,
+      created_at: cost.created_at,
+      updated_at: cost.created_at,
+    })
+    despesas++
+  }
+
+  return { receitas, despesas }
+}
+
+export function invalidateFinanceCaches(): void {
+  void mutate("cash-flow")
+  void mutate((key) => Array.isArray(key) && key[0] === "finance-entries")
+  void mutate("reports-kpis")
+  void mutate(
+    (key) =>
+      Array.isArray(key) &&
+      (key[0] === "report-freight-finance" || key[0] === "report-freight-costs"),
+  )
 }
 
 export async function createFinanceEntry(
@@ -92,7 +154,7 @@ export async function createFinanceEntry(
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
-    mockEntries.unshift(entry)
+    mockFinanceEntries.unshift(entry)
     return entry
   }
   return apiRequest("/finance", { method: "POST", body: data, auth: true })
@@ -103,10 +165,14 @@ export async function updateFinanceEntry(
   data: Partial<FinanceEntry>,
 ): Promise<FinanceEntry> {
   if (shouldUseMocks()) {
-    const idx = mockEntries.findIndex((e) => e.id === id)
+    const idx = mockFinanceEntries.findIndex((e) => e.id === id)
     if (idx < 0) throw new Error("Lançamento não encontrado")
-    mockEntries[idx] = { ...mockEntries[idx], ...data, updated_at: new Date().toISOString() }
-    return mockEntries[idx]
+    mockFinanceEntries[idx] = {
+      ...mockFinanceEntries[idx],
+      ...data,
+      updated_at: new Date().toISOString(),
+    }
+    return mockFinanceEntries[idx]
   }
   return apiRequest(`/finance/${id}`, { method: "PATCH", body: data, auth: true })
 }

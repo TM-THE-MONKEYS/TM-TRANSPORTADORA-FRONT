@@ -41,6 +41,8 @@ export interface AuthUser {
   role: UserRole
   tenant_id: string
   branch_id?: string | null
+  /** Quando o login é de motorista vinculado ao cadastro de drivers. */
+  driver_id?: string | null
   permissions: string[]
 }
 
@@ -119,6 +121,8 @@ export interface Driver {
   cnh_expires_at: string
   status: DriverStatus
   phone?: string
+  email?: string | null
+  user_id?: string | null
   photo_url?: string | null
   commission_pct?: number
   created_at: string
@@ -138,7 +142,7 @@ export interface FreightOrder {
   destination_city: string
   destination_state: string
   cargo_description: string
-  weight_kg: number
+  weight_kg?: number | null
   value_brl: number
   freight_type: string
   status: FreightStatus

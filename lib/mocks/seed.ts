@@ -77,6 +77,17 @@ export const DEMO_USERS: Record<string, AuthUser & { password: string }> = {
     permissions: [],
     password: "demo1234",
   },
+  "motorista@demo.tm": {
+    id: "drv-2",
+    email: "motorista@demo.tm",
+    name: "Maria Santos",
+    role: "motorista",
+    tenant_id: DEMO_TENANT.id,
+    branch_id: "branch-sp",
+    driver_id: "drv-2",
+    permissions: [],
+    password: "demo1234",
+  },
 }
 
 export const DEMO_CUSTOMERS: Customer[] = [
@@ -157,6 +168,8 @@ export const mockDrivers: Driver[] = [
     cnh_category: "E",
     cnh_expires_at: "2026-02-10",
     status: "ativo",
+    email: "motorista@demo.tm",
+    user_id: "drv-2",
     created_at: "2023-08-01T10:00:00Z",
   },
 ]
@@ -222,6 +235,27 @@ export const mockFreightEvents: FreightEvent[] = [
     created_at: "2026-05-12T06:00:00Z",
   },
 ]
+
+export const mockFreightCostsSeed = [
+  {
+    id: "cost-seed-1",
+    freight_id: "frt-1",
+    tipo: "combustivel",
+    valor: 2800,
+    litros: 450,
+    descricao: "Posto Shell — Rod. Anhanguera",
+    created_at: "2026-05-12T09:00:00Z",
+  },
+  {
+    id: "cost-seed-2",
+    freight_id: "frt-1",
+    tipo: "pedagio",
+    valor: 420,
+    litros: null,
+    descricao: "Pedágios SP interior",
+    created_at: "2026-05-12T09:15:00Z",
+  },
+] as import("@/types").FreightCost[]
 
 export const mockOccurrences: FreightOccurrence[] = [
   {

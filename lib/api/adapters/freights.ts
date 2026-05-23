@@ -1,6 +1,28 @@
-import type { FreightOrder } from "@/types"
-import type { TrackingUpdate } from "@/types"
-import type { FreightEvent } from "@/types"
+import type { FreightCost, FreightEvent, FreightOrder, TrackingUpdate } from "@/types"
+
+function parseLitrosFromCostDescription(descricao: string | null): number | null {
+  if (!descricao) return null
+  const match = descricao.match(/([\d.,]+)\s*L/i)
+  if (!match) return null
+  return Number.parseFloat(match[1].replace(",", "."))
+}
+
+/** Normaliza custo do frete (API → `FreightCost`). */
+export function mapFreightCostFromApi(
+  raw: Record<string, unknown>,
+  freightId?: string,
+): FreightCost {
+  const descricao = (raw.descricao as string | null) ?? null
+  return {
+    id: String(raw.id),
+    freight_id: String(raw.freight_id ?? freightId ?? ""),
+    tipo: String(raw.tipo ?? "").toLowerCase(),
+    valor: Number(raw.valor ?? 0),
+    litros: parseLitrosFromCostDescription(descricao),
+    descricao,
+    created_at: String(raw.created_at ?? new Date().toISOString()),
+  }
+}
 
 export function toFreightCreatePayload(
   data: Omit<FreightOrder, "id" | "code" | "created_at" | "updated_at" | "tenant_id">,

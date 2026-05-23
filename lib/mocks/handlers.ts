@@ -1,6 +1,8 @@
 import { permissionsForRole } from "@/lib/rbac/permissions"
 import { DEMO_BRANCHES, DEMO_TENANT } from "@/lib/mocks/seed"
 import { generateId, mockStore } from "@/lib/mocks/store"
+import { canDriverRefuelFreight, isFreightOpenForFuel } from "@/lib/fuel/eligibility"
+import { truckHasActiveFreight } from "@/lib/fleet/truck-availability"
 import { nextFreightStatus } from "@/lib/freight/status"
 import type {
   AuthTokens,
@@ -16,6 +18,26 @@ import type {
   Truck,
   TruckImplement,
 } from "@/types"
+
+function syncMockTruckStatus(truckId: string): void {
+  const idx = mockStore.trucks.findIndex((t) => t.id === truckId)
+  if (idx < 0) return
+  const truck = mockStore.trucks[idx]
+  if (truck.status === "em_manutencao" || truck.status === "inativo") return
+
+  const onTrip = truckHasActiveFreight(mockStore.freights, truckId)
+  mockStore.trucks[idx] = {
+    ...truck,
+    status: onTrip ? "em_viagem" : "disponivel",
+  }
+}
+
+function syncMockTrucksForFreight(freight: FreightOrder, previousTruckId?: string | null): void {
+  if (freight.truck_id) syncMockTruckStatus(freight.truck_id)
+  if (previousTruckId && previousTruckId !== freight.truck_id) {
+    syncMockTruckStatus(previousTruckId)
+  }
+}
 
 function paginate<T>(items: T[], page = 1, pageSize = 20): Paginated<T> {
   const start = (page - 1) * pageSize
@@ -192,6 +214,10 @@ export async function mockCreateFreight(
     updated_at: new Date().toISOString(),
   }
   mockStore.freights = [freight, ...mockStore.freights]
+  if (freight.value_brl > 0) {
+    const { ensureMockFreightRevenue } = await import("@/lib/mocks/finance-sync")
+    ensureMockFreightRevenue(freight)
+  }
   mockStore.freightEvents.push({
     id: generateId("evt"),
     freight_id: freight.id,
@@ -206,8 +232,13 @@ export async function mockUpdateFreight(id: string, data: Partial<FreightOrder>)
   await delay(200)
   const idx = mockStore.freights.findIndex((f) => f.id === id)
   if (idx < 0) throw new Error("Frete não encontrado")
-  mockStore.freights[idx] = { ...mockStore.freights[idx], ...data, updated_at: new Date().toISOString() }
-  return mockStore.freights[idx]
+  const previous = mockStore.freights[idx]
+  mockStore.freights[idx] = { ...previous, ...data, updated_at: new Date().toISOString() }
+  const updated = mockStore.freights[idx]
+  if (data.status !== undefined || data.truck_id !== undefined) {
+    syncMockTrucksForFreight(updated, previous.truck_id)
+  }
+  return updated
 }
 
 export async function mockAdvanceFreightStatus(id: string): Promise<FreightOrder> {
@@ -311,11 +342,17 @@ export async function mockListFreightCosts(tipo = "combustivel") {
   return mockStore.freightCosts.filter((c) => c.tipo === tipo)
 }
 
+export async function mockGetFreightCosts(freightId: string) {
+  await delay(100)
+  return mockStore.freightCosts.filter((c) => c.freight_id === freightId)
+}
+
 export async function mockRegisterFuelRefill(data: {
   freight_id: string
   driver_id?: string
   litros: number
   valor_total: number
+  km_atual?: number
   posto?: string
   cidade?: string
   estado?: string
@@ -323,8 +360,34 @@ export async function mockRegisterFuelRefill(data: {
 }) {
   await delay(200)
   const freight = mockStore.freights.find((f) => f.id === data.freight_id)
-  const driverId = data.driver_id ?? freight?.driver_id ?? mockStore.drivers[0]?.id
+  if (!freight) throw new Error("Frete não encontrado")
+  if (!isFreightOpenForFuel(freight.status)) {
+    throw new Error("Não é possível abastecer frete já concluído ou cancelado")
+  }
+  const driverId = data.driver_id ?? freight.driver_id
   if (!driverId) throw new Error("Frete sem motorista vinculado")
+  if (freight.driver_id !== driverId) {
+    throw new Error("Somente o motorista vinculado a este frete pode registrar abastecimento")
+  }
+  if (!canDriverRefuelFreight(freight, driverId)) {
+    throw new Error("Abastecimento não permitido para este frete")
+  }
+
+  if (freight.truck_id && data.km_atual != null) {
+    const truckIdx = mockStore.trucks.findIndex((t) => t.id === freight.truck_id)
+    if (truckIdx >= 0) {
+      const current = mockStore.trucks[truckIdx].mileage_km
+      if (data.km_atual < current) {
+        throw new Error(
+          `A quilometragem (${data.km_atual} km) não pode ser menor que a da frota (${current} km)`,
+        )
+      }
+      mockStore.trucks[truckIdx] = {
+        ...mockStore.trucks[truckIdx],
+        mileage_km: data.km_atual,
+      }
+    }
+  }
 
   const costId = generateId("cost")
   const refill = {
@@ -335,7 +398,7 @@ export async function mockRegisterFuelRefill(data: {
     litros: data.litros,
     valor_total: data.valor_total,
     valor_litro: data.valor_total / data.litros,
-    km_atual: null,
+    km_atual: data.km_atual ?? null,
     posto: data.posto ?? null,
     cidade: data.cidade ?? null,
     estado: data.estado ?? null,
@@ -343,6 +406,8 @@ export async function mockRegisterFuelRefill(data: {
     created_at: new Date().toISOString(),
   }
   mockStore.fuelRefills = [refill, ...(mockStore.fuelRefills ?? [])]
+  const { addMockFuelExpense } = await import("@/lib/mocks/finance-sync")
+  addMockFuelExpense(refill, data.posto ?? "Abastecimento")
   mockStore.freightCosts = [
     {
       id: costId,

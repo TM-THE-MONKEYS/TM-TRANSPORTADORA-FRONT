@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
 import {
+  mapFreightCostFromApi,
   mapTrackingUpdateToFreightEvent,
   toFreightCreatePayload,
   toFreightUpdatePayload,
@@ -12,6 +13,12 @@ import {
   trackingUpdatesWithoutOccurrences,
 } from "@/lib/freight/occurrences"
 import { addTrackingUpdate, getTrackingTimeline } from "@/lib/api/services/tracking"
+import { mergeFreightCostsWithFuel } from "@/lib/freight/freight-expenses"
+import {
+  revalidateFleetAndFreightCaches,
+  syncTruckStatusForFreight,
+} from "@/lib/freight/sync-fleet-status"
+import { listFuelRefillsByFreight } from "@/lib/api/services/fuel"
 import * as mock from "@/lib/mocks/handlers"
 import type {
   FreightCost,
@@ -47,27 +54,43 @@ export async function createFreight(
   })
 }
 
+async function afterFreightMutation(freight: FreightOrder): Promise<FreightOrder> {
+  await syncTruckStatusForFreight(freight)
+  revalidateFleetAndFreightCaches()
+  return freight
+}
+
 export async function updateFreight(id: string, data: Partial<FreightOrder>): Promise<FreightOrder> {
-  if (shouldUseMocks()) return mock.mockUpdateFreight(id, data)
-  return apiRequest(`/freights/${id}`, {
-    method: "PATCH",
-    body: toFreightUpdatePayload(data),
-    auth: true,
-  })
+  const freight = shouldUseMocks()
+    ? await mock.mockUpdateFreight(id, data)
+    : await apiRequest<FreightOrder>(`/freights/${id}`, {
+        method: "PATCH",
+        body: toFreightUpdatePayload(data),
+        auth: true,
+      })
+  if (data.status !== undefined || data.truck_id !== undefined) {
+    return afterFreightMutation(freight)
+  }
+  revalidateFleetAndFreightCaches()
+  return freight
 }
 
 export async function advanceFreightStatus(id: string): Promise<FreightOrder> {
-  if (shouldUseMocks()) return mock.mockAdvanceFreightStatus(id)
-  return apiRequest(`/freights/${id}/advance-status`, { method: "POST", auth: true })
+  const freight = shouldUseMocks()
+    ? await mock.mockAdvanceFreightStatus(id)
+    : await apiRequest<FreightOrder>(`/freights/${id}/advance-status`, { method: "POST", auth: true })
+  return afterFreightMutation(freight)
 }
 
 export async function updateFreightStatus(id: string, status: FreightStatus): Promise<FreightOrder> {
-  if (shouldUseMocks()) return mock.mockUpdateFreightStatus(id, status)
-  return apiRequest(`/freights/${id}/status`, {
-    method: "PATCH",
-    body: { status },
-    auth: true,
-  })
+  const freight = shouldUseMocks()
+    ? await mock.mockUpdateFreightStatus(id, status)
+    : await apiRequest<FreightOrder>(`/freights/${id}/status`, {
+        method: "PATCH",
+        body: { status },
+        auth: true,
+      })
+  return afterFreightMutation(freight)
 }
 
 export async function deleteFreight(id: string): Promise<void> {
@@ -118,6 +141,31 @@ export { listClients as listCustomers, findOrCreateClientByName } from "@/lib/ap
 export async function listFreightCosts(tipo = "combustivel"): Promise<FreightCost[]> {
   if (shouldUseMocks()) return mock.mockListFreightCosts(tipo)
   return []
+}
+
+async function listFreightCostsFromApi(freightId: string): Promise<FreightCost[]> {
+  const rows = await apiRequest<Record<string, unknown>[]>(`/freights/${freightId}/costs`, {
+    auth: true,
+  })
+  return rows.map((row) => mapFreightCostFromApi(row, freightId))
+}
+
+/** Custos (`tm_freight_costs`) + abastecimentos (`tm_fuel_refills`) — inclui fretes entregues. */
+export async function getFreightCosts(freightId: string): Promise<FreightCost[]> {
+  if (shouldUseMocks()) return mock.mockGetFreightCosts(freightId)
+
+  const [apiCosts, fuelPage] = await Promise.all([
+    listFreightCostsFromApi(freightId).catch(() => [] as FreightCost[]),
+    listFuelRefillsByFreight(freightId, 1, 100).catch(() => ({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 100,
+      pages: 0,
+    })),
+  ])
+
+  return mergeFreightCostsWithFuel(apiCosts, fuelPage.items)
 }
 
 export async function addFreightCost(
