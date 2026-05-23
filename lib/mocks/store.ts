@@ -1,5 +1,6 @@
 import type {
   Driver,
+  FreightCost,
   FreightEvent,
   FreightOccurrence,
   FreightOrder,
@@ -25,6 +26,8 @@ export const mockStore = {
   freights: [...seedFreights] as FreightOrder[],
   freightEvents: [...seedEvents] as FreightEvent[],
   occurrences: [...seedOccurrences] as FreightOccurrence[],
+  freightCosts: [] as FreightCost[],
+  fuelRefills: [] as import("@/lib/api/services/fuel").FuelRefill[],
   customers: [...DEMO_CUSTOMERS],
   kpis: { ...DEMO_KPIS },
   users: DEMO_USERS,

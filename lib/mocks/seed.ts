@@ -37,6 +37,16 @@ export const DEMO_BRANCHES: Branch[] = [
 ]
 
 export const DEMO_USERS: Record<string, AuthUser & { password: string }> = {
+  "admin@tmtransportadora.com.br": {
+    id: "user-admin-seed",
+    email: "admin@tmtransportadora.com.br",
+    name: "Admin TM",
+    role: "admin",
+    tenant_id: DEMO_TENANT.id,
+    branch_id: null,
+    permissions: [],
+    password: "Admin@123!",
+  },
   "admin@demo.tm": {
     id: "user-admin",
     email: "admin@demo.tm",
@@ -98,7 +108,7 @@ export const mockTrucks: Truck[] = [
     type: "cavalo",
     capacity_kg: 45000,
     avg_consumption_km_l: 2.1,
-    status: "disponivel",
+    status: "em_viagem",
     mileage_km: 185000,
     insurance_expires_at: "2026-12-01",
     license_expires_at: "2026-08-15",
@@ -142,6 +152,7 @@ export const mockDrivers: Driver[] = [
     id: "drv-2",
     tenant_id: DEMO_TENANT.id,
     name: "Maria Santos",
+    cpf: "98765432100",
     cnh_number: "98765432100",
     cnh_category: "E",
     cnh_expires_at: "2026-02-10",
@@ -212,7 +223,15 @@ export const mockFreightEvents: FreightEvent[] = [
   },
 ]
 
-export const mockOccurrences: FreightOccurrence[] = []
+export const mockOccurrences: FreightOccurrence[] = [
+  {
+    id: "occ-1",
+    freight_id: "frt-1",
+    type: "atraso",
+    description: "Trânsito na Rod. Anhanguera — 45 min",
+    created_at: "2026-05-13T10:30:00Z",
+  },
+]
 
 export const DEMO_KPIS: DashboardKpis = {
   freights_in_progress: 3,

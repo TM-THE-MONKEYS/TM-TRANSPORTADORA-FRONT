@@ -74,9 +74,23 @@ export async function mockDashboardKpis(_filters?: DashboardFilters): Promise<Da
   return mockStore.kpis
 }
 
-export async function mockListTrucks(page = 1, pageSize = 20): Promise<Paginated<Truck>> {
+export async function mockListTrucks(
+  page = 1,
+  pageSize = 20,
+  search?: string,
+): Promise<Paginated<Truck>> {
   await delay(200)
-  return paginate(mockStore.trucks, page, pageSize)
+  let items = mockStore.trucks
+  if (search?.trim()) {
+    const q = search.trim().toLowerCase()
+    items = items.filter(
+      (t) =>
+        t.plate.toLowerCase().includes(q) ||
+        t.model.toLowerCase().includes(q) ||
+        t.brand.toLowerCase().includes(q),
+    )
+  }
+  return paginate(items, page, pageSize)
 }
 
 export async function mockGetTruck(id: string): Promise<Truck | null> {
@@ -102,6 +116,11 @@ export async function mockUpdateTruck(id: string, data: Partial<Truck>): Promise
   if (idx < 0) throw new Error("Caminhão não encontrado")
   mockStore.trucks[idx] = { ...mockStore.trucks[idx], ...data }
   return mockStore.trucks[idx]
+}
+
+export async function mockDeleteTruck(id: string): Promise<void> {
+  await delay(200)
+  mockStore.trucks = mockStore.trucks.filter((t) => t.id !== id)
 }
 
 export async function mockListImplements(truckId: string): Promise<TruckImplement[]> {
@@ -139,6 +158,11 @@ export async function mockUpdateDriver(id: string, data: Partial<Driver>): Promi
   if (idx < 0) throw new Error("Motorista não encontrado")
   mockStore.drivers[idx] = { ...mockStore.drivers[idx], ...data }
   return mockStore.drivers[idx]
+}
+
+export async function mockDeleteDriver(id: string): Promise<void> {
+  await delay(200)
+  mockStore.drivers = mockStore.drivers.filter((d) => d.id !== id)
 }
 
 export async function mockListFreights(page = 1, pageSize = 20): Promise<Paginated<FreightOrder>> {
@@ -222,6 +246,7 @@ export async function mockAddOccurrence(
   description: string,
 ): Promise<FreightOccurrence> {
   await delay(200)
+  const { formatOccurrenceObservation } = await import("@/lib/freight/occurrences")
   const occ: FreightOccurrence = {
     id: generateId("occ"),
     freight_id: freightId,
@@ -230,12 +255,140 @@ export async function mockAddOccurrence(
     created_at: new Date().toISOString(),
   }
   mockStore.occurrences.push(occ)
+  const { mockTrackingUpdates } = await import("@/lib/api/services/tracking")
+  mockTrackingUpdates.push({
+    id: occ.id,
+    freight_id: freightId,
+    status: "em_transito",
+    observacao: formatOccurrenceObservation(type, description),
+    evento_at: occ.created_at,
+    created_at: occ.created_at,
+  })
   return occ
 }
 
 export async function mockCustomers() {
   await delay(100)
   return mockStore.customers
+}
+
+export async function mockListClients(search?: string) {
+  await delay(100)
+  let items = mockStore.customers
+  if (search?.trim()) {
+    const q = search.trim().toLowerCase()
+    items = items.filter((c) => (c.name ?? "").toLowerCase().includes(q))
+  }
+  return items
+}
+
+export async function mockCreateClient(data: {
+  nome: string
+  cpf_cnpj?: string
+  email?: string
+  telefone?: string
+}) {
+  await delay(200)
+  const { generateProvisionalCnpj } = await import("@/lib/format/numbers")
+  const doc = data.cpf_cnpj ?? generateProvisionalCnpj(data.nome)
+  const customer = {
+    id: generateId("cli"),
+    tenant_id: DEMO_TENANT.id,
+    name: data.nome,
+    nome: data.nome,
+    document: doc,
+    cpf_cnpj: doc,
+    email: data.email,
+    phone: data.telefone,
+    telefone: data.telefone,
+  }
+  mockStore.customers = [customer, ...mockStore.customers]
+  return customer
+}
+
+export async function mockListFreightCosts(tipo = "combustivel") {
+  await delay(100)
+  return mockStore.freightCosts.filter((c) => c.tipo === tipo)
+}
+
+export async function mockRegisterFuelRefill(data: {
+  freight_id: string
+  driver_id?: string
+  litros: number
+  valor_total: number
+  posto?: string
+  cidade?: string
+  estado?: string
+  observacoes?: string
+}) {
+  await delay(200)
+  const freight = mockStore.freights.find((f) => f.id === data.freight_id)
+  const driverId = data.driver_id ?? freight?.driver_id ?? mockStore.drivers[0]?.id
+  if (!driverId) throw new Error("Frete sem motorista vinculado")
+
+  const costId = generateId("cost")
+  const refill = {
+    id: generateId("fuel"),
+    freight_id: data.freight_id,
+    driver_id: driverId,
+    truck_id: freight?.truck_id ?? null,
+    litros: data.litros,
+    valor_total: data.valor_total,
+    valor_litro: data.valor_total / data.litros,
+    km_atual: null,
+    posto: data.posto ?? null,
+    cidade: data.cidade ?? null,
+    estado: data.estado ?? null,
+    freight_cost_id: costId,
+    created_at: new Date().toISOString(),
+  }
+  mockStore.fuelRefills = [refill, ...(mockStore.fuelRefills ?? [])]
+  mockStore.freightCosts = [
+    {
+      id: costId,
+      freight_id: data.freight_id,
+      tipo: "combustivel",
+      valor: data.valor_total,
+      litros: data.litros,
+      descricao: data.posto ?? "Abastecimento",
+      created_at: refill.created_at,
+    },
+    ...mockStore.freightCosts,
+  ]
+  return refill
+}
+
+export async function mockListFuelRefills(page = 1, size = 100, freightId?: string) {
+  await delay(100)
+  let items = mockStore.fuelRefills ?? []
+  if (freightId) items = items.filter((r) => r.freight_id === freightId)
+  const start = (page - 1) * size
+  const slice = items.slice(start, start + size)
+  return {
+    items: slice,
+    total: items.length,
+    page,
+    page_size: size,
+    pages: Math.max(1, Math.ceil(items.length / size)),
+  }
+}
+
+export async function mockAddFreightCost(
+  freightId: string,
+  data: { tipo: string; valor: number; litros?: number; descricao?: string },
+) {
+  await delay(200)
+  const cost = {
+    id: generateId("cost"),
+    freight_id: freightId,
+    tipo: data.tipo,
+    valor: data.valor,
+    litros: data.litros ?? null,
+    descricao: data.descricao ?? null,
+    created_at: new Date().toISOString(),
+  }
+  mockStore.freightCosts = [cost, ...mockStore.freightCosts]
+  return cost
 }
 
 export async function mockRegisterTenant(input: {

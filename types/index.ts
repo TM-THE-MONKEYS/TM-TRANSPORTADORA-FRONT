@@ -57,8 +57,11 @@ export interface Paginated<T> {
   items: T[]
   total: number
   page: number
+  size?: number
   page_size: number
   pages: number
+  has_next?: boolean
+  has_prev?: boolean
 }
 
 // ── Clients / Customers ──────────────────────────────────────────────────────
@@ -110,7 +113,7 @@ export interface Driver {
   id: string
   tenant_id: string
   name: string
-  cpf?: string
+  cpf: string
   cnh_number: string
   cnh_category: string
   cnh_expires_at: string
@@ -162,6 +165,16 @@ export interface FreightOccurrence {
   freight_id: string
   type: string
   description: string
+  created_at: string
+}
+
+export interface FreightCost {
+  id: string
+  freight_id: string
+  tipo: string
+  valor: number
+  litros?: number | null
+  descricao: string | null
   created_at: string
 }
 

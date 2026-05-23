@@ -53,4 +53,9 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   "/dashboard/frota": PERMISSIONS.fleetRead,
   "/dashboard/motoristas": PERMISSIONS.driversRead,
   "/dashboard/fretes": PERMISSIONS.freightRead,
+  "/dashboard/financeiro": PERMISSIONS.financeRead,
+  "/dashboard/abastecimento": PERMISSIONS.freightRead,
+  "/dashboard/manutencao": PERMISSIONS.fleetRead,
+  "/dashboard/rastreamento": PERMISSIONS.freightRead,
+  "/dashboard/relatorios": PERMISSIONS.dashboard,
 }

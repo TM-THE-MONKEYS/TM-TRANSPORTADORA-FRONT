@@ -9,7 +9,7 @@ export async function getDashboardKpis(filters?: DashboardFilters): Promise<Dash
   if (filters?.period_from) qs.set("period_from", filters.period_from)
   if (filters?.period_to) qs.set("period_to", filters.period_to)
   if (filters?.branch_id) qs.set("branch_id", filters.branch_id)
-  if (filters?.customer_id) qs.set("customer_id", filters.customer_id)
+  if (filters?.customer_id) qs.set("client_id", filters.customer_id)
   const q = qs.toString()
   return apiRequest(`/dashboard/kpis${q ? `?${q}` : ""}`, { auth: true })
 }
@@ -17,21 +17,21 @@ export async function getDashboardKpis(filters?: DashboardFilters): Promise<Dash
 export async function getFreightsByStatus(): Promise<{ status: string; count: number }[]> {
   if (shouldUseMocks()) {
     return [
-      { status: "em_transito", count: 3 },
-      { status: "cotacao", count: 2 },
-      { status: "embarque", count: 1 },
+      { status: "em_transporte", count: 3 },
+      { status: "orcamento", count: 2 },
+      { status: "em_coleta", count: 1 },
       { status: "entregue", count: 4 },
     ]
   }
   return apiRequest("/dashboard/freights-by-status", { auth: true })
 }
 
-export async function getRevenueSeries(): Promise<{ date: string; revenue: number }[]> {
+export async function getRevenueSeries(days = 30): Promise<{ date: string; revenue: number }[]> {
   if (shouldUseMocks()) {
-    return Array.from({ length: 30 }, (_, i) => ({
-      date: `2026-04-${String(21 + i).padStart(2, "0")}`,
+    return Array.from({ length: days }, (_, i) => ({
+      date: `2026-04-${String(Math.min(21 + i, 30)).padStart(2, "0")}`,
       revenue: 8000 + Math.random() * 4000,
     }))
   }
-  return apiRequest("/dashboard/revenue-series?days=30", { auth: true })
+  return apiRequest(`/dashboard/revenue-series?days=${days}`, { auth: true })
 }

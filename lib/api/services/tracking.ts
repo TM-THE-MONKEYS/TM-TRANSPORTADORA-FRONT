@@ -1,10 +1,11 @@
 import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
+import { formatOccurrenceObservation } from "@/lib/freight/occurrences"
 import type { TrackingStatus, TrackingTimeline, TrackingUpdate } from "@/types"
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 
-const mockUpdates: TrackingUpdate[] = [
+export const mockTrackingUpdates: TrackingUpdate[] = [
   {
     id: "trk-1",
     freight_id: "frt-1",
@@ -23,16 +24,35 @@ const mockUpdates: TrackingUpdate[] = [
     evento_at: "2026-05-12T06:00:00Z",
     created_at: "2026-05-12T06:05:00Z",
   },
+  {
+    id: "trk-occ-1",
+    freight_id: "frt-1",
+    status: "em_transito",
+    observacao: formatOccurrenceObservation("atraso", "Trânsito na Rod. Anhanguera — 45 min"),
+    evento_at: "2026-05-13T10:30:00Z",
+    created_at: "2026-05-13T10:30:00Z",
+  },
 ]
 
 // ── Service functions ─────────────────────────────────────────────────────────
 
+function mapTrackingUpdate(raw: TrackingUpdate & { descricao?: string }): TrackingUpdate {
+  return {
+    ...raw,
+    observacao: raw.observacao ?? raw.descricao,
+  }
+}
+
 export async function getTrackingTimeline(freightId: string): Promise<TrackingTimeline> {
   if (shouldUseMocks()) {
-    const updates = mockUpdates.filter((u) => u.freight_id === freightId)
+    const updates = mockTrackingUpdates.filter((u) => u.freight_id === freightId)
     return { freight_id: freightId, updates }
   }
-  return apiRequest(`/tracking/${freightId}/timeline`, { auth: true })
+  const res = await apiRequest<TrackingTimeline>(`/tracking/${freightId}/timeline`, { auth: true })
+  return {
+    ...res,
+    updates: (res.updates ?? []).map((u) => mapTrackingUpdate(u as TrackingUpdate & { descricao?: string })),
+  }
 }
 
 export async function addTrackingUpdate(data: {
@@ -54,8 +74,13 @@ export async function addTrackingUpdate(data: {
       evento_at: data.evento_at ?? new Date().toISOString(),
       created_at: new Date().toISOString(),
     }
-    mockUpdates.push(update)
+    mockTrackingUpdates.push(update)
     return update
   }
-  return apiRequest("/tracking", { method: "POST", body: data, auth: true })
+  const { observacao, ...rest } = data
+  return apiRequest("/tracking", {
+    method: "POST",
+    body: { ...rest, descricao: observacao },
+    auth: true,
+  }).then((raw) => mapTrackingUpdate(raw as TrackingUpdate & { descricao?: string }))
 }

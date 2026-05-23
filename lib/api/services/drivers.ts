@@ -1,5 +1,9 @@
 import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
+import {
+  toDriverCreatePayload,
+  toDriverUpdatePayload,
+} from "@/lib/api/adapters/drivers"
 import * as mock from "@/lib/mocks/handlers"
 import type { Driver, Paginated } from "@/types"
 
@@ -21,10 +25,23 @@ export async function createDriver(
   data: Omit<Driver, "id" | "created_at" | "tenant_id">,
 ): Promise<Driver> {
   if (shouldUseMocks()) return mock.mockCreateDriver(data)
-  return apiRequest("/drivers", { method: "POST", body: data, auth: true })
+  return apiRequest("/drivers", {
+    method: "POST",
+    body: toDriverCreatePayload(data),
+    auth: true,
+  })
 }
 
 export async function updateDriver(id: string, data: Partial<Driver>): Promise<Driver> {
   if (shouldUseMocks()) return mock.mockUpdateDriver(id, data)
-  return apiRequest(`/drivers/${id}`, { method: "PATCH", body: data, auth: true })
+  return apiRequest(`/drivers/${id}`, {
+    method: "PATCH",
+    body: toDriverUpdatePayload(data),
+    auth: true,
+  })
+}
+
+export async function deleteDriver(id: string): Promise<void> {
+  if (shouldUseMocks()) return mock.mockDeleteDriver(id)
+  await apiRequest(`/drivers/${id}`, { method: "DELETE", auth: true })
 }
