@@ -1,15 +1,46 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { siteConfig } from "@/lib/site-config"
-import { Truck } from "lucide-react"
+import { MapPin, Package, Truck, Users } from "lucide-react"
+
+const highlights = [
+  { icon: Truck, label: "Frota e disponibilidade" },
+  { icon: Users, label: "Motoristas e documentação" },
+  { icon: Package, label: "Ordens de frete" },
+  { icon: MapPin, label: "Rastreamento em tempo real" },
+]
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex h-16 items-center justify-between border-b px-6">
-        <div className="flex items-center gap-2 font-semibold">
-          <Truck className="h-6 w-6 text-primary" />
-          {siteConfig.name}
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,hsl(var(--primary)/0.18),transparent)]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -right-32 top-1/3 h-96 w-96 rounded-full bg-primary/5 blur-3xl"
+        aria-hidden
+      />
+
+      <header className="relative z-10 flex h-16 items-center justify-between border-b border-border/60 bg-background/80 px-6 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+            <Truck className="h-5 w-5" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-semibold leading-tight tracking-tight">{siteConfig.name}</p>
+            <p className="text-xs text-muted-foreground">
+              <a
+                href={siteConfig.companyWebsite}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-primary hover:underline"
+              >
+                {siteConfig.company}
+              </a>
+              {" — a tecnologia no seu dia a dia"}
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" asChild>
@@ -20,24 +51,52 @@ export default function HomePage() {
           </Button>
         </div>
       </header>
-      <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <h1 className="max-w-3xl text-4xl font-bold tracking-tight md:text-5xl">
-          Gestão completa para transportadoras de caminhão
-        </h1>
-        <p className="mt-4 max-w-xl text-lg text-muted-foreground">
-          Frota, fretes, motoristas, indicadores operacionais e controle logístico em um SaaS
-          multi-tenant profissional.
+
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+        <p className="mb-4 inline-flex rounded-full border border-primary/20 bg-primary/5 px-4 py-1 text-xs font-medium uppercase tracking-wider text-primary">
+          Operação logística inteligente
         </p>
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Button size="lg" asChild>
+        <h1 className="max-w-3xl text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
+          Sua transportadora sob controle,{" "}
+          <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            do pátio à entrega
+          </span>
+        </h1>
+        <p className="mt-5 max-w-xl text-lg text-muted-foreground md:text-xl">
+          {siteConfig.description}
+        </p>
+
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
+          <Button size="lg" className="min-w-[160px] shadow-md" asChild>
             <Link href="/cadastro">Criar conta</Link>
           </Button>
-          <Button size="lg" variant="outline" asChild>
+          <Button size="lg" variant="outline" className="min-w-[160px] bg-background/60 backdrop-blur-sm" asChild>
             <Link href="/login">Acessar painel</Link>
           </Button>
         </div>
-        <p className="mt-12 text-sm text-muted-foreground">
-          Demo mock: admin@demo.tm / demo1234 · Backend seed: admin@tmtransportadora.com.br / Admin@123!
+
+        <ul className="mt-14 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+          {highlights.map(({ icon: Icon, label }) => (
+            <li
+              key={label}
+              className="flex flex-col items-center gap-2 rounded-xl border border-border/60 bg-card/50 px-3 py-4 text-sm text-muted-foreground backdrop-blur-sm"
+            >
+              <Icon className="h-5 w-5 text-primary" aria-hidden />
+              <span>{label}</span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="mt-12 text-xs text-muted-foreground">
+          Desenvolvido e suportado pela{" "}
+          <a
+            href={siteConfig.companyWebsite}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-primary hover:underline"
+          >
+            {siteConfig.company}
+          </a>
         </p>
       </main>
     </div>
