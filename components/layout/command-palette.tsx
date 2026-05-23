@@ -11,6 +11,11 @@ const routes = [
   { label: "Fretes", href: "/dashboard/fretes" },
   { label: "Frota", href: "/dashboard/frota" },
   { label: "Motoristas", href: "/dashboard/motoristas" },
+  { label: "Financeiro", href: "/dashboard/financeiro" },
+  { label: "Abastecimento", href: "/dashboard/abastecimento" },
+  { label: "Manutenção", href: "/dashboard/manutencao" },
+  { label: "Rastreamento", href: "/dashboard/rastreamento" },
+  { label: "Relatórios", href: "/dashboard/relatorios" },
 ]
 
 export function CommandPalette() {

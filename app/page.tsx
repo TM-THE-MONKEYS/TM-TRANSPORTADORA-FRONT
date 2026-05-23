@@ -37,7 +37,7 @@ export default function HomePage() {
           </Button>
         </div>
         <p className="mt-12 text-sm text-muted-foreground">
-          Demo: admin@demo.tm / demo1234
+          Demo mock: admin@demo.tm / demo1234 · Backend seed: admin@tmtransportadora.com.br / Admin@123!
         </p>
       </main>
     </div>

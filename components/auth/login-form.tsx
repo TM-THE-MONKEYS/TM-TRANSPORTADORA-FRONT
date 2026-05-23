@@ -63,7 +63,7 @@ export function LoginForm() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" placeholder="admin@demo.tm" {...register("email")} />
+            <Input id="email" type="email" placeholder="admin@tmtransportadora.com.br" {...register("email")} />
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
           <div className="space-y-2">

@@ -12,11 +12,14 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { listFreights } from "@/lib/api/services/freight"
 import { formatBRL } from "@/lib/format/currency"
+import { getDriverName, getTruckLabel, isFreightInTransit } from "@/lib/freight/active-trip"
+import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 
 export function FreightsListView() {
   const canWrite = usePermission(PERMISSIONS.freightWrite)
+  const { drivers, trucks } = useOperationContext()
   const { data, isLoading } = useSWR("freights-list", () => listFreights(1, 50))
 
   return (
@@ -60,11 +63,23 @@ export function FreightsListView() {
                       {f.code}
                     </Link>
                     <FreightStatusBadge status={f.status} />
+                    {isFreightInTransit(f.status) && (
+                      <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-800">
+                        Em trânsito
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {f.origin_city}/{f.origin_state} → {f.destination_city}/{f.destination_state}
                   </p>
                   <p className="text-sm">{f.customer_name ?? f.customer_id}</p>
+                  {(f.driver_id || f.truck_id) && (
+                    <p className="text-xs text-muted-foreground">
+                      {f.driver_id && <>Motorista: {getDriverName(drivers, f.driver_id)}</>}
+                      {f.driver_id && f.truck_id && " · "}
+                      {f.truck_id && <>Veículo: {getTruckLabel(trucks, f.truck_id)}</>}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="font-medium">{formatBRL(f.value_brl)}</p>

@@ -34,7 +34,7 @@ export function DeliveryChecklist({ freightId }: { freightId: string }) {
           </div>
         ))}
         <p className="text-xs text-muted-foreground">
-          Persistência via PATCH /freight/orders/:id/checklist (backend)
+          Persistência via checklist de entrega (fase 2 — ver API-FRONTEND.md)
         </p>
       </CardContent>
     </Card>

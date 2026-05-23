@@ -1,22 +1,79 @@
 "use client"
 
+import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import useSWR from "swr"
+import { Pencil, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/shared/page-header"
-import { getTruck } from "@/lib/api/services/fleet"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { getTruck, deleteTruck } from "@/lib/api/services/fleet"
 import { formatDateBR } from "@/lib/format/dates"
+import { findActiveFreightByTruck } from "@/lib/freight/active-trip"
+import { ActiveTripLink } from "@/components/shared/active-trip-link"
+import { useOperationContext } from "@/hooks/use-operation-context"
+import { usePermission } from "@/hooks/use-permission"
+import { PERMISSIONS } from "@/lib/rbac/permissions"
 
 export function TruckDetailView({ id }: { id: string }) {
+  const router = useRouter()
+  const canWrite = usePermission(PERMISSIONS.fleetWrite)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const { freights } = useOperationContext()
   const { data: truck } = useSWR(["truck", id], () => getTruck(id))
+  const activeTrip = truck ? findActiveFreightByTruck(freights, truck.id) : undefined
   const implements_: { id: string; type: string; identifier: string }[] = []
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await deleteTruck(id)
+      toast.success("Caminhão excluído")
+      router.push("/dashboard/frota")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao excluir")
+    } finally {
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
 
   if (!truck) return <Skeleton className="h-96 w-full" />
 
   return (
     <div>
-      <PageHeader title={truck.plate} description={`${truck.brand} ${truck.model}`} />
+      <PageHeader
+        title={truck.plate}
+        description={`${truck.brand} ${truck.model}`}
+        actions={
+          canWrite && (
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link href={`/dashboard/frota/${id}/editar`}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar
+                </Link>
+              </Button>
+              <Button variant="destructive" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Excluir
+              </Button>
+            </div>
+          )
+        }
+      />
+      {activeTrip && (
+        <div className="mb-4">
+          <ActiveTripLink freight={activeTrip} />
+        </div>
+      )}
+
       <Tabs defaultValue="dados">
         <TabsList>
           <TabsTrigger value="dados">Dados</TabsTrigger>
@@ -63,6 +120,16 @@ export function TruckDetailView({ id }: { id: string }) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Excluir caminhão?"
+        description="O registro será removido da frota."
+        confirmLabel="Excluir"
+        loading={deleting}
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }

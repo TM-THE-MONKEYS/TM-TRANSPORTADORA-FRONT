@@ -1,13 +1,16 @@
 "use client"
 
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import useSWR from "swr"
 import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -15,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createTruck } from "@/lib/api/services/fleet"
+import { createTruck, getTruck, updateTruck } from "@/lib/api/services/fleet"
 import { useTenant } from "@/components/providers/tenant-provider"
 import type { TruckStatus } from "@/types"
 
@@ -33,41 +36,74 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-export function TruckForm() {
+export function TruckForm({ truckId }: { truckId?: string }) {
   const router = useRouter()
   const { branchId } = useTenant()
+  const isEdit = Boolean(truckId)
+  const { data: truck, isLoading } = useSWR(
+    truckId ? ["truck", truckId] : null,
+    () => getTruck(truckId!),
+  )
+
   const {
     register,
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { status: "disponivel", type: "cavalo", mileage_km: 0 },
   })
 
+  useEffect(() => {
+    if (!truck) return
+    reset({
+      plate: truck.plate,
+      brand: truck.brand,
+      model: truck.model,
+      year: truck.year,
+      type: truck.type,
+      status: truck.status,
+      mileage_km: truck.mileage_km,
+      renavam: truck.renavam ?? "",
+      capacity_kg: truck.capacity_kg,
+    })
+  }, [truck, reset])
+
   async function onSubmit(data: FormData) {
     try {
-      const truck = await createTruck({
-        ...data,
-        branch_id: branchId ?? undefined,
-        avg_consumption_km_l: undefined,
-        insurance_expires_at: null,
-        license_expires_at: null,
-      })
-      toast.success("Caminhão cadastrado")
-      router.push(`/dashboard/frota/${truck.id}`)
+      if (isEdit && truckId) {
+        await updateTruck(truckId, {
+          ...data,
+          branch_id: branchId ?? undefined,
+        })
+        toast.success("Caminhão atualizado")
+        router.push(`/dashboard/frota/${truckId}`)
+      } else {
+        const created = await createTruck({
+          ...data,
+          branch_id: branchId ?? undefined,
+          avg_consumption_km_l: undefined,
+          insurance_expires_at: null,
+          license_expires_at: null,
+        })
+        toast.success("Caminhão cadastrado")
+        router.push(`/dashboard/frota/${created.id}`)
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro")
     }
   }
 
+  if (isEdit && isLoading) return <Skeleton className="mx-auto h-64 max-w-lg" />
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-lg space-y-4">
       <div className="space-y-2">
         <Label>Placa</Label>
-        <Input {...register("plate")} placeholder="ABC1D23" />
+        <Input {...register("plate")} placeholder="ABC1D23" disabled={isEdit} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
@@ -103,9 +139,14 @@ export function TruckForm() {
           </SelectContent>
         </Select>
       </div>
-      <Button type="submit" disabled={isSubmitting}>
-        Salvar
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Salvando..." : isEdit ? "Salvar alterações" : "Salvar"}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => router.back()}>
+          Cancelar
+        </Button>
+      </div>
     </form>
   )
 }

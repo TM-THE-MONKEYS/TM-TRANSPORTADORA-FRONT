@@ -8,7 +8,8 @@ import {
   useMemo,
   useState,
 } from "react"
-import { getMe, login as apiLogin, registerTenant, type LoginInput, type RegisterTenantInput } from "@/lib/api/services/auth"
+import { getMe, login as apiLogin, logout as apiLogout, registerTenant, type LoginInput, type RegisterTenantInput } from "@/lib/api/services/auth"
+import { shouldUseMocks } from "@/lib/api/config"
 import {
   clearStoredSession,
   getStoredAccessToken,
@@ -71,6 +72,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
+    const refresh = getStoredRefreshToken()
+    if (refresh && !shouldUseMocks()) {
+      try {
+        await apiLogout(refresh)
+      } catch {
+        /* ignore */
+      }
+    }
     clearStoredSession()
     try {
       await fetch("/api/auth/session", { method: "DELETE" })
