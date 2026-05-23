@@ -7,11 +7,12 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { z } from "zod"
+import { AutofillGuardInput } from "@/components/auth/autofill-guard-input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/providers/auth-provider"
+import { siteConfig } from "@/lib/site-config"
 
 const schema = z.object({
   tenant_name: z.string().min(3, "Nome da empresa obrigatório"),
@@ -54,35 +55,58 @@ export function RegisterForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>Cadastrar transportadora</CardTitle>
-        <CardDescription>Crie seu tenant e comece a operar</CardDescription>
+    <Card className="w-full max-w-md border-border/60 shadow-lg">
+      <CardHeader className="text-center sm:text-left">
+        <CardTitle>Cadastrar empresa</CardTitle>
+        <CardDescription>
+          Crie sua conta em {siteConfig.name}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
           <div className="space-y-2">
-            <Label htmlFor="tenant_name">Nome da empresa</Label>
-            <Input id="tenant_name" {...register("tenant_name")} />
+            <Label htmlFor="register-tenant">Nome da empresa</Label>
+            <AutofillGuardInput
+              id="register-tenant"
+              placeholder="Ex.: TSV Transportes Ltda"
+              autoComplete="off"
+              {...register("tenant_name")}
+            />
             {errors.tenant_name && (
               <p className="text-sm text-destructive">{errors.tenant_name.message}</p>
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="admin_name">Seu nome</Label>
-            <Input id="admin_name" {...register("admin_name")} />
+            <Label htmlFor="register-admin">Seu nome</Label>
+            <AutofillGuardInput
+              id="register-admin"
+              placeholder="Nome completo"
+              autoComplete="off"
+              {...register("admin_name")}
+            />
             {errors.admin_name && (
               <p className="text-sm text-destructive">{errors.admin_name.message}</p>
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" {...register("email")} />
+            <Label htmlFor="register-email">E-mail</Label>
+            <AutofillGuardInput
+              id="register-email"
+              type="email"
+              placeholder="seu@email.com"
+              autoComplete="off"
+              {...register("email")}
+            />
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
-            <Input id="password" type="password" {...register("password")} />
+            <Label htmlFor="register-password">Senha</Label>
+            <AutofillGuardInput
+              id="register-password"
+              type="password"
+              autoComplete="new-password"
+              {...register("password")}
+            />
             {errors.password && (
               <p className="text-sm text-destructive">{errors.password.message}</p>
             )}

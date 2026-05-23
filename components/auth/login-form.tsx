@@ -7,9 +7,9 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { z } from "zod"
+import { AutofillGuardInput } from "@/components/auth/autofill-guard-input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/providers/auth-provider"
 import { siteConfig } from "@/lib/site-config"
@@ -54,21 +54,34 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>Entrar — {siteConfig.shortName}</CardTitle>
-        <CardDescription>Acesse o painel da sua transportadora</CardDescription>
+    <Card className="w-full max-w-md border-border/60 shadow-lg">
+      <CardHeader className="text-center sm:text-left">
+        <CardTitle>Entrar</CardTitle>
+        <CardDescription>
+          Acesse o painel {siteConfig.name}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
           <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" placeholder="admin@tmtransportadora.com.br" {...register("email")} />
+            <Label htmlFor="login-email">E-mail</Label>
+            <AutofillGuardInput
+              id="login-email"
+              type="email"
+              placeholder="seu@email.com"
+              autoComplete="off"
+              {...register("email")}
+            />
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
-            <Input id="password" type="password" {...register("password")} />
+            <Label htmlFor="login-password">Senha</Label>
+            <AutofillGuardInput
+              id="login-password"
+              type="password"
+              autoComplete="new-password"
+              {...register("password")}
+            />
             {errors.password && (
               <p className="text-sm text-destructive">{errors.password.message}</p>
             )}
