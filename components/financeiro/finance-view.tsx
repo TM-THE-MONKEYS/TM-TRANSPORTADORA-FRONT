@@ -1,8 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import useSWR from "swr"
-import { getCashFlow, listFinanceEntries } from "@/lib/api/services/finance"
+import Link from "next/link"
+import useSWR, { mutate } from "swr"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/components/providers/auth-provider"
+import {
+  getCashFlow,
+  invalidateFinanceCaches,
+  listFinanceEntries,
+  syncFinanceFromFreights,
+} from "@/lib/api/services/finance"
+import { isAdminRole } from "@/lib/rbac/permissions"
 import type { FinanceEntryType } from "@/types"
 
 const TYPE_LABELS: Record<string, string> = {
@@ -39,30 +49,53 @@ function formatDate(dateStr?: string) {
 }
 
 export function FinanceView() {
+  const { user } = useAuth()
+  const canSync = isAdminRole(user?.role) || user?.role === "financeiro"
   const [filterType, setFilterType] = useState<FinanceEntryType | "">("")
+  const [syncing, setSyncing] = useState(false)
 
-  const { data: cashFlow, isLoading: loadingCashFlow } = useSWR(
-    "cash-flow",
-    () => getCashFlow(),
-  )
+  const { data: cashFlow, isLoading: loadingCashFlow } = useSWR("cash-flow", () => getCashFlow())
 
   const { data: entriesPage, isLoading: loadingEntries } = useSWR(
     ["finance-entries", filterType],
-    () => listFinanceEntries(1, 50, filterType || undefined),
+    () => listFinanceEntries(1, 100, filterType || undefined),
   )
 
   const entries = entriesPage?.items ?? []
 
+  async function handleSyncFromFreights() {
+    setSyncing(true)
+    try {
+      const stats = await syncFinanceFromFreights()
+      invalidateFinanceCaches()
+      await mutate(["finance-entries", filterType])
+      await mutate("cash-flow")
+      toast.success(
+        `Sincronizado: ${stats.receitas} receita(s) e ${stats.despesas} despesa(s) dos fretes.`,
+      )
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao sincronizar financeiro")
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Controle Financeiro</h1>
-          <p className="text-muted-foreground text-sm">Receitas, despesas e fluxo de caixa</p>
+          <p className="text-muted-foreground text-sm">
+            Receitas dos fretes, despesas de abastecimento e custos operacionais
+          </p>
         </div>
+        {canSync && (
+          <Button type="button" variant="outline" disabled={syncing} onClick={handleSyncFromFreights}>
+            {syncing ? "Sincronizando..." : "Importar dos fretes"}
+          </Button>
+        )}
       </div>
 
-      {/* Cash Flow Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {loadingCashFlow ? (
           Array.from({ length: 4 }).map((_, i) => (
@@ -99,7 +132,6 @@ export function FinanceView() {
         )}
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-3">
         <label className="text-sm font-medium">Tipo:</label>
         <select
@@ -113,7 +145,6 @@ export function FinanceView() {
         </select>
       </div>
 
-      {/* Entries Table */}
       <div className="rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
@@ -121,6 +152,7 @@ export function FinanceView() {
               <th className="px-4 py-3 text-left font-medium">Tipo</th>
               <th className="px-4 py-3 text-left font-medium">Categoria</th>
               <th className="px-4 py-3 text-left font-medium">Descrição</th>
+              <th className="px-4 py-3 text-left font-medium">Frete</th>
               <th className="px-4 py-3 text-right font-medium">Valor</th>
               <th className="px-4 py-3 text-left font-medium">Vencimento</th>
               <th className="px-4 py-3 text-left font-medium">Status</th>
@@ -130,7 +162,7 @@ export function FinanceView() {
             {loadingEntries ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-t">
-                  {Array.from({ length: 6 }).map((_, j) => (
+                  {Array.from({ length: 7 }).map((_, j) => (
                     <td key={j} className="px-4 py-3">
                       <div className="bg-muted h-4 rounded" />
                     </td>
@@ -139,13 +171,14 @@ export function FinanceView() {
               ))
             ) : entries.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-muted-foreground px-4 py-8 text-center">
-                  Nenhum lançamento encontrado
+                <td colSpan={7} className="text-muted-foreground px-4 py-8 text-center">
+                  Nenhum lançamento.{" "}
+                  {canSync ? 'Clique em "Importar dos fretes" para gerar receitas e despesas.' : ""}
                 </td>
               </tr>
             ) : (
               entries.map((entry) => (
-                <tr key={entry.id} className="border-t hover:bg-muted/30 transition-colors">
+                <tr key={entry.id} className="border-t transition-colors hover:bg-muted/30">
                   <td className="px-4 py-3">
                     <span className={`font-medium ${TYPE_COLORS[entry.tipo] ?? ""}`}>
                       {TYPE_LABELS[entry.tipo] ?? entry.tipo}
@@ -153,7 +186,21 @@ export function FinanceView() {
                   </td>
                   <td className="px-4 py-3">{entry.categoria}</td>
                   <td className="px-4 py-3 text-muted-foreground">{entry.descricao ?? "—"}</td>
-                  <td className={`px-4 py-3 text-right font-semibold ${TYPE_COLORS[entry.tipo] ?? ""}`}>
+                  <td className="px-4 py-3">
+                    {entry.freight_id ? (
+                      <Link
+                        href={`/dashboard/fretes/${entry.freight_id}`}
+                        className="text-primary hover:underline"
+                      >
+                        Ver frete
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td
+                    className={`px-4 py-3 text-right font-semibold ${TYPE_COLORS[entry.tipo] ?? ""}`}
+                  >
                     {entry.tipo === "despesa" ? "-" : "+"}
                     {formatBRL(entry.valor)}
                   </td>
