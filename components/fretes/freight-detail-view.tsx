@@ -21,6 +21,7 @@ import {
 import { PageHeader } from "@/components/shared/page-header"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { DeliveryChecklist } from "@/components/fretes/delivery-checklist"
+import { FreightExpensesList } from "@/components/shared/freight-expenses-list"
 import {
   addOccurrence,
   advanceFreightStatus,
@@ -60,7 +61,7 @@ export function FreightDetailView({ id }: { id: string }) {
     try {
       await advanceFreightStatus(id)
       toast.success("Status atualizado")
-      mutateFreight()
+      await mutateFreight()
       mutateEvents()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro")
@@ -206,6 +207,7 @@ export function FreightDetailView({ id }: { id: string }) {
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="ocorrencias">Ocorrências</TabsTrigger>
           <TabsTrigger value="comprovantes">Comprovantes</TabsTrigger>
+          <TabsTrigger value="custos">Custos / Abastecimento</TabsTrigger>
           <TabsTrigger value="checklist">Checklist</TabsTrigger>
         </TabsList>
         <TabsContent value="timeline" className="mt-4">
@@ -271,6 +273,22 @@ export function FreightDetailView({ id }: { id: string }) {
               <Button variant="outline" disabled>
                 Enviar arquivo
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="custos" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Custos e abastecimentos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FreightExpensesList freightId={id} />
+              <Link
+                href="/dashboard/abastecimento"
+                className="mt-4 inline-block text-sm text-primary hover:underline"
+              >
+                Registrar abastecimento →
+              </Link>
             </CardContent>
           </Card>
         </TabsContent>

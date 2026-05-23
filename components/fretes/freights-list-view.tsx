@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { listFreights } from "@/lib/api/services/freight"
 import { formatBRL } from "@/lib/format/currency"
+import { formatWeightKg } from "@/lib/format/numbers"
 import { getDriverName, getTruckLabel, isFreightInTransit } from "@/lib/freight/active-trip"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
@@ -83,7 +84,7 @@ export function FreightsListView() {
                 </div>
                 <div className="text-right">
                   <p className="font-medium">{formatBRL(f.value_brl)}</p>
-                  <p className="text-xs text-muted-foreground">{f.weight_kg} kg</p>
+                  <p className="text-xs text-muted-foreground">{formatWeightKg(f.weight_kg)}</p>
                 </div>
               </CardContent>
             </Card>
