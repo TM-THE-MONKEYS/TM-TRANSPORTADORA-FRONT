@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { DashboardRouteGuard } from "@/components/layout/dashboard-route-guard"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
 import { useAuth } from "@/components/providers/auth-provider"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -33,5 +34,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     )
   }
 
-  return <DashboardShell>{children}</DashboardShell>
+  return (
+    <DashboardShell>
+      <DashboardRouteGuard>{children}</DashboardRouteGuard>
+    </DashboardShell>
+  )
 }

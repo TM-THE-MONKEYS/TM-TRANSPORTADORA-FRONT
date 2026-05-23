@@ -14,14 +14,27 @@ import { useAuth } from "@/components/providers/auth-provider"
 import { useTenant } from "@/components/providers/tenant-provider"
 import { CommandPalette } from "@/components/layout/command-palette"
 
-export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
+export function AppHeader({
+  onMenuClick,
+  sidebarOpen,
+}: {
+  onMenuClick?: () => void
+  sidebarOpen?: boolean
+}) {
   const { theme, setTheme } = useTheme()
   const { user, logout } = useAuth()
   const { branches, branchId, setBranchId, isLoadingBranches } = useTenant()
 
   return (
     <header className="flex h-14 items-center gap-3 border-b bg-background px-4">
-      <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuClick}>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onMenuClick}
+        aria-expanded={sidebarOpen}
+        aria-controls="dashboard-sidebar"
+        title={sidebarOpen ? "Fechar menu" : "Abrir menu"}
+      >
         <Menu className="h-5 w-5" />
       </Button>
       <CommandPalette />

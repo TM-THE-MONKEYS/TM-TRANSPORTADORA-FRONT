@@ -12,12 +12,15 @@ import {
   DollarSign,
   MapPin,
   BarChart3,
+  PanelLeftClose,
   type LucideIcon,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { siteConfig } from "@/lib/site-config"
+import { useAuth } from "@/components/providers/auth-provider"
 import { usePermission } from "@/hooks/use-permission"
-import { PERMISSIONS, type Permission } from "@/lib/rbac/permissions"
+import { isAdminRole, PERMISSIONS, type Permission } from "@/lib/rbac/permissions"
 
 type NavItem = {
   href: string
@@ -57,7 +60,15 @@ function SidebarLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => v
   )
 }
 
-export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
+export function AppSidebar({
+  onNavigate,
+  onClose,
+}: {
+  onNavigate?: () => void
+  onClose?: () => void
+}) {
+  const { user } = useAuth()
+  const isAdmin = isAdminRole(user?.role)
   const canDashboard = usePermission(PERMISSIONS.dashboard)
   const canFreight = usePermission(PERMISSIONS.freightRead)
   const canFleet = usePermission(PERMISSIONS.fleetRead)
@@ -65,28 +76,44 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const canFinance = usePermission(PERMISSIONS.financeRead)
 
   const allowed = new Set<string>()
-  if (canDashboard) {
-    allowed.add("/dashboard")
-    allowed.add("/dashboard/relatorios")
+  if (isAdmin) {
+    navItems.forEach((item) => allowed.add(item.href))
+  } else {
+    if (canDashboard) {
+      allowed.add("/dashboard")
+      allowed.add("/dashboard/relatorios")
+    }
+    if (canFreight) {
+      allowed.add("/dashboard/fretes")
+      allowed.add("/dashboard/abastecimento")
+      allowed.add("/dashboard/rastreamento")
+    }
+    if (canFleet) {
+      allowed.add("/dashboard/frota")
+      allowed.add("/dashboard/manutencao")
+    }
+    if (canDrivers) allowed.add("/dashboard/motoristas")
+    if (canFinance) allowed.add("/dashboard/financeiro")
   }
-  if (canFreight) {
-    allowed.add("/dashboard/fretes")
-    allowed.add("/dashboard/abastecimento")
-    allowed.add("/dashboard/rastreamento")
-  }
-  if (canFleet) {
-    allowed.add("/dashboard/frota")
-    allowed.add("/dashboard/manutencao")
-  }
-  if (canDrivers) allowed.add("/dashboard/motoristas")
-  if (canFinance) allowed.add("/dashboard/financeiro")
 
   return (
     <aside className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="flex h-14 items-center border-b border-sidebar-border px-4">
+      <div className="flex h-14 items-center justify-between gap-2 border-b border-sidebar-border px-4">
         <Link href="/dashboard" className="font-semibold tracking-tight" onClick={onNavigate}>
           {siteConfig.shortName}
         </Link>
+        {onClose && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-sidebar-foreground"
+            onClick={onClose}
+            aria-label="Fechar menu"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {navItems.map((item) => {
