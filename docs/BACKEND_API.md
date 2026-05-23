@@ -1,6 +1,8 @@
-# TM Transportadora — Contrato de API v1
+# TM Transportadora — Contrato de API v1 (legado)
 
-Documento de referência para implementação do backend **FastAPI** no repositório `TM-TRANSPORTADORA-API`.
+> **Fonte de verdade atual:** [`docs/API-FRONTEND.md`](./API-FRONTEND.md) — espelhado de `TM-TRANSPORTADORA-BACK/backend/docs/API-FRONTEND.md`.
+
+Documento histórico de planejamento. Preferir `API-FRONTEND.md` para integração.
 
 ## Convenções gerais
 

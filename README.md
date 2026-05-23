@@ -20,13 +20,30 @@ Acesse [http://localhost:3000](http://localhost:3000).
 
 ### Demo (mocks)
 
-Com `NEXT_PUBLIC_USE_MOCKS=true` (padrão sem API):
+Com `NEXT_PUBLIC_USE_MOCKS=true`:
 
 | E-mail | Senha | Perfil |
 |--------|-------|--------|
+| admin@tmtransportadora.com.br | Admin@123! | Admin (igual seed backend) |
 | admin@demo.tm | demo1234 | Admin |
 | operacional@demo.tm | demo1234 | Operacional |
 | financeiro@demo.tm | demo1234 | Financeiro |
+
+### Backend local (recomendado)
+
+1. Suba `TM-TRANSPORTADORA-BACK` em `http://127.0.0.1:8000`
+2. Configure `.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+NEXT_PUBLIC_USE_MOCKS=false
+```
+
+3. Login seed do backend:
+
+| E-mail | Senha |
+|--------|-------|
+| admin@tmtransportadora.com.br | Admin@123! |
 
 ## Variáveis de ambiente
 
@@ -45,8 +62,9 @@ Com `NEXT_PUBLIC_USE_MOCKS=true` (padrão sem API):
 
 ## Documentação
 
-- **[Fluxo da aplicação](docs/FLUXO-APLICACAO.md)** — jornada do usuário, auth, fretes, RBAC e camada de dados
-- [Contrato API para backend](docs/BACKEND_API.md)
+- **[Referência API (backend)](docs/API-FRONTEND.md)** — contrato oficial espelhado de `TM-TRANSPORTADORA-BACK`
+- **[Fluxo da aplicação](docs/FLUXO-APLICACAO.md)** — jornada do usuário, auth, fretes, RBAC
+- [Contrato legado / planejamento](docs/BACKEND_API.md)
 - [Diretrizes UX](docs/UX_GUIDELINES.md)
 - [ADR Multi-tenant](docs/ADR-001-multi-tenant.md)
 
@@ -59,16 +77,16 @@ Com `NEXT_PUBLIC_USE_MOCKS=true` (padrão sem API):
 
 ## Backend
 
-API FastAPI em repositório separado: **TM-TRANSPORTADORA-API**.  
-Implemente rotas conforme `docs/BACKEND_API.md`.
+API FastAPI: **TM-THE-MONKEYS/TM-TRANSPORTADORA-BACK**  
+Implemente/consulte rotas em [`docs/API-FRONTEND.md`](docs/API-FRONTEND.md).
 
 ## Estrutura
 
 ```
 app/           # App Router
 components/    # UI, layout, módulos
-lib/api/       # Cliente HTTP + services
-lib/mocks/     # Handlers mock MVP
+lib/api/       # Cliente HTTP + services + adapters
+lib/mocks/     # Handlers mock (dev offline)
 docs/          # Contratos e ADRs
 ```
 

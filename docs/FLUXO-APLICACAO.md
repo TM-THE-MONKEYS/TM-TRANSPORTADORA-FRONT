@@ -93,26 +93,29 @@ Layout fixo: **sidebar** (módulos) + **header** (filial, tema, usuário, Ctrl+K
 
 ## Fluxo operacional de fretes (core)
 
-Estados da ordem de frete (máquina de estados):
+Estados da ordem de frete (backend `FreightStatus`):
 
 ```mermaid
 stateDiagram-v2
-  [*] --> cotacao
-  cotacao --> aprovacao
-  aprovacao --> embarque
-  embarque --> em_transito
-  em_transito --> entregue
-  entregue --> finalizado
-  finalizado --> [*]
+  [*] --> orcamento
+  orcamento --> confirmado
+  confirmado --> em_coleta
+  em_coleta --> em_transporte
+  em_transporte --> entregue
+  entregue --> [*]
+  orcamento --> cancelado
+  confirmado --> cancelado
+  em_coleta --> cancelado
+  em_transporte --> cancelado
+  cancelado --> [*]
 ```
 
 | Etapa | Ação no sistema |
 |-------|-----------------|
-| Cotação | `POST` ordem; status inicial `cotacao` |
-| Aprovação → … | Botão **Avançar status** ou `PATCH` status |
-| Timeline | Eventos automáticos a cada transição |
-| Ocorrências | Registro manual (atraso, avaria, documentação) |
-| Entrega | Aba checklist + comprovantes (upload via presign — API) |
+| Orçamento | `POST /freights`; status inicial `orcamento` |
+| Avanço linear | `POST /freights/{id}/advance-status` |
+| Status manual | `PATCH /freights/{id}/status` (transições validadas) |
+| Timeline | `GET /tracking/{id}/timeline` |
 
 **Telas:**
 
@@ -143,7 +146,7 @@ flowchart TB
 | `NEXT_PUBLIC_API_URL` vazio + `USE_MOCKS=true` | Mock in-memory (`lib/mocks/store.ts`) |
 | `NEXT_PUBLIC_API_URL` definido | HTTP real com Bearer + `X-Tenant-Id` |
 
-Contrato completo dos endpoints: [BACKEND_API.md](./BACKEND_API.md).
+Contrato completo: [API-FRONTEND.md](./API-FRONTEND.md).
 
 ---
 
