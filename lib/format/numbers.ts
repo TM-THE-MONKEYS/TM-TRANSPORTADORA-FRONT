@@ -15,6 +15,12 @@ export function parseWeightInput(value: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
+/** Exibe peso do frete; API pode omitir o campo. */
+export function formatWeightKg(kg: number | null | undefined): string {
+  if (kg == null || !Number.isFinite(kg)) return "—"
+  return `${kg.toLocaleString("pt-BR")} kg`
+}
+
 /** Valor em reais (centavos na digitação): digita 1850050 → "18.500,50" */
 export function formatMoneyInput(value: string): string {
   const digits = stripDigits(value)
@@ -48,6 +54,23 @@ export function parseLitersInput(value: string): number {
   const normalized = value.replace(/\./g, "").replace(",", ".")
   const n = parseFloat(normalized)
   return Number.isFinite(n) ? n : 0
+}
+
+/** Quilometragem inteira: 185420 → "185.420" */
+export function formatKmInput(value: string): string {
+  const digits = stripDigits(value)
+  if (!digits) return ""
+  return Number(digits).toLocaleString("pt-BR", { maximumFractionDigits: 0 })
+}
+
+export function parseKmInput(value: string): number {
+  const n = Number(stripDigits(value))
+  return Number.isFinite(n) ? n : 0
+}
+
+export function formatKm(km: number | null | undefined): string {
+  if (km == null || !Number.isFinite(km)) return "—"
+  return `${km.toLocaleString("pt-BR")} km`
 }
 
 /** CNPJ válido (14 dígitos) derivado do nome — uso interno, sem pedir documento ao usuário. */
