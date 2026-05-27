@@ -8,7 +8,10 @@ export function isApiUrlConfigured(): boolean {
 
 export function shouldUseMocks(): boolean {
   if (process.env.NEXT_PUBLIC_USE_MOCKS === "false") return false
-  return !isApiUrlConfigured() || process.env.NEXT_PUBLIC_USE_MOCKS === "true"
+  if (process.env.NEXT_PUBLIC_USE_MOCKS === "true") return true
+  // Production must not silently fall back to seeded demo credentials.
+  if (process.env.NODE_ENV === "production") return false
+  return !isApiUrlConfigured()
 }
 
 export function requirePublicApiUrl(): string {

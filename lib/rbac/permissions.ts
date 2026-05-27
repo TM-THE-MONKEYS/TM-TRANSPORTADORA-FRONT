@@ -51,9 +51,12 @@ export function mergeUserPermissions(
   apiPermissions?: string[],
 ): Permission[] {
   const fromRole = permissionsForRole(role)
-  const fromApi = (apiPermissions ?? []).filter((p): p is Permission =>
-    Object.values(PERMISSIONS).includes(p as Permission),
-  )
+  const fromApi = (apiPermissions ?? []).filter((p): p is Permission => {
+    if (!Object.values(PERMISSIONS).includes(p as Permission)) return false
+    // Never elevate via API payload; tenant admin is role-gated server-side.
+    if (p === PERMISSIONS.tenantAdmin && !isAdminRole(role)) return false
+    return true
+  })
   return [...new Set([...fromRole, ...fromApi])]
 }
 
@@ -78,7 +81,10 @@ export function canAccessRoute(
   const match = Object.entries(ROUTE_PERMISSIONS).find(
     ([route]) => pathname === route || pathname.startsWith(`${route}/`),
   )
-  if (!match) return true
+  if (!match) {
+    // Unknown /dashboard/* paths default deny (UI-only RBAC is not a security boundary).
+    return pathname === "/dashboard"
+  }
   const [, permission] = match
   return hasPermission(userPermissions, role, permission)
 }

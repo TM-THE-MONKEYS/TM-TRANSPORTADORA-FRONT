@@ -47,6 +47,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const me = await getMe(token)
       setUser(me)
+      try {
+        await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ access_token: token }),
+        })
+      } catch {
+        /* proxy gate; ignore */
+      }
     } catch {
       clearStoredSession()
       setUser(null)

@@ -2,9 +2,7 @@ import { requirePublicApiUrl, shouldUseMocks } from "@/lib/api/config"
 import { ApiError, formatFastApiDetail } from "@/lib/api/errors"
 import {
   getStoredAccessToken,
-  getStoredBranchId,
   getStoredRefreshToken,
-  getStoredTenantId,
   setStoredSession,
 } from "@/lib/api/storage"
 import type { AuthTokens, AuthUser } from "@/types"
@@ -69,8 +67,6 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     body,
     auth = false,
     accessToken,
-    tenantId,
-    branchId,
     _retry = false,
   } = options
 
@@ -89,10 +85,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   if (auth) {
     if (!bearer) throw new ApiError(401, "Sessão expirada. Faça login novamente.")
     headers.Authorization = `Bearer ${bearer}`
-    const tid = tenantId ?? getStoredTenantId()
-    if (tid) headers["X-Tenant-Id"] = tid
-    const bid = branchId ?? getStoredBranchId()
-    if (bid) headers["X-Branch-Id"] = bid
+    // Tenant/branch come from JWT on the backend. Custom headers trigger CORS preflight
+    // and tm-transportadora-api does not allow X-Tenant-Id / X-Branch-Id in ACAH yet.
   }
 
   let res: Response

@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/providers/auth-provider"
 import { siteConfig } from "@/lib/site-config"
+import { getSafeRedirectPath } from "@/lib/security/safe-redirect"
 
 const schema = z.object({
   email: z.string().email("E-mail inválido"),
@@ -45,7 +46,7 @@ export function LoginForm() {
         })
       }
       toast.success("Login realizado")
-      router.push(searchParams.get("from") ?? "/dashboard")
+      router.push(getSafeRedirectPath(searchParams.get("from")))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha no login")
     } finally {
