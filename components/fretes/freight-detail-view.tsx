@@ -102,11 +102,20 @@ export function FreightDetailView({ id }: { id: string }) {
   const driverName = drivers.find((d) => d.id === freight.driver_id)?.name
   const truck = trucks.find((t) => t.id === freight.truck_id)
 
+  function formatRouteLabel(
+    street: string | null | undefined,
+    city: string,
+    state: string,
+  ): string {
+    const place = street?.trim() ? `${street}, ${city}/${state}` : `${city}/${state}`
+    return place
+  }
+
   return (
     <div>
       <PageHeader
         title={freight.code}
-        description={`${freight.origin_city} → ${freight.destination_city}`}
+        description={`${formatRouteLabel(freight.origin_street, freight.origin_city, freight.origin_state)} → ${formatRouteLabel(freight.destination_street, freight.destination_city, freight.destination_state)}`}
         actions={
           canStatus && flowIdx < FREIGHT_STATUS_FLOW.length - 1 ? (
             <Button onClick={handleAdvance}>

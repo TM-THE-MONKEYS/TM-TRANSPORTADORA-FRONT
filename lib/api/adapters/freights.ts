@@ -32,12 +32,16 @@ export function toFreightCreatePayload(
     driver_id: data.driver_id ?? null,
     truck_id: data.truck_id ?? null,
     origem: {
-      logradouro: data.origin_city,
+      cep: data.origin_cep ?? undefined,
+      logradouro: data.origin_street || data.origin_city,
+      bairro: data.origin_neighborhood ?? undefined,
       cidade: data.origin_city,
       estado: data.origin_state,
     },
     destino: {
-      logradouro: data.destination_city,
+      cep: data.destination_cep ?? undefined,
+      logradouro: data.destination_street || data.destination_city,
+      bairro: data.destination_neighborhood ?? undefined,
       cidade: data.destination_city,
       estado: data.destination_state,
     },

@@ -139,8 +139,14 @@ export interface FreightOrder {
   customer_name?: string
   origin_city: string
   origin_state: string
+  origin_street?: string | null
+  origin_neighborhood?: string | null
+  origin_cep?: string | null
   destination_city: string
   destination_state: string
+  destination_street?: string | null
+  destination_neighborhood?: string | null
+  destination_cep?: string | null
   cargo_description: string
   weight_kg?: number | null
   value_brl: number

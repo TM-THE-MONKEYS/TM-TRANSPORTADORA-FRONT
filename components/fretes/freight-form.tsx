@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createFreight, findOrCreateClientByName } from "@/lib/api/services/freight"
+import { CepAddressFields } from "@/components/shared/cep-address-fields"
 import {
   formatMoneyInput,
   formatWeightInput,
@@ -28,8 +29,14 @@ import { useOperationContext } from "@/hooks/use-operation-context"
 
 const schema = z.object({
   customer_name: z.string().min(2, "Informe o nome do cliente"),
+  origin_cep: z.string().optional(),
+  origin_street: z.string().optional(),
+  origin_neighborhood: z.string().optional(),
   origin_city: z.string().min(2, "Informe a cidade de origem"),
   origin_state: z.string().length(2, "UF com 2 letras"),
+  destination_cep: z.string().optional(),
+  destination_street: z.string().optional(),
+  destination_neighborhood: z.string().optional(),
   destination_city: z.string().min(2, "Informe a cidade de destino"),
   destination_state: z.string().length(2, "UF com 2 letras"),
   cargo_description: z.string().min(2, "Descreva a carga"),
@@ -63,6 +70,12 @@ export function FreightForm() {
       freight_type: "carga_geral",
       origin_state: "SP",
       destination_state: "SP",
+      origin_cep: "",
+      origin_street: "",
+      origin_neighborhood: "",
+      destination_cep: "",
+      destination_street: "",
+      destination_neighborhood: "",
       weight_kg: 0,
       value_brl: 0,
     },
@@ -85,8 +98,14 @@ export function FreightForm() {
       const client = await findOrCreateClientByName(data.customer_name)
       const freight = await createFreight({
         customer_id: client.id,
+        origin_cep: data.origin_cep,
+        origin_street: data.origin_street,
+        origin_neighborhood: data.origin_neighborhood,
         origin_city: data.origin_city,
         origin_state: data.origin_state.toUpperCase(),
+        destination_cep: data.destination_cep,
+        destination_street: data.destination_street,
+        destination_neighborhood: data.destination_neighborhood,
         destination_city: data.destination_city,
         destination_state: data.destination_state.toUpperCase(),
         cargo_description: data.cargo_description,
@@ -123,46 +142,21 @@ export function FreightForm() {
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="origin_city">Cidade origem</Label>
-          <Input id="origin_city" {...register("origin_city")} />
-          {errors.origin_city && (
-            <p className="text-sm text-destructive">{errors.origin_city.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="origin_state">UF origem</Label>
-          <Input
-            id="origin_state"
-            maxLength={2}
-            className="uppercase"
-            {...register("origin_state")}
-          />
-          {errors.origin_state && (
-            <p className="text-sm text-destructive">{errors.origin_state.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="destination_city">Cidade destino</Label>
-          <Input id="destination_city" {...register("destination_city")} />
-          {errors.destination_city && (
-            <p className="text-sm text-destructive">{errors.destination_city.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="destination_state">UF destino</Label>
-          <Input
-            id="destination_state"
-            maxLength={2}
-            className="uppercase"
-            {...register("destination_state")}
-          />
-          {errors.destination_state && (
-            <p className="text-sm text-destructive">{errors.destination_state.message}</p>
-          )}
-        </div>
-      </div>
+      <CepAddressFields<FormData>
+        title="Origem"
+        prefix="origin"
+        register={register}
+        setValue={setValue}
+        errors={errors}
+      />
+
+      <CepAddressFields<FormData>
+        title="Destino"
+        prefix="destination"
+        register={register}
+        setValue={setValue}
+        errors={errors}
+      />
 
       <div className="space-y-2">
         <Label htmlFor="cargo_description">Carga</Label>
