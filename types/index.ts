@@ -53,6 +53,17 @@ export interface AuthTokens {
   expires_in?: number
 }
 
+/** Resposta de POST/PATCH /users (backend). */
+export interface UserRead {
+  id: string
+  nome: string
+  email: string
+  role: UserRole
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 // ── Pagination ───────────────────────────────────────────────────────────────
 
 export interface Paginated<T> {

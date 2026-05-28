@@ -1,4 +1,6 @@
 import { permissionsForRole } from "@/lib/rbac/permissions"
+import { ApiError } from "@/lib/api/errors"
+import type { CreateUserInput } from "@/lib/api/services/users"
 import { DEMO_BRANCHES, DEMO_TENANT } from "@/lib/mocks/seed"
 import { generateId, mockStore } from "@/lib/mocks/store"
 import { canDriverRefuelFreight, isFreightOpenForFuel } from "@/lib/fuel/eligibility"
@@ -17,6 +19,7 @@ import type {
   Paginated,
   Truck,
   TruckImplement,
+  UserRead,
 } from "@/types"
 
 function syncMockTruckStatus(truckId: string): void {
@@ -465,4 +468,38 @@ export async function mockRegisterTenant(input: {
   await delay(400)
   void input
   return mockLogin("admin@demo.tm", "demo1234")
+}
+
+export async function mockCreateUser(input: CreateUserInput): Promise<UserRead> {
+  await delay(300)
+  const email = input.email.trim().toLowerCase()
+  if (mockStore.users[email]) {
+    throw new ApiError(409, "E-mail já cadastrado")
+  }
+
+  const id = generateId("user")
+  const now = new Date().toISOString()
+  const nome = input.nome.trim()
+
+  mockStore.users[email] = {
+    id,
+    email,
+    name: nome,
+    role: "motorista",
+    tenant_id: DEMO_TENANT.id,
+    branch_id: DEMO_BRANCHES[0]?.id ?? null,
+    driver_id: input.driver_id ?? null,
+    permissions: [],
+    password: input.password,
+  }
+
+  return {
+    id,
+    nome,
+    email,
+    role: "motorista",
+    is_active: input.is_active ?? true,
+    created_at: now,
+    updated_at: now,
+  }
 }
