@@ -1,26 +1,22 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Command } from "cmdk"
 import { Search } from "lucide-react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-
-const routes = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Fretes", href: "/dashboard/fretes" },
-  { label: "Frota", href: "/dashboard/frota" },
-  { label: "Motoristas", href: "/dashboard/motoristas" },
-  { label: "Financeiro", href: "/dashboard/financeiro" },
-  { label: "Abastecimento", href: "/dashboard/abastecimento" },
-  { label: "Manutenção", href: "/dashboard/manutencao" },
-  { label: "Rastreamento", href: "/dashboard/rastreamento" },
-  { label: "Relatórios", href: "/dashboard/relatorios" },
-]
+import { useAuth } from "@/components/providers/auth-provider"
+import { getAllowedNavRoutes } from "@/lib/rbac/permissions"
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const router = useRouter()
+  const { user } = useAuth()
+
+  const routes = useMemo(
+    () => (user ? getAllowedNavRoutes(user.role, user.permissions) : []),
+    [user],
+  )
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {

@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/providers/auth-provider"
 import { siteConfig } from "@/lib/site-config"
 import { getSafeRedirectPath } from "@/lib/security/safe-redirect"
+import { getDefaultHomeRoute } from "@/lib/rbac/permissions"
 
 const schema = z.object({
   email: z.string().email("E-mail inválido"),
@@ -36,7 +37,7 @@ export function LoginForm() {
   async function onSubmit(data: FormData) {
     setLoading(true)
     try {
-      await login(data)
+      const loggedInUser = await login(data)
       const token = sessionStorage.getItem("tmt_access_token")
       if (token) {
         await fetch("/api/auth/session", {
@@ -46,7 +47,12 @@ export function LoginForm() {
         })
       }
       toast.success("Login realizado")
-      router.push(getSafeRedirectPath(searchParams.get("from")))
+      router.push(
+        getSafeRedirectPath(
+          searchParams.get("from"),
+          getDefaultHomeRoute(loggedInUser.role, loggedInUser.permissions),
+        ),
+      )
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha no login")
     } finally {
@@ -92,10 +98,6 @@ export function LoginForm() {
           </Button>
         </form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          Não tem conta?{" "}
-          <Link href="/cadastro" className="text-primary hover:underline">
-            Cadastre sua empresa
-          </Link>
         </p>
       </CardContent>
     </Card>

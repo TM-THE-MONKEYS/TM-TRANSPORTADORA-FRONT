@@ -22,7 +22,7 @@ type AuthContextValue = {
   user: AuthUser | null
   isReady: boolean
   isAuthenticated: boolean
-  login: (input: LoginInput) => Promise<void>
+  login: (input: LoginInput) => Promise<AuthUser>
   register: (input: RegisterTenantInput) => Promise<void>
   logout: () => void
 }
@@ -72,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { tokens, user: u } = await apiLogin(input)
     setStoredSession(tokens.access_token, tokens.refresh_token, u.tenant_id, u.branch_id)
     setUser(u)
+    return u
   }, [])
 
   const register = useCallback(async (input: RegisterTenantInput) => {

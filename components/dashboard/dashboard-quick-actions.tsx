@@ -88,7 +88,7 @@ const actions: QuickAction[] = [
     label: "Relatórios",
     description: "KPIs e análises",
     icon: BarChart3,
-    permission: PERMISSIONS.dashboard,
+    permission: PERMISSIONS.financeRead,
   },
 ]
 

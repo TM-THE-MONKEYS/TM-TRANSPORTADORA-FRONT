@@ -71,6 +71,31 @@ export function hasPermission(
   return permissionsForRole(role).includes(permission)
 }
 
+export const ROUTE_PERMISSIONS: Record<string, Permission> = {
+  "/dashboard/frota": PERMISSIONS.fleetRead,
+  "/dashboard/motoristas": PERMISSIONS.driversRead,
+  "/dashboard/motoristas/nova-conta": PERMISSIONS.tenantAdmin,
+  "/dashboard/fretes": PERMISSIONS.freightRead,
+  "/dashboard/financeiro": PERMISSIONS.financeRead,
+  "/dashboard/abastecimento": PERMISSIONS.freightRead,
+  "/dashboard/manutencao": PERMISSIONS.fleetRead,
+  "/dashboard/rastreamento": PERMISSIONS.freightRead,
+  "/dashboard/relatorios": PERMISSIONS.financeRead,
+}
+
+const ROUTE_PERMISSION_ENTRIES = Object.entries(ROUTE_PERMISSIONS).sort(
+  ([a], [b]) => b.length - a.length,
+)
+
+function permissionForPathname(pathname: string): Permission | null {
+  if (pathname === "/dashboard") return PERMISSIONS.dashboard
+
+  const match = ROUTE_PERMISSION_ENTRIES.find(
+    ([route]) => pathname === route || pathname.startsWith(`${route}/`),
+  )
+  return match?.[1] ?? null
+}
+
 export function canAccessRoute(
   pathname: string,
   role: UserRole,
@@ -78,25 +103,52 @@ export function canAccessRoute(
 ): boolean {
   if (isAdminRole(role)) return true
 
-  const match = Object.entries(ROUTE_PERMISSIONS).find(
-    ([route]) => pathname === route || pathname.startsWith(`${route}/`),
-  )
-  if (!match) {
+  const permission = permissionForPathname(pathname)
+  if (!permission) {
     // Unknown /dashboard/* paths default deny (UI-only RBAC is not a security boundary).
-    return pathname === "/dashboard"
+    return false
   }
-  const [, permission] = match
   return hasPermission(userPermissions, role, permission)
 }
 
-export const ROUTE_PERMISSIONS: Record<string, Permission> = {
-  "/dashboard": PERMISSIONS.dashboard,
-  "/dashboard/frota": PERMISSIONS.fleetRead,
-  "/dashboard/motoristas": PERMISSIONS.driversRead,
-  "/dashboard/fretes": PERMISSIONS.freightRead,
-  "/dashboard/financeiro": PERMISSIONS.financeRead,
-  "/dashboard/abastecimento": PERMISSIONS.freightRead,
-  "/dashboard/manutencao": PERMISSIONS.fleetRead,
-  "/dashboard/rastreamento": PERMISSIONS.freightRead,
-  "/dashboard/relatorios": PERMISSIONS.dashboard,
+/** Rota inicial após login ou quando o guard bloqueia acesso. */
+export function getDefaultHomeRoute(
+  role: UserRole,
+  userPermissions?: string[],
+): string {
+  if (hasPermission(userPermissions, role, PERMISSIONS.dashboard)) {
+    return "/dashboard"
+  }
+  if (hasPermission(userPermissions, role, PERMISSIONS.freightRead)) {
+    return "/dashboard/fretes"
+  }
+  return "/login"
+}
+
+export type NavRoute = {
+  href: string
+  label: string
+  permission: Permission
+}
+
+export const NAV_ROUTES: NavRoute[] = [
+  { href: "/dashboard", label: "Dashboard", permission: PERMISSIONS.dashboard },
+  { href: "/dashboard/fretes", label: "Fretes", permission: PERMISSIONS.freightRead },
+  { href: "/dashboard/frota", label: "Frota", permission: PERMISSIONS.fleetRead },
+  { href: "/dashboard/motoristas", label: "Motoristas", permission: PERMISSIONS.driversRead },
+  { href: "/dashboard/financeiro", label: "Financeiro", permission: PERMISSIONS.financeRead },
+  { href: "/dashboard/abastecimento", label: "Abastecimento", permission: PERMISSIONS.freightRead },
+  { href: "/dashboard/manutencao", label: "Manutenção", permission: PERMISSIONS.fleetRead },
+  { href: "/dashboard/rastreamento", label: "Rastreamento", permission: PERMISSIONS.freightRead },
+  { href: "/dashboard/relatorios", label: "Relatórios", permission: PERMISSIONS.financeRead },
+]
+
+export function getAllowedNavRoutes(
+  role: UserRole,
+  userPermissions?: string[],
+): NavRoute[] {
+  if (isAdminRole(role)) return NAV_ROUTES
+  return NAV_ROUTES.filter((route) =>
+    hasPermission(userPermissions, role, route.permission),
+  )
 }

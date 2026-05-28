@@ -81,7 +81,7 @@ export function DashboardView() {
     getDashboardKpis({ ...filters, branch_id: branchId ?? filters.branch_id }),
   )
   const { data: byStatus } = useSWR("freights-by-status", getFreightsByStatus)
-  const { data: revenue } = useSWR("revenue-series", () => getRevenueSeries(30))
+  const { data: revenue } = useSWR(canFinance ? "revenue-series" : null, () => getRevenueSeries(30))
   const { data: customers } = useSWR("customers", listCustomers)
   const { data: cashFlow, isLoading: loadingCashFlow } = useSWR(
     canFinance ? "dashboard-cash-flow" : null,
@@ -126,12 +126,14 @@ export function DashboardView() {
                 <Link href="/dashboard/fretes/novo">Novo frete</Link>
               </Button>
             )}
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/relatorios">
-                Relatórios
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+            {canFinance && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard/relatorios">
+                  Relatórios
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            )}
           </>
         }
       />
@@ -346,6 +348,7 @@ export function DashboardView() {
       </section>
 
       {/* Receita + fluxo */}
+      {canFinance && (
       <section className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -386,7 +389,6 @@ export function DashboardView() {
           </CardContent>
         </Card>
 
-        {canFinance && (
           <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
               <div>
@@ -436,8 +438,8 @@ export function DashboardView() {
               )}
             </CardContent>
           </Card>
-        )}
       </section>
+      )}
 
       <DashboardRecentFreights />
     </div>

@@ -6,11 +6,20 @@ import { RecentFreightsReport } from "@/components/relatorios/recent-freights-re
 import { PageHeader } from "@/components/shared/page-header"
 import { getDashboardKpis, getFreightsByStatus, getRevenueSeries } from "@/lib/api/services/dashboard"
 import { formatBRL } from "@/lib/format/currency"
+import { usePermission } from "@/hooks/use-permission"
+import { PERMISSIONS } from "@/lib/rbac/permissions"
 
 export function ReportsView() {
-  const { data: kpis, isLoading: loadingKpis } = useSWR("reports-kpis", () => getDashboardKpis())
+  const canFinance = usePermission(PERMISSIONS.financeRead)
+  const { data: kpis, isLoading: loadingKpis } = useSWR(
+    canFinance ? "reports-kpis" : null,
+    () => getDashboardKpis(),
+  )
   const { data: byStatus } = useSWR("reports-freight-status", () => getFreightsByStatus())
-  const { data: revenue } = useSWR("reports-revenue", () => getRevenueSeries(30))
+  const { data: revenue } = useSWR(
+    canFinance ? "reports-revenue" : null,
+    () => getRevenueSeries(30),
+  )
 
   return (
     <div className="space-y-6">
@@ -26,14 +35,18 @@ export function ReportsView() {
           <>
             <ReportCard label="Fretes em andamento" value={String(kpis?.freights_in_progress ?? 0)} />
             <ReportCard label="Caminhões ativos" value={String(kpis?.active_trucks ?? 0)} />
-            <ReportCard
-              label="Receita mensal"
-              value={formatBRL(kpis?.monthly_revenue_brl ?? 0)}
-            />
-            <ReportCard
-              label="Custos operacionais"
-              value={formatBRL(kpis?.operational_costs_brl ?? 0)}
-            />
+            {canFinance && (
+              <>
+                <ReportCard
+                  label="Receita mensal"
+                  value={formatBRL(kpis?.monthly_revenue_brl ?? 0)}
+                />
+                <ReportCard
+                  label="Custos operacionais"
+                  value={formatBRL(kpis?.operational_costs_brl ?? 0)}
+                />
+              </>
+            )}
           </>
         )}
       </div>
@@ -54,18 +67,20 @@ export function ReportsView() {
           </ul>
         </div>
 
-        <div className="rounded-lg border p-4">
-          <h2 className="mb-3 font-semibold">Receita — últimos 30 dias</h2>
-          <ul className="max-h-64 space-y-1 overflow-y-auto text-sm">
-            {(revenue ?? []).slice(-10).map((point) => (
-              <li key={point.date} className="flex justify-between">
-                <span className="text-muted-foreground">{point.date}</span>
-                <span>{formatBRL(point.revenue)}</span>
-              </li>
-            ))}
-            {!revenue?.length && <li className="text-muted-foreground">Sem dados</li>}
-          </ul>
-        </div>
+        {canFinance && (
+          <div className="rounded-lg border p-4">
+            <h2 className="mb-3 font-semibold">Receita — últimos 30 dias</h2>
+            <ul className="max-h-64 space-y-1 overflow-y-auto text-sm">
+              {(revenue ?? []).slice(-10).map((point) => (
+                <li key={point.date} className="flex justify-between">
+                  <span className="text-muted-foreground">{point.date}</span>
+                  <span>{formatBRL(point.revenue)}</span>
+                </li>
+              ))}
+              {!revenue?.length && <li className="text-muted-foreground">Sem dados</li>}
+            </ul>
+          </div>
+        )}
       </div>
 
       <RecentFuelRefillsReport />
