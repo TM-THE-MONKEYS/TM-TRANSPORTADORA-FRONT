@@ -111,9 +111,6 @@ export function RegisterForm() {
               <p className="text-sm text-destructive">{errors.password.message}</p>
             )}
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Criando..." : "Criar conta"}
-          </Button>
         </form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Já tem conta?{" "}

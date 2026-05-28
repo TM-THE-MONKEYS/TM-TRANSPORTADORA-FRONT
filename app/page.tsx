@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { BrandingBackground } from "@/components/auth/login-branding-panel"
 import { Button } from "@/components/ui/button"
 import { siteConfig } from "@/lib/site-config"
 import { MapPin, Package, Truck, Users } from "lucide-react"
@@ -12,17 +13,8 @@ const highlights = [
 
 export default function HomePage() {
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,hsl(var(--primary)/0.18),transparent)]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -right-32 top-1/3 h-96 w-96 rounded-full bg-primary/5 blur-3xl"
-        aria-hidden
-      />
-
-      <header className="relative z-10 flex h-16 items-center justify-between border-b border-border/60 bg-background/80 px-6 backdrop-blur-sm">
+    <BrandingBackground>
+      <header className="flex h-16 items-center justify-between border-b border-border/60 bg-background/75 px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
             <Truck className="h-5 w-5" />
@@ -46,14 +38,11 @@ export default function HomePage() {
           <Button variant="ghost" asChild>
             <Link href="/login">Entrar</Link>
           </Button>
-          <Button asChild>
-            <Link href="/cadastro">Começar grátis</Link>
-          </Button>
         </div>
       </header>
 
-      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
-        <p className="mb-4 inline-flex rounded-full border border-primary/20 bg-primary/5 px-4 py-1 text-xs font-medium uppercase tracking-wider text-primary">
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+        <p className="mb-4 inline-flex rounded-full border border-primary/20 bg-background/70 px-4 py-1 text-xs font-medium uppercase tracking-wider text-primary backdrop-blur-sm">
           Operação logística inteligente
         </p>
         <h1 className="max-w-3xl text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
@@ -67,10 +56,7 @@ export default function HomePage() {
         </p>
 
         <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <Button size="lg" className="min-w-[160px] shadow-md" asChild>
-            <Link href="/cadastro">Criar conta</Link>
-          </Button>
-          <Button size="lg" variant="outline" className="min-w-[160px] bg-background/60 backdrop-blur-sm" asChild>
+          <Button size="lg" variant="outline" className="min-w-[160px] bg-background/70 backdrop-blur-sm" asChild>
             <Link href="/login">Acessar painel</Link>
           </Button>
         </div>
@@ -79,7 +65,7 @@ export default function HomePage() {
           {highlights.map(({ icon: Icon, label }) => (
             <li
               key={label}
-              className="flex flex-col items-center gap-2 rounded-xl border border-border/60 bg-card/50 px-3 py-4 text-sm text-muted-foreground backdrop-blur-sm"
+              className="flex flex-col items-center gap-2 rounded-xl border border-border/60 bg-background/70 px-3 py-4 text-sm text-muted-foreground backdrop-blur-sm"
             >
               <Icon className="h-5 w-5 text-primary" aria-hidden />
               <span>{label}</span>
@@ -99,6 +85,6 @@ export default function HomePage() {
           </a>
         </p>
       </main>
-    </div>
+    </BrandingBackground>
   )
 }
