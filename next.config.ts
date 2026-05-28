@@ -20,7 +20,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' https://fonts.gstatic.com",
-      "connect-src 'self' https://tm-transportadora-api.vercel.app https://jkdkspbcqnfrweanmhpp.supabase.co https://va.vercel-scripts.com https://viacep.com.br",
+      "connect-src 'self' https://tm-transportadora-api.onrender.com https://jkdkspbcqnfrweanmhpp.supabase.co https://va.vercel-scripts.com https://viacep.com.br",
       "frame-ancestors 'none'",
     ].join("; "),
   },
