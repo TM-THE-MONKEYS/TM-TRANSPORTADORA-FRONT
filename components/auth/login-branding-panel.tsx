@@ -16,14 +16,25 @@ export function BrandingBackground({ children, className }: BrandingBackgroundPr
     <div className={cn("relative min-h-screen overflow-hidden", className)}>
       {!imageFailed ? (
         <>
-          {/* Arquivo estático em public/ — troque login.jpg sem restart nem env */}
+          {/* img oculta apenas para capturar onError — visual via div abaixo */}
           <img
             src={siteConfig.branding.loginImage}
             alt=""
             fetchPriority="high"
             decoding="async"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="sr-only"
             onError={() => setImageFailed(true)}
+            aria-hidden
+          />
+          {/* Arquivo estático em public/ — troque login.png sem restart nem env */}
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${siteConfig.branding.loginImage})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center center",
+              backgroundRepeat: "no-repeat",
+            }}
             aria-hidden
           />
           <div

@@ -10,20 +10,28 @@ type DashboardKpiCardProps = {
   loading?: boolean
 }
 
-const toneStyles = {
-  default: "border-border bg-card",
-  primary: "border-primary/25 bg-primary/5",
-  success: "border-green-500/25 bg-green-500/5",
-  warning: "border-amber-500/25 bg-amber-500/5",
-  danger: "border-destructive/25 bg-destructive/5",
+const accentStyles = {
+  default:  "before:bg-border",
+  primary:  "before:bg-primary",
+  success:  "before:bg-green-500",
+  warning:  "before:bg-amber-500",
+  danger:   "before:bg-destructive",
 }
 
-const iconToneStyles = {
-  default: "bg-muted text-muted-foreground",
-  primary: "bg-primary/15 text-primary",
-  success: "bg-green-500/15 text-green-700 dark:text-green-400",
-  warning: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  danger: "bg-destructive/15 text-destructive",
+const iconColor = {
+  default:  "text-muted-foreground",
+  primary:  "text-primary",
+  success:  "text-green-500",
+  warning:  "text-amber-500",
+  danger:   "text-destructive",
+}
+
+const valueColor = {
+  default:  "",
+  primary:  "text-primary",
+  success:  "text-green-700 dark:text-green-400",
+  warning:  "text-amber-700 dark:text-amber-400",
+  danger:   "text-destructive",
 }
 
 export function DashboardKpiCard({
@@ -37,27 +45,34 @@ export function DashboardKpiCard({
   return (
     <div
       className={cn(
-        "flex gap-4 rounded-xl border p-4 shadow-sm transition-shadow hover:shadow-md",
-        toneStyles[tone],
+        "relative overflow-hidden rounded-xl border bg-card p-5 shadow-sm transition-all",
+        "hover:shadow-md hover:-translate-y-0.5",
+        "before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:rounded-l-xl",
+        accentStyles[tone],
       )}
     >
-      <div
+      {/* Watermark icon */}
+      <Icon
         className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg",
-          iconToneStyles[tone],
+          "absolute right-4 top-4 h-14 w-14 opacity-[0.06]",
+          iconColor[tone],
         )}
-      >
-        <Icon className="h-5 w-5" aria-hidden />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm text-muted-foreground">{label}</p>
+        aria-hidden
+      />
+
+      <div className="relative space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          {label}
+        </p>
         {loading ? (
-          <div className="mt-2 h-8 w-28 animate-pulse rounded bg-muted" />
+          <div className="h-9 w-32 animate-pulse rounded-md bg-muted" />
         ) : (
-          <p className="mt-0.5 truncate text-2xl font-bold tracking-tight">{value}</p>
+          <p className={cn("text-3xl font-bold tracking-tight tabular-nums", valueColor[tone])}>
+            {value}
+          </p>
         )}
         {hint && !loading && (
-          <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+          <p className="text-xs text-muted-foreground">{hint}</p>
         )}
       </div>
     </div>

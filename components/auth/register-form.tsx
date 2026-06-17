@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/providers/auth-provider"
+import { syncServerSession } from "@/lib/auth/sync-server-session"
+import { getStoredAccessToken } from "@/lib/api/storage"
 import { siteConfig } from "@/lib/site-config"
 
 const schema = z.object({
@@ -37,14 +39,9 @@ export function RegisterForm() {
     setLoading(true)
     try {
       await registerUser(data)
-      const token = sessionStorage.getItem("tmt_access_token")
-      if (token) {
-        await fetch("/api/auth/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ access_token: token }),
-        })
-      }
+      const token = getStoredAccessToken()
+      if (!token) throw new Error("Sessão não foi gravada no navegador")
+      await syncServerSession(token)
       toast.success("Conta criada com sucesso")
       router.push("/dashboard")
     } catch (e) {

@@ -1,5 +1,6 @@
 import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
+import { ApiError } from "@/lib/api/errors"
 import { normalizeAuthUser } from "@/lib/api/adapters/auth"
 import * as mock from "@/lib/mocks/handlers"
 import type { AuthTokens, AuthUser } from "@/types"
@@ -20,10 +21,29 @@ async function normalizeSession(session: LoginResponse): Promise<LoginResponse> 
   return { ...session, user: normalizeAuthUser(session.user) }
 }
 
+/** Backend rejeita motorista em /auth/login e exige /auth/driver/login. */
+function isDriverLoginRequiredError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false
+  const msg = error.message.toLowerCase()
+  return msg.includes("driver/login") || msg.includes("motoristas devem")
+}
+
+async function postLogin(path: string, input: LoginInput): Promise<LoginResponse> {
+  const session = await apiRequest<LoginResponse>(path, { method: "POST", body: input })
+  return normalizeSession(session)
+}
+
 export async function login(input: LoginInput): Promise<LoginResponse> {
   if (shouldUseMocks()) return mock.mockLogin(input.email, input.password)
-  const session = await apiRequest<LoginResponse>("/auth/login", { method: "POST", body: input })
-  return normalizeSession(session)
+
+  try {
+    return await postLogin("/auth/login", input)
+  } catch (error) {
+    if (isDriverLoginRequiredError(error)) {
+      return postLogin("/auth/driver/login", input)
+    }
+    throw error
+  }
 }
 
 export async function registerTenant(input: RegisterTenantInput): Promise<LoginResponse> {

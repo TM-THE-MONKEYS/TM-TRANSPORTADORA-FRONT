@@ -32,6 +32,47 @@ export async function createClient(data: {
   return mapClient(created)
 }
 
+export async function updateClient(
+  id: string,
+  data: { nome?: string; cpf_cnpj?: string; email?: string; telefone?: string },
+): Promise<Customer> {
+  if (shouldUseMocks()) {
+    const { mockStore } = await import("@/lib/mocks/store")
+    const idx = mockStore.customers.findIndex((c) => c.id === id)
+    if (idx >= 0) {
+      const prev = mockStore.customers[idx]
+      const updated = {
+        ...prev,
+        name: data.nome ?? prev.name,
+        nome: data.nome ?? prev.nome,
+        cpf_cnpj: data.cpf_cnpj ?? prev.cpf_cnpj,
+        document: data.cpf_cnpj ?? prev.document,
+        email: data.email ?? prev.email,
+        phone: data.telefone ?? prev.phone,
+        telefone: data.telefone ?? prev.telefone,
+      }
+      mockStore.customers[idx] = updated
+      return updated as Customer
+    }
+    throw new Error("Cliente não encontrado")
+  }
+  const updated = await apiRequest<BackendClient>(`/clients/${id}`, {
+    method: "PATCH",
+    body: data,
+    auth: true,
+  })
+  return mapClient(updated)
+}
+
+export async function deleteClient(id: string): Promise<void> {
+  if (shouldUseMocks()) {
+    const { mockStore } = await import("@/lib/mocks/store")
+    mockStore.customers = mockStore.customers.filter((c) => c.id !== id)
+    return
+  }
+  await apiRequest(`/clients/${id}`, { method: "DELETE", auth: true })
+}
+
 /** Cria ou reutiliza cliente pelo nome (ordem de frete sem cadastro prévio). */
 export async function findOrCreateClientByName(name: string): Promise<Customer> {
   const trimmed = name.trim()

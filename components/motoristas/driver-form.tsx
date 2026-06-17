@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -18,6 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { createDriver, getDriver, updateDriver } from "@/lib/api/services/drivers"
 import { formatCpf, isValidCpfLength, stripCpf } from "@/lib/format/cpf"
 import type { DriverStatus } from "@/types"
@@ -35,6 +42,12 @@ const schema = z.object({
   cnh_expires_at: z.string().min(1, "Informe a validade da CNH"),
   status: z.enum(["ativo", "inativo", "suspenso", "ferias"]),
   phone: z.string().optional(),
+  commission_pct: z.coerce
+    .number()
+    .min(0, "Mínimo 0%")
+    .max(100, "Máximo 100%")
+    .optional()
+    .nullable(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -42,6 +55,8 @@ type FormData = z.infer<typeof schema>
 export function DriverForm({ driverId }: { driverId?: string }) {
   const router = useRouter()
   const isEdit = Boolean(driverId)
+  const [tempPassword, setTempPassword] = useState<string | null>(null)
+  const [createdDriverId, setCreatedDriverId] = useState<string | null>(null)
   const { data: driver, isLoading } = useSWR(
     driverId ? ["driver", driverId] : null,
     () => getDriver(driverId!),
@@ -69,6 +84,7 @@ export function DriverForm({ driverId }: { driverId?: string }) {
       cnh_expires_at: driver.cnh_expires_at?.slice(0, 10) ?? "",
       status: driver.status,
       phone: driver.phone ?? "",
+      commission_pct: driver.commission_pct ?? undefined,
     })
   }, [driver, reset])
 
@@ -83,6 +99,7 @@ export function DriverForm({ driverId }: { driverId?: string }) {
         status: data.status,
         phone: data.phone?.trim() || undefined,
         photo_url: null,
+        commission_pct: data.commission_pct ?? undefined,
       }
       if (isEdit && driverId) {
         await updateDriver(driverId, payload)
@@ -90,8 +107,13 @@ export function DriverForm({ driverId }: { driverId?: string }) {
         router.push(`/dashboard/motoristas/${driverId}`)
       } else {
         const created = await createDriver(payload)
-        toast.success("Motorista cadastrado")
-        router.push(`/dashboard/motoristas/${created.id}`)
+        if (created.temporary_password) {
+          setTempPassword(created.temporary_password)
+          setCreatedDriverId(created.id)
+        } else {
+          toast.success("Motorista cadastrado")
+          router.push(`/dashboard/motoristas/${created.id}`)
+        }
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao salvar motorista")
@@ -103,7 +125,60 @@ export function DriverForm({ driverId }: { driverId?: string }) {
   if (isEdit && isLoading) return <Skeleton className="mx-auto h-64 max-w-lg" />
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-lg space-y-4">
+    <>
+      <Dialog
+        open={!!tempPassword}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTempPassword(null)
+            router.push(`/dashboard/motoristas/${createdDriverId}`)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Motorista cadastrado</DialogTitle>
+            <DialogDescription>
+              Uma senha temporária foi gerada automaticamente. Anote e repasse ao motorista — ela
+              não será exibida novamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>Senha temporária</Label>
+            <div className="flex items-center gap-2">
+              <Input readOnly value={tempPassword ?? ""} className="font-mono" />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (tempPassword) {
+                    navigator.clipboard.writeText(tempPassword)
+                    toast.success("Copiado!")
+                  }
+                }}
+              >
+                Copiar
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              O motorista deve alterar a senha no primeiro login.
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                setTempPassword(null)
+                router.push(`/dashboard/motoristas/${createdDriverId}`)
+              }}
+            >
+              Entendi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-lg space-y-4">
       <div className="space-y-2">
         <Label htmlFor="name">Nome</Label>
         <Input id="name" {...register("name")} />
@@ -167,6 +242,29 @@ export function DriverForm({ driverId }: { driverId?: string }) {
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="commission_pct">Comissão (%)</Label>
+        <div className="relative">
+          <Input
+            id="commission_pct"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            max={100}
+            step={0.1}
+            placeholder="Ex: 8"
+            className="pr-8"
+            {...register("commission_pct")}
+          />
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+            %
+          </span>
+        </div>
+        {errors.commission_pct && (
+          <p className="text-sm text-destructive">{errors.commission_pct.message}</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
         <Label>Status</Label>
         <Select value={watch("status")} onValueChange={(v) => setValue("status", v as DriverStatus)}>
           <SelectTrigger>
@@ -190,5 +288,6 @@ export function DriverForm({ driverId }: { driverId?: string }) {
         </Button>
       </div>
     </form>
+    </>
   )
 }

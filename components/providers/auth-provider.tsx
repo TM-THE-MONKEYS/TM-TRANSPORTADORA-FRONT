@@ -8,6 +8,8 @@ import {
   useMemo,
   useState,
 } from "react"
+import { normalizeAuthUser } from "@/lib/api/adapters/auth"
+import { syncServerSession } from "@/lib/auth/sync-server-session"
 import { getMe, login as apiLogin, logout as apiLogout, registerTenant, type LoginInput, type RegisterTenantInput } from "@/lib/api/services/auth"
 import { shouldUseMocks } from "@/lib/api/config"
 import {
@@ -48,13 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const me = await getMe(token)
       setUser(me)
       try {
-        await fetch("/api/auth/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ access_token: token }),
-        })
+        await syncServerSession(token)
       } catch {
-        /* proxy gate; ignore */
+        /* proxy gate; ignore on hydrate */
       }
     } catch {
       clearStoredSession()
@@ -70,15 +68,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (input: LoginInput) => {
     const { tokens, user: u } = await apiLogin(input)
-    setStoredSession(tokens.access_token, tokens.refresh_token, u.tenant_id, u.branch_id)
-    setUser(u)
-    return u
+    const user = normalizeAuthUser(u)
+    setStoredSession(tokens.access_token, tokens.refresh_token, user.tenant_id, user.branch_id)
+    setUser(user)
+    return user
   }, [])
 
   const register = useCallback(async (input: RegisterTenantInput) => {
     const { tokens, user: u } = await registerTenant(input)
-    setStoredSession(tokens.access_token, tokens.refresh_token, u.tenant_id, u.branch_id)
-    setUser(u)
+    const user = normalizeAuthUser(u)
+    setStoredSession(tokens.access_token, tokens.refresh_token, user.tenant_id, user.branch_id)
+    setUser(user)
   }, [])
 
   const logout = useCallback(async () => {

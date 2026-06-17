@@ -35,7 +35,11 @@ export function FreightExpensesList({
         >
           <div>
             <p className="font-medium capitalize">
-              {c.tipo === "combustivel" ? "Abastecimento" : c.tipo}
+              {c.tipo === "combustivel" || c.tipo === "COMBUSTIVEL"
+                ? "Abastecimento"
+                : c.tipo === "PEDAGIO" || c.tipo === "pedagio"
+                  ? "Pedágio"
+                  : c.tipo}
             </p>
             {c.descricao && <p className="text-muted-foreground">{c.descricao}</p>}
             {c.litros != null && (

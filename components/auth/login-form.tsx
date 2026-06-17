@@ -13,6 +13,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/providers/auth-provider"
 import { siteConfig } from "@/lib/site-config"
+import { syncServerSession } from "@/lib/auth/sync-server-session"
+import { getStoredAccessToken } from "@/lib/api/storage"
 import { getSafeRedirectPath } from "@/lib/security/safe-redirect"
 import { getDefaultHomeRoute } from "@/lib/rbac/permissions"
 
@@ -38,14 +40,9 @@ export function LoginForm() {
     setLoading(true)
     try {
       const loggedInUser = await login(data)
-      const token = sessionStorage.getItem("tmt_access_token")
-      if (token) {
-        await fetch("/api/auth/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ access_token: token }),
-        })
-      }
+      const token = getStoredAccessToken()
+      if (!token) throw new Error("Sessão não foi gravada no navegador")
+      await syncServerSession(token)
       toast.success("Login realizado")
       router.push(
         getSafeRedirectPath(

@@ -10,8 +10,8 @@ import {
   Fuel,
   Wrench,
   DollarSign,
-  MapPin,
   BarChart3,
+  Database,
   PanelLeftClose,
   type LucideIcon,
 } from "lucide-react"
@@ -29,7 +29,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   "/dashboard/financeiro": DollarSign,
   "/dashboard/abastecimento": Fuel,
   "/dashboard/manutencao": Wrench,
-  "/dashboard/rastreamento": MapPin,
+  "/dashboard/dados": Database,
   "/dashboard/relatorios": BarChart3,
 }
 

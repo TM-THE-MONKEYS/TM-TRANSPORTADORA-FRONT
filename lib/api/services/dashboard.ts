@@ -10,6 +10,7 @@ export async function getDashboardKpis(filters?: DashboardFilters): Promise<Dash
   if (filters?.period_to) qs.set("period_to", filters.period_to)
   if (filters?.branch_id) qs.set("branch_id", filters.branch_id)
   if (filters?.customer_id) qs.set("client_id", filters.customer_id)
+  if (filters?.truck_id) qs.set("truck_id", filters.truck_id)
   const q = qs.toString()
   return apiRequest(`/dashboard/kpis${q ? `?${q}` : ""}`, { auth: true })
 }

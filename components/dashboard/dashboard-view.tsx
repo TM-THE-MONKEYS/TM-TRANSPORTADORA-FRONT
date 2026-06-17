@@ -4,12 +4,12 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import useSWR from "swr"
 import {
-  Bar,
-  BarChart,
+  Area,
+  AreaChart,
   CartesianGrid,
   Cell,
-  Line,
-  LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,13 +20,16 @@ import {
   ArrowRight,
   CircleDollarSign,
   Package,
+  SlidersHorizontal,
   TrendingDown,
   TrendingUp,
   Truck,
   Users,
   Wrench,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
@@ -35,9 +38,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { PageHeader } from "@/components/shared/page-header"
 import { DashboardKpiCard } from "@/components/dashboard/dashboard-kpi-card"
-import { DashboardQuickActions } from "@/components/dashboard/dashboard-quick-actions"
 import { DashboardRecentFreights } from "@/components/dashboard/dashboard-recent-freights"
 import { useTenant } from "@/components/providers/tenant-provider"
 import {
@@ -47,6 +50,7 @@ import {
 } from "@/lib/api/services/dashboard"
 import { getCashFlow } from "@/lib/api/services/finance"
 import { listCustomers } from "@/lib/api/services/freight"
+import { listTrucks } from "@/lib/api/services/fleet"
 import { formatBRL } from "@/lib/format/currency"
 import { FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
 import { usePermission } from "@/hooks/use-permission"
@@ -54,13 +58,13 @@ import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
 import type { DashboardFilters, FreightStatus } from "@/types"
 
-const STATUS_CHART_COLORS: Record<string, string> = {
-  orcamento: "var(--color-chart-5)",
-  confirmado: "var(--color-chart-1)",
-  em_coleta: "var(--color-chart-3)",
-  em_transporte: "var(--color-chart-2)",
-  entregue: "oklch(0.65 0.15 145)",
-  cancelado: "var(--color-destructive)",
+const STATUS_COLORS: Record<string, string> = {
+  orcamento:      "var(--color-chart-5)",
+  confirmado:     "var(--color-chart-1)",
+  em_coleta:      "var(--color-chart-3)",
+  em_transporte:  "var(--color-chart-2)",
+  entregue:       "oklch(0.65 0.15 145)",
+  cancelado:      "var(--color-destructive)",
 }
 
 function formatChartDate(iso: string) {
@@ -75,6 +79,13 @@ export function DashboardView() {
   const canFinance = usePermission(PERMISSIONS.financeRead)
   const canFreightWrite = usePermission(PERMISSIONS.freightWrite)
 
+  const hasActiveFilters =
+    Boolean(filters.branch_id) || Boolean(filters.customer_id) || Boolean(filters.truck_id)
+
+  function clearFilters() {
+    setFilters({})
+  }
+
   const swrKey = ["dashboard-kpis", branchId, filters] as const
 
   const { data: kpis, isLoading: loadingKpis } = useSWR(swrKey, () =>
@@ -83,6 +94,7 @@ export function DashboardView() {
   const { data: byStatus } = useSWR("freights-by-status", getFreightsByStatus)
   const { data: revenue } = useSWR(canFinance ? "revenue-series" : null, () => getRevenueSeries(30))
   const { data: customers } = useSWR("customers", listCustomers)
+  const { data: trucksPage } = useSWR("trucks-filter", () => listTrucks(1, 200))
   const { data: cashFlow, isLoading: loadingCashFlow } = useSWR(
     canFinance ? "dashboard-cash-flow" : null,
     () => getCashFlow(),
@@ -111,11 +123,11 @@ export function DashboardView() {
     [byStatus],
   )
 
-  const margin =
-    (kpis?.monthly_revenue_brl ?? 0) - (kpis?.operational_costs_brl ?? 0)
+  const margin = (kpis?.monthly_revenue_brl ?? 0) - (kpis?.operational_costs_brl ?? 0)
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* Header */}
       <PageHeader
         title="Dashboard operacional"
         description="Visão da operação, finanças e pendências em um só lugar"
@@ -139,33 +151,41 @@ export function DashboardView() {
       />
 
       {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-muted/30 px-4 py-3">
-        <span className="text-sm font-medium text-muted-foreground">Filtros</span>
-        <Select
-          value={filters.branch_id ?? branchId ?? "all"}
-          onValueChange={(v) =>
-            setFilters((f) => ({ ...f, branch_id: v === "all" ? undefined : v }))
-          }
-        >
-          <SelectTrigger className="w-[160px] bg-background">
-            <SelectValue placeholder="Filial" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas filiais</SelectItem>
-            {branches.map((b) => (
-              <SelectItem key={b.id} value={b.id}>
-                {b.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-4 py-2.5 shadow-sm">
+        <SlidersHorizontal className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Filtros
+        </span>
+        <Separator orientation="vertical" className="h-5" />
+
+        {branches.length > 0 && (
+          <Select
+            value={filters.branch_id ?? branchId ?? "all"}
+            onValueChange={(v) =>
+              setFilters((f) => ({ ...f, branch_id: v === "all" ? undefined : v }))
+            }
+          >
+            <SelectTrigger className="h-8 w-[150px] bg-background text-xs">
+              <SelectValue placeholder="Filial" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas filiais</SelectItem>
+              {branches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         <Select
           value={filters.customer_id ?? "all"}
           onValueChange={(v) =>
             setFilters((f) => ({ ...f, customer_id: v === "all" ? undefined : v }))
           }
         >
-          <SelectTrigger className="w-[200px] bg-background">
+          <SelectTrigger className="h-8 w-[180px] bg-background text-xs">
             <SelectValue placeholder="Cliente" />
           </SelectTrigger>
           <SelectContent>
@@ -177,15 +197,42 @@ export function DashboardView() {
             ))}
           </SelectContent>
         </Select>
+
+        <Select
+          value={filters.truck_id ?? "all"}
+          onValueChange={(v) =>
+            setFilters((f) => ({ ...f, truck_id: v === "all" ? undefined : v }))
+          }
+        >
+          <SelectTrigger className="h-8 w-[165px] bg-background text-xs">
+            <SelectValue placeholder="Caminhão" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos caminhões</SelectItem>
+            {(trucksPage?.items ?? []).map((t) => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.plate} — {t.model}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={clearFilters}
+          >
+            <X className="h-3 w-3" />
+            Limpar
+          </Button>
+        )}
       </div>
 
-      <DashboardQuickActions />
-
-      {/* KPIs principais */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Resumo do dia
-        </h2>
+      {/* KPIs operacionais */}
+      <section>
+        <SectionLabel>Operacional</SectionLabel>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <DashboardKpiCard
             label="Fretes em andamento"
@@ -205,6 +252,7 @@ export function DashboardView() {
           <DashboardKpiCard
             label="Motoristas disponíveis"
             value={String(kpis?.available_drivers ?? 0)}
+            hint="Status ativo e sem frete"
             icon={Users}
             loading={loadingKpis}
           />
@@ -219,12 +267,10 @@ export function DashboardView() {
         </div>
       </section>
 
-      {/* Financeiro */}
+      {/* KPIs financeiros */}
       {canFinance && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Indicadores financeiros
-          </h2>
+        <section>
+          <SectionLabel>Financeiro</SectionLabel>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <DashboardKpiCard
               label="Receita (período)"
@@ -260,225 +306,350 @@ export function DashboardView() {
         </section>
       )}
 
-      {/* Gráficos + status breakdown */}
-      <section className="grid gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle className="text-base">Distribuição de fretes</CardTitle>
-            <CardDescription>
-              {totalFreights > 0
-                ? `${totalFreights} fretes no total`
-                : "Sem fretes cadastrados"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[260px]">
-              {statusChartData.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  Sem dados para exibir
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statusChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fontSize: 11 }}
-                      interval={0}
-                      angle={-20}
-                      textAnchor="end"
-                      height={56}
-                    />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <Tooltip
-                      formatter={(value: number) => [`${value} frete(s)`, "Quantidade"]}
-                      labelFormatter={(label) => String(label)}
-                    />
-                    <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={48}>
-                      {statusChartData.map((entry) => (
-                        <Cell
-                          key={entry.status}
-                          fill={STATUS_CHART_COLORS[entry.status] ?? "var(--color-chart-1)"}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Gráficos — layout em 3 colunas */}
+      <section className="grid gap-6 lg:grid-cols-3">
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Por status</CardTitle>
-            <CardDescription>Participação na base</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {statusChartData.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum frete</p>
-            ) : (
-              statusChartData.map((row) => {
-                const pct = totalFreights > 0 ? Math.round((row.count / totalFreights) * 100) : 0
-                return (
-                  <div key={row.status} className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span>{row.label}</span>
-                      <span className="font-medium tabular-nums">
-                        {row.count}{" "}
-                        <span className="text-muted-foreground">({pct}%)</span>
-                      </span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${pct}%`,
-                          backgroundColor:
-                            STATUS_CHART_COLORS[row.status] ?? "var(--color-chart-1)",
-                        }}
-                      />
-                    </div>
+        {/* Coluna principal: revenue area chart */}
+        <div className="flex flex-col gap-6 lg:col-span-2">
+          {canFinance ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Receita — últimos 30 dias</CardTitle>
+                    <CardDescription>Receitas pagas registradas no financeiro</CardDescription>
                   </div>
-                )
-              })
-            )}
-          </CardContent>
-        </Card>
-      </section>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/dashboard/financeiro">
+                      Ver financeiro
+                      <ArrowRight className="ml-1 h-3 w-3" />
+                    </Link>
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[260px]">
+                  {revenueChartData.length === 0 ? (
+                    <EmptyChart label="Sem receitas no período" />
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart
+                        data={revenueChartData}
+                        margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                      >
+                        <defs>
+                          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="var(--color-chart-2)" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="var(--color-chart-2)" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fontSize: 10 }}
+                          interval="preserveStartEnd"
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10 }}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(v) =>
+                            v >= 1000 ? `R$${(v / 1000).toFixed(0)}k` : `R$${v}`
+                          }
+                        />
+                        <Tooltip
+                          formatter={(v: number) => [formatBRL(v), "Receita"]}
+                          labelFormatter={(label) => String(label)}
+                          contentStyle={{
+                            fontSize: 12,
+                            borderRadius: 8,
+                            border: "1px solid var(--border)",
+                            boxShadow: "0 4px 12px rgba(0,0,0,.08)",
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke="var(--color-chart-2)"
+                          strokeWidth={2}
+                          fill="url(#revenueGradient)"
+                          dot={false}
+                          activeDot={{ r: 5, strokeWidth: 0 }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            /* Usuário sem acesso financeiro: mostra status de fretes como gráfico principal */
+            <FreightStatusChartCard data={statusChartData} total={totalFreights} />
+          )}
 
-      {/* Receita + fluxo */}
-      {canFinance && (
-      <section className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Receita — últimos 30 dias</CardTitle>
-            <CardDescription>Receitas pagas registradas no financeiro</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[280px]">
-            {revenueChartData.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                Sem receitas no período
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={revenueChartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                  <YAxis
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(v) =>
-                      v >= 1000 ? `R$ ${(v / 1000).toFixed(0)}k` : `R$ ${v}`
-                    }
-                  />
-                  <Tooltip
-                    formatter={(v: number) => [formatBRL(v), "Receita"]}
-                    labelFormatter={(label) => String(label)}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="var(--color-chart-2)"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+          {/* Fretes recentes inline */}
+          <DashboardRecentFreights />
+        </div>
 
+        {/* Coluna lateral: status + caixa */}
+        <div className="flex flex-col gap-6">
+          {/* Status breakdown */}
           <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
-              <div>
-                <CardTitle className="text-base">Fluxo de caixa</CardTitle>
-                <CardDescription>Consolidado do financeiro</CardDescription>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Fretes por status</CardTitle>
+                  <CardDescription>
+                    {totalFreights > 0 ? `${totalFreights} total` : "Sem fretes"}
+                  </CardDescription>
+                </div>
+                {totalFreights > 0 && (
+                  <Badge variant="secondary" className="tabular-nums">
+                    {totalFreights}
+                  </Badge>
+                )}
               </div>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/dashboard/financeiro">Abrir</Link>
-              </Button>
             </CardHeader>
             <CardContent>
-              {loadingCashFlow ? (
-                <div className="grid grid-cols-2 gap-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
-                  ))}
-                </div>
+              {statusChartData.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum frete cadastrado</p>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  <CashFlowTile
-                    label="Receitas"
-                    value={formatBRL(cashFlow?.total_receitas ?? 0)}
-                    variant="positive"
-                  />
-                  <CashFlowTile
-                    label="Despesas"
-                    value={formatBRL(cashFlow?.total_despesas ?? 0)}
-                    variant="negative"
-                  />
-                  <CashFlowTile
-                    label="Saldo"
-                    value={formatBRL(cashFlow?.saldo ?? 0)}
-                    variant={(cashFlow?.saldo ?? 0) >= 0 ? "positive" : "negative"}
-                    className="col-span-2"
-                  />
-                  <CashFlowTile
-                    label="A receber"
-                    value={formatBRL(cashFlow?.receitas_pendentes ?? 0)}
-                    sub
-                  />
-                  <CashFlowTile
-                    label="A pagar"
-                    value={formatBRL(cashFlow?.despesas_pendentes ?? 0)}
-                    sub
-                  />
+                <div className="space-y-3">
+                  {/* Mini donut */}
+                  <div className="mx-auto h-[140px] w-full max-w-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={statusChartData}
+                          dataKey="count"
+                          nameKey="label"
+                          innerRadius="58%"
+                          outerRadius="80%"
+                          paddingAngle={2}
+                        >
+                          {statusChartData.map((entry) => (
+                            <Cell
+                              key={entry.status}
+                              fill={STATUS_COLORS[entry.status] ?? "var(--color-chart-1)"}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(v: number, name: string) => [`${v} frete(s)`, name]}
+                          contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Progress bars */}
+                  <div className="space-y-2.5">
+                    {statusChartData.map((row) => {
+                      const pct = totalFreights > 0
+                        ? Math.round((row.count / totalFreights) * 100)
+                        : 0
+                      return (
+                        <div key={row.status}>
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="inline-block h-2 w-2 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    STATUS_COLORS[row.status] ?? "var(--color-chart-1)",
+                                }}
+                              />
+                              <span className="text-xs">{row.label}</span>
+                            </div>
+                            <span className="shrink-0 text-xs font-semibold tabular-nums text-muted-foreground">
+                              {row.count} ({pct}%)
+                            </span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${pct}%`,
+                                backgroundColor:
+                                  STATUS_COLORS[row.status] ?? "var(--color-chart-1)",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
-      </section>
-      )}
 
-      <DashboardRecentFreights />
+          {/* Fluxo de caixa */}
+          {canFinance && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Fluxo de caixa</CardTitle>
+                    <CardDescription>Consolidado do financeiro</CardDescription>
+                  </div>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/dashboard/financeiro">Abrir</Link>
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingCashFlow ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <CashFlowRow
+                      label="Receitas"
+                      value={formatBRL(cashFlow?.total_receitas ?? 0)}
+                      variant="positive"
+                    />
+                    <CashFlowRow
+                      label="Despesas"
+                      value={formatBRL(cashFlow?.total_despesas ?? 0)}
+                      variant="negative"
+                    />
+                    <Separator />
+                    <CashFlowRow
+                      label="Saldo"
+                      value={formatBRL(cashFlow?.saldo ?? 0)}
+                      variant={(cashFlow?.saldo ?? 0) >= 0 ? "positive" : "negative"}
+                      bold
+                    />
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="rounded-lg bg-muted/40 px-3 py-2 text-center">
+                        <p className="text-xs text-muted-foreground">A receber</p>
+                        <p className="text-sm font-semibold tabular-nums text-green-700 dark:text-green-400">
+                          {formatBRL(cashFlow?.receitas_pendentes ?? 0)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-muted/40 px-3 py-2 text-center">
+                        <p className="text-xs text-muted-foreground">A pagar</p>
+                        <p className="text-sm font-semibold tabular-nums text-destructive">
+                          {formatBRL(cashFlow?.despesas_pendentes ?? 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Se não tem finance, mostra status chart aqui */}
+          {canFinance && (
+            <FreightStatusChartCard data={statusChartData} total={totalFreights} compact />
+          )}
+        </div>
+      </section>
     </div>
   )
 }
 
-function CashFlowTile({
+/* ── Sub-components ─────────────────────────────────────────────────────── */
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+      {children}
+    </p>
+  )
+}
+
+function EmptyChart({ label }: { label: string }) {
+  return (
+    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      {label}
+    </div>
+  )
+}
+
+function FreightStatusChartCard({
+  data,
+  total,
+  compact,
+}: {
+  data: { status: string; label: string; count: number }[]
+  total: number
+  compact?: boolean
+}) {
+  if (compact) return null
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Distribuição de fretes</CardTitle>
+        <CardDescription>
+          {total > 0 ? `${total} fretes no total` : "Sem fretes cadastrados"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[240px]">
+          {data.length === 0 ? (
+            <EmptyChart label="Sem dados para exibir" />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                <Tooltip
+                  formatter={(v: number) => [`${v} frete(s)`, "Quantidade"]}
+                  labelFormatter={(l) => String(l)}
+                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="var(--color-chart-1)"
+                  fill="var(--color-chart-1)"
+                  fillOpacity={0.15}
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function CashFlowRow({
   label,
   value,
   variant = "default",
-  sub,
-  className,
+  bold,
 }: {
   label: string
   value: string
   variant?: "default" | "positive" | "negative"
-  sub?: boolean
-  className?: string
+  bold?: boolean
 }) {
   return (
-    <div
-      className={cn(
-        "rounded-lg border p-3",
-        sub && "bg-muted/30",
-        variant === "positive" && !sub && "border-green-500/20 bg-green-500/5",
-        variant === "negative" && !sub && "border-destructive/20 bg-destructive/5",
-        className,
-      )}
-    >
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p
+    <div className="flex items-center justify-between gap-2 py-0.5">
+      <span className={cn("text-sm text-muted-foreground", bold && "font-medium text-foreground")}>
+        {label}
+      </span>
+      <span
         className={cn(
-          "mt-1 text-lg font-bold tabular-nums",
+          "tabular-nums",
+          bold ? "text-base font-bold" : "text-sm font-medium",
           variant === "positive" && "text-green-700 dark:text-green-400",
           variant === "negative" && "text-destructive",
         )}
       >
         {value}
-      </p>
+      </span>
     </div>
   )
 }

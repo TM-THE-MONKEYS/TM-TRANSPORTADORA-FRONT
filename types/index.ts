@@ -137,6 +137,8 @@ export interface Driver {
   photo_url?: string | null
   commission_pct?: number
   created_at: string
+  /** Returned once on creation when password is auto-generated. Never stored. */
+  temporary_password?: string | null
 }
 
 // ── Freights ─────────────────────────────────────────────────────────────────
@@ -227,6 +229,23 @@ export interface CashFlowSummary {
   despesas_pagas: number
 }
 
+// ── Fixed Expenses ────────────────────────────────────────────────────────────
+
+export type FixedExpenseFrequency = "mensal" | "trimestral" | "semestral" | "anual"
+
+export interface FixedExpense {
+  id: string
+  nome: string
+  categoria: string
+  valor: number
+  frequencia: FixedExpenseFrequency
+  dia_vencimento?: number
+  ativo: boolean
+  observacao?: string
+  created_at: string
+  updated_at: string
+}
+
 // ── Maintenance ───────────────────────────────────────────────────────────────
 
 export type MaintenanceType = "preventiva" | "corretiva"
@@ -293,4 +312,5 @@ export interface DashboardFilters {
   period_to?: string
   branch_id?: string
   customer_id?: string
+  truck_id?: string
 }

@@ -79,8 +79,8 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   "/dashboard/financeiro": PERMISSIONS.financeRead,
   "/dashboard/abastecimento": PERMISSIONS.freightRead,
   "/dashboard/manutencao": PERMISSIONS.fleetRead,
-  "/dashboard/rastreamento": PERMISSIONS.freightRead,
   "/dashboard/relatorios": PERMISSIONS.financeRead,
+  "/dashboard/dados": PERMISSIONS.tenantAdmin,
 }
 
 const ROUTE_PERMISSION_ENTRIES = Object.entries(ROUTE_PERMISSIONS).sort(
@@ -139,8 +139,8 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: "/dashboard/financeiro", label: "Financeiro", permission: PERMISSIONS.financeRead },
   { href: "/dashboard/abastecimento", label: "Abastecimento", permission: PERMISSIONS.freightRead },
   { href: "/dashboard/manutencao", label: "Manutenção", permission: PERMISSIONS.fleetRead },
-  { href: "/dashboard/rastreamento", label: "Rastreamento", permission: PERMISSIONS.freightRead },
   { href: "/dashboard/relatorios", label: "Relatórios", permission: PERMISSIONS.financeRead },
+  { href: "/dashboard/dados", label: "Dados", permission: PERMISSIONS.tenantAdmin },
 ]
 
 export function getAllowedNavRoutes(

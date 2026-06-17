@@ -3,7 +3,7 @@
 import useSWR, { mutate } from "swr"
 import { toast } from "sonner"
 import Link from "next/link"
-import { ArrowRight, Upload } from "lucide-react"
+import { ArrowRight, MapPin, Upload } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +30,8 @@ import {
   getFreightOccurrences,
   updateFreight,
 } from "@/lib/api/services/freight"
+import { getTrackingTimeline } from "@/lib/api/services/tracking"
+import { trackingUpdatesWithoutOccurrences } from "@/lib/freight/occurrences"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateTimeBR } from "@/lib/format/dates"
 import { FREIGHT_STATUS_FLOW } from "@/lib/freight/status"
@@ -37,8 +39,27 @@ import { isFreightInTransit } from "@/lib/freight/active-trip"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { useOperationContext } from "@/hooks/use-operation-context"
+import { cn } from "@/lib/utils"
 
 const NONE = "__none__"
+
+const TRACKING_STATUS_LABELS: Record<string, string> = {
+  coletado:          "Coletado",
+  em_transito:       "Em trânsito",
+  saiu_para_entrega: "Saiu p/ entrega",
+  tentativa_entrega: "Tentativa de entrega",
+  entregue:          "Entregue",
+  devolvido:         "Devolvido",
+}
+
+const TRACKING_STATUS_STYLES: Record<string, string> = {
+  coletado:          "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  em_transito:       "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+  saiu_para_entrega: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+  tentativa_entrega: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
+  entregue:          "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  devolvido:         "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+}
 
 export function FreightDetailView({ id }: { id: string }) {
   const canStatus = usePermission(PERMISSIONS.freightStatus)
@@ -51,6 +72,10 @@ export function FreightDetailView({ id }: { id: string }) {
   const { data: occurrences, mutate: mutateOcc } = useSWR(["freight-occ", id], () =>
     getFreightOccurrences(id),
   )
+  const { data: trackingTimeline } = useSWR(["tracking-timeline", id], () =>
+    getTrackingTimeline(id),
+  )
+  const trackingUpdates = trackingUpdatesWithoutOccurrences(trackingTimeline?.updates ?? [])
   const [occType, setOccType] = useState("atraso")
   const [occDesc, setOccDesc] = useState("")
   const [savingAssign, setSavingAssign] = useState(false)
@@ -217,6 +242,7 @@ export function FreightDetailView({ id }: { id: string }) {
           <TabsTrigger value="ocorrencias">Ocorrências</TabsTrigger>
           <TabsTrigger value="comprovantes">Comprovantes</TabsTrigger>
           <TabsTrigger value="custos">Custos / Abastecimento</TabsTrigger>
+          <TabsTrigger value="rastreamento">Rastreamento</TabsTrigger>
           <TabsTrigger value="checklist">Checklist</TabsTrigger>
         </TabsList>
         <TabsContent value="timeline" className="mt-4">
@@ -225,18 +251,19 @@ export function FreightDetailView({ id }: { id: string }) {
               <CardTitle>Histórico do frete</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {(events ?? []).map((e) => (
-                <div key={e.id} className="border-l-2 border-primary pl-4">
-                  <p className="font-medium">{e.title}</p>
-                  {e.description && (
-                    <p className="text-sm text-muted-foreground">{e.description}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">{formatDateTimeBR(e.created_at)}</p>
-                </div>
-              ))}
-              <Link href={`/dashboard/rastreamento?freight=${id}`} className="text-sm text-primary hover:underline">
-                Ver no rastreamento →
-              </Link>
+              {(events ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum evento registrado.</p>
+              ) : (
+                (events ?? []).map((e) => (
+                  <div key={e.id} className="border-l-2 border-primary pl-4">
+                    <p className="font-medium">{e.title}</p>
+                    {e.description && (
+                      <p className="text-sm text-muted-foreground">{e.description}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">{formatDateTimeBR(e.created_at)}</p>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -258,7 +285,7 @@ export function FreightDetailView({ id }: { id: string }) {
               <Textarea value={occDesc} onChange={(e) => setOccDesc(e.target.value)} placeholder="Descrição" />
               <Button onClick={handleOccurrence}>Registrar ocorrência</Button>
               <p className="text-xs text-muted-foreground">
-                Vinculada ao frete {freight.code} (freight_id). Aparece aqui e em Rastreamento.
+                Vinculada ao frete {freight.code}. Aparece aqui e na aba Rastreamento.
               </p>
             </CardContent>
           </Card>
@@ -298,6 +325,50 @@ export function FreightDetailView({ id }: { id: string }) {
               >
                 Registrar abastecimento →
               </Link>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="rastreamento" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-primary" />
+                Atualizações de rastreamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {trackingUpdates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma atualização de rastreamento registrada para este frete.
+                </p>
+              ) : (
+                <ol className="relative space-y-4 border-l-2 border-primary/30 pl-6">
+                  {[...trackingUpdates].reverse().map((upd) => (
+                    <li key={upd.id} className="relative">
+                      <span className="absolute -left-[1.625rem] top-1 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={cn(
+                          "inline-block rounded-full px-2.5 py-0.5 text-xs font-medium",
+                          TRACKING_STATUS_STYLES[upd.status] ?? "bg-muted text-muted-foreground",
+                        )}>
+                          {TRACKING_STATUS_LABELS[upd.status] ?? upd.status}
+                        </span>
+                        <time className="text-xs text-muted-foreground">
+                          {formatDateTimeBR(upd.evento_at)}
+                        </time>
+                      </div>
+                      {upd.observacao && (
+                        <p className="mt-1 text-sm text-muted-foreground">{upd.observacao}</p>
+                      )}
+                      {(upd.latitude != null && upd.longitude != null) && (
+                        <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                          {upd.latitude.toFixed(5)}, {upd.longitude.toFixed(5)}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

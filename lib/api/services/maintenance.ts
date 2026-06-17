@@ -1,5 +1,13 @@
+import {
+  mapMaintenanceFromApi,
+  mapMaintenancePageFromApi,
+  toMaintenanceCreatePayload,
+  toMaintenanceUpdatePayload,
+} from "@/lib/api/adapters/maintenance"
 import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
+import { revalidateMaintenanceCaches } from "@/lib/maintenance/cache"
+import { syncTruckForMaintenanceStatus } from "@/lib/maintenance/sync-truck-status"
 import type { Maintenance, MaintenanceStatus, MaintenanceType, Paginated } from "@/types"
 
 // ── Mock data ────────────────────────────────────────────────────────────────
@@ -37,6 +45,19 @@ const mockMaintenances: Maintenance[] = [
   },
 ]
 
+async function afterMaintenanceMutation(
+  maintenance: Maintenance,
+  previousStatus?: MaintenanceStatus,
+): Promise<Maintenance> {
+  await syncTruckForMaintenanceStatus(
+    maintenance.truck_id,
+    maintenance.status,
+    previousStatus,
+  )
+  revalidateMaintenanceCaches()
+  return maintenance
+}
+
 // ── Service functions ─────────────────────────────────────────────────────────
 
 export async function listMaintenances(
@@ -60,51 +81,132 @@ export async function listMaintenances(
       pages: Math.max(1, Math.ceil(items.length / pageSize)),
     }
   }
+
   const qs = new URLSearchParams({ page: String(page), size: String(pageSize) })
   if (truckId) qs.set("truck_id", truckId)
   if (status) qs.set("status", status)
   if (tipo) qs.set("tipo", tipo)
-  return apiRequest(`/maintenance?${qs}`, { auth: true })
+
+  const res = await apiRequest<Paginated<Record<string, unknown>>>(`/maintenance?${qs}`, {
+    auth: true,
+  })
+  return {
+    ...res,
+    items: mapMaintenancePageFromApi(res),
+    page_size: res.page_size ?? pageSize,
+  }
 }
 
 export async function getMaintenanceAlerts(daysAhead = 30): Promise<Maintenance[]> {
   if (shouldUseMocks()) {
     return mockMaintenances.filter((m) => m.status === "agendada")
   }
-  return apiRequest(`/maintenance/alerts?days_ahead=${daysAhead}`, { auth: true })
+
+  const raw = await apiRequest<Record<string, unknown>[]>(
+    `/maintenance/alerts?days_ahead=${daysAhead}`,
+    { auth: true },
+  )
+  if (!Array.isArray(raw)) return []
+  return raw.map((item) => mapMaintenanceFromApi(item))
 }
 
 export async function getMaintenance(id: string): Promise<Maintenance> {
   if (shouldUseMocks()) {
-    const m = mockMaintenances.find((m) => m.id === id)
+    const m = mockMaintenances.find((item) => item.id === id)
     if (!m) throw new Error("Manutenção não encontrada")
     return m
   }
-  return apiRequest(`/maintenance/${id}`, { auth: true })
+
+  const raw = await apiRequest<Record<string, unknown>>(`/maintenance/${id}`, { auth: true })
+  return mapMaintenanceFromApi(raw)
 }
 
 export async function createMaintenance(
   data: Omit<Maintenance, "id" | "created_at" | "updated_at">,
 ): Promise<Maintenance> {
+  const status = data.status ?? "agendada"
+
   if (shouldUseMocks()) {
-    const m: Maintenance = {
+    const created: Maintenance = {
       ...data,
+      status,
       id: `maint-${Date.now()}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
-    mockMaintenances.unshift(m)
-    return m
+    mockMaintenances.unshift(created)
+    return afterMaintenanceMutation(created)
   }
-  return apiRequest("/maintenance", { method: "POST", body: data, auth: true })
+
+  const raw = await apiRequest<Record<string, unknown>>("/maintenance", {
+    method: "POST",
+    body: toMaintenanceCreatePayload({ ...data, status }),
+    auth: true,
+  })
+  const created = mapMaintenanceFromApi(raw)
+  return afterMaintenanceMutation(created)
 }
 
-export async function updateMaintenance(id: string, data: Partial<Maintenance>): Promise<Maintenance> {
+export async function updateMaintenance(
+  id: string,
+  data: Partial<Maintenance>,
+): Promise<Maintenance> {
   if (shouldUseMocks()) {
     const idx = mockMaintenances.findIndex((m) => m.id === id)
     if (idx < 0) throw new Error("Manutenção não encontrada")
-    mockMaintenances[idx] = { ...mockMaintenances[idx], ...data, updated_at: new Date().toISOString() }
-    return mockMaintenances[idx]
+    const previousStatus = mockMaintenances[idx].status
+    mockMaintenances[idx] = {
+      ...mockMaintenances[idx],
+      ...data,
+      updated_at: new Date().toISOString(),
+    }
+    return afterMaintenanceMutation(mockMaintenances[idx], previousStatus)
   }
-  return apiRequest(`/maintenance/${id}`, { method: "PATCH", body: data, auth: true })
+
+  const existing = await getMaintenance(id)
+  const raw = await apiRequest<Record<string, unknown>>(`/maintenance/${id}`, {
+    method: "PATCH",
+    body: toMaintenanceUpdatePayload(data),
+    auth: true,
+  })
+  const updated = mapMaintenanceFromApi(raw)
+  return afterMaintenanceMutation(updated, existing.status)
+}
+
+export async function advanceMaintenanceStatus(
+  id: string,
+  nextStatus: MaintenanceStatus,
+): Promise<Maintenance> {
+  const patch: Partial<Maintenance> = { status: nextStatus }
+  const today = new Date().toISOString().slice(0, 10)
+
+  if (nextStatus === "em_andamento") {
+    patch.data_inicio = today
+  }
+  if (nextStatus === "concluida") {
+    patch.data_conclusao = today
+  }
+
+  return updateMaintenance(id, patch)
+}
+
+export async function deleteMaintenance(id: string): Promise<void> {
+  if (shouldUseMocks()) {
+    const idx = mockMaintenances.findIndex((m) => m.id === id)
+    if (idx < 0) throw new Error("Manutenção não encontrada")
+    const removed = mockMaintenances[idx]
+    mockMaintenances.splice(idx, 1)
+    if (removed.status === "em_andamento") {
+      await syncTruckForMaintenanceStatus(removed.truck_id, "concluida", "em_andamento")
+    }
+    revalidateMaintenanceCaches()
+    return
+  }
+
+  const existing = await getMaintenance(id)
+  await apiRequest(`/maintenance/${id}`, { method: "DELETE", auth: true })
+  if (existing.status === "em_andamento") {
+    await syncTruckForMaintenanceStatus(existing.truck_id, "concluida", "em_andamento")
+  }
+  revalidateMaintenanceCaches()
 }
