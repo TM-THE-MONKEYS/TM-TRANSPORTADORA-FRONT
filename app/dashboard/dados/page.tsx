@@ -1,5 +1,5 @@
-import { DadosView } from "@/components/dados/dados-view"
+import { redirect } from "next/navigation"
 
 export default function DadosPage() {
-  return <DadosView />
+  redirect("/dashboard")
 }

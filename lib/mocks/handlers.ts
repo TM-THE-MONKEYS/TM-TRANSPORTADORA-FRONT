@@ -75,7 +75,10 @@ export async function mockLogin(email: string, password: string): Promise<{
       refresh_token: `mock-refresh-${user.id}`,
       token_type: "bearer",
     },
-    user,
+    user: {
+      ...user,
+      must_change_password: record.must_change_password ?? false,
+    },
   }
 }
 
@@ -86,7 +89,10 @@ export async function mockMe(accessToken: string): Promise<AuthUser> {
   if (!user) throw new Error("Sessão inválida")
   const { password: _, ...rest } = user
   rest.permissions = permissionsForRole(rest.role)
-  return rest
+  return {
+    ...rest,
+    must_change_password: user.must_change_password ?? false,
+  }
 }
 
 export async function mockBranches() {
@@ -491,6 +497,7 @@ export async function mockCreateUser(input: CreateUserInput): Promise<UserRead> 
     driver_id: input.driver_id ?? null,
     permissions: [],
     password: input.password,
+    must_change_password: true,
   }
 
   return {
@@ -502,4 +509,43 @@ export async function mockCreateUser(input: CreateUserInput): Promise<UserRead> 
     created_at: now,
     updated_at: now,
   }
+}
+
+export async function mockForgotPassword(email: string): Promise<void> {
+  await delay(300)
+  const normalized = email.trim().toLowerCase()
+  if (!mockStore.users[normalized]) return
+  const token = generateId("reset")
+  mockStore.passwordResetTokens[token] = {
+    email: normalized,
+    expiresAt: Date.now() + 60 * 60 * 1000,
+  }
+}
+
+export async function mockResetPassword(token: string, newPassword: string): Promise<void> {
+  await delay(300)
+  const entry = mockStore.passwordResetTokens[token]
+  if (!entry || entry.expiresAt < Date.now()) {
+    throw new Error("Link inválido ou expirado")
+  }
+  const user = mockStore.users[entry.email]
+  if (!user) throw new Error("Usuário não encontrado")
+  user.password = newPassword
+  user.must_change_password = false
+  delete mockStore.passwordResetTokens[token]
+}
+
+export async function mockChangePassword(
+  currentPassword: string,
+  newPassword: string,
+  accessToken?: string,
+): Promise<void> {
+  await delay(300)
+  const token = accessToken ?? ""
+  const id = token.replace("mock-access-", "")
+  const user = Object.values(mockStore.users).find((u) => u.id === id)
+  if (!user) throw new Error("Sessão inválida")
+  if (user.password !== currentPassword) throw new Error("Senha atual incorreta")
+  user.password = newPassword
+  user.must_change_password = false
 }

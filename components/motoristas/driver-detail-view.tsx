@@ -89,6 +89,8 @@ export function DriverDetailView({ id }: { id: string }) {
               <p>Validade: {formatDateBR(driver.cnh_expires_at)}</p>
               <p>Comissão: {driver.commission_pct ?? 0}%</p>
               <p>Telefone: {driver.phone ?? "—"}</p>
+              <p>E-mail de login: {driver.email ?? "—"}</p>
+              <p>Conta de acesso: {driver.user_id ? "Ativa" : "Não criada"}</p>
             </CardContent>
           </Card>
         </TabsContent>

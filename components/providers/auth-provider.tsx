@@ -27,6 +27,7 @@ type AuthContextValue = {
   login: (input: LoginInput) => Promise<AuthUser>
   register: (input: RegisterTenantInput) => Promise<void>
   logout: () => void
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -81,6 +82,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(user)
   }, [])
 
+  const refreshUser = useCallback(async () => {
+    const token = getStoredAccessToken()
+    if (!token) return
+    const me = await getMe(token)
+    setUser(me)
+  }, [])
+
   const logout = useCallback(async () => {
     const refresh = getStoredRefreshToken()
     if (refresh && !shouldUseMocks()) {
@@ -107,8 +115,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       register,
       logout,
+      refreshUser,
     }),
-    [user, isReady, login, register, logout],
+    [user, isReady, login, register, logout, refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

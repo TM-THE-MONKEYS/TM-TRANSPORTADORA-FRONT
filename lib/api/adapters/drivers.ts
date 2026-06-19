@@ -15,6 +15,7 @@ export function toDriverCreatePayload(
     status: data.status as DriverStatus,
   }
   if (data.phone?.trim()) payload.phone = data.phone.trim()
+  if (data.email?.trim()) payload.email = data.email.trim().toLowerCase()
   if (data.commission_pct != null) payload.commission_pct = data.commission_pct
   return payload
 }

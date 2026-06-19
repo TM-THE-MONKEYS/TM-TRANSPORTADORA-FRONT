@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardRouteGuard } from "@/components/layout/dashboard-route-guard"
 import { DashboardShell } from "@/components/layout/dashboard-shell"
+import { MustChangePasswordGuard } from "@/components/auth/must-change-password-guard"
 import { useAuth } from "@/components/providers/auth-provider"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -35,8 +36,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <DashboardShell>
-      <DashboardRouteGuard>{children}</DashboardRouteGuard>
-    </DashboardShell>
+    <MustChangePasswordGuard>
+      <DashboardShell>
+        <DashboardRouteGuard>{children}</DashboardRouteGuard>
+      </DashboardShell>
+    </MustChangePasswordGuard>
   )
 }

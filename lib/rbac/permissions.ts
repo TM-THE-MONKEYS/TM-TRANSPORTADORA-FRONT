@@ -80,7 +80,6 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   "/dashboard/abastecimento": PERMISSIONS.freightRead,
   "/dashboard/manutencao": PERMISSIONS.fleetRead,
   "/dashboard/relatorios": PERMISSIONS.financeRead,
-  "/dashboard/dados": PERMISSIONS.tenantAdmin,
 }
 
 const ROUTE_PERMISSION_ENTRIES = Object.entries(ROUTE_PERMISSIONS).sort(
@@ -101,6 +100,8 @@ export function canAccessRoute(
   role: UserRole,
   userPermissions?: string[],
 ): boolean {
+  if (pathname.startsWith("/dashboard/conta")) return true
+
   if (isAdminRole(role)) return true
 
   const permission = permissionForPathname(pathname)
@@ -140,7 +141,6 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: "/dashboard/abastecimento", label: "Abastecimento", permission: PERMISSIONS.freightRead },
   { href: "/dashboard/manutencao", label: "Manutenção", permission: PERMISSIONS.fleetRead },
   { href: "/dashboard/relatorios", label: "Relatórios", permission: PERMISSIONS.financeRead },
-  { href: "/dashboard/dados", label: "Dados", permission: PERMISSIONS.tenantAdmin },
 ]
 
 export function getAllowedNavRoutes(

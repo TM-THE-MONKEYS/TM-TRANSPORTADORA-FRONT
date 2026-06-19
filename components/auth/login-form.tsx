@@ -44,6 +44,12 @@ export function LoginForm() {
       if (!token) throw new Error("Sessão não foi gravada no navegador")
       await syncServerSession(token)
       toast.success("Login realizado")
+
+      if (loggedInUser.must_change_password) {
+        router.push("/dashboard/conta/alterar-senha")
+        return
+      }
+
       router.push(
         getSafeRedirectPath(
           searchParams.get("from"),
@@ -62,7 +68,8 @@ export function LoginForm() {
       <CardHeader className="text-center sm:text-left">
         <CardTitle>Entrar</CardTitle>
         <CardDescription>
-          Acesse o painel {siteConfig.name}
+          Acesse o painel {siteConfig.name}. Motoristas: use o e-mail e a senha provisória
+          repassada pelo administrador.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -94,7 +101,10 @@ export function LoginForm() {
             {loading ? "Entrando..." : "Entrar"}
           </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        <p className="mt-4 text-center text-sm">
+          <Link href="/esqueci-senha" className="text-primary hover:underline">
+            Esqueci minha senha
+          </Link>
         </p>
       </CardContent>
     </Card>

@@ -2,6 +2,7 @@ import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
 import { ApiError } from "@/lib/api/errors"
 import { normalizeAuthUser } from "@/lib/api/adapters/auth"
+import { getStoredAccessToken } from "@/lib/api/storage"
 import * as mock from "@/lib/mocks/handlers"
 import type { AuthTokens, AuthUser } from "@/types"
 
@@ -94,4 +95,34 @@ export async function logout(refreshToken: string): Promise<void> {
 export async function logoutAll(): Promise<void> {
   if (shouldUseMocks()) return
   await apiRequest("/auth/logout-all", { method: "POST", auth: true })
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  if (shouldUseMocks()) return mock.mockForgotPassword(email)
+  await apiRequest("/auth/forgot-password", {
+    method: "POST",
+    body: { email: email.trim().toLowerCase() },
+  })
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  if (shouldUseMocks()) return mock.mockResetPassword(token, newPassword)
+  await apiRequest("/auth/reset-password", {
+    method: "POST",
+    body: { token, new_password: newPassword },
+  })
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  if (shouldUseMocks()) {
+    return mock.mockChangePassword(currentPassword, newPassword, getStoredAccessToken() ?? undefined)
+  }
+  await apiRequest("/auth/change-password", {
+    method: "POST",
+    body: { current_password: currentPassword, new_password: newPassword },
+    auth: true,
+  })
 }

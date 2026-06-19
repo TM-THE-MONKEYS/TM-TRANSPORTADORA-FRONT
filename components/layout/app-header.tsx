@@ -1,6 +1,7 @@
 "use client"
 
-import { Menu, Moon, Sun, LogOut, Building2 } from "lucide-react"
+import Link from "next/link"
+import { Menu, Moon, Sun, LogOut, Building2, KeyRound } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import {
@@ -59,6 +60,11 @@ export function AppHeader({
           </Select>
         </div>
         <span className="hidden text-sm text-muted-foreground md:inline">{user?.name}</span>
+        <Button variant="ghost" size="icon" asChild title="Alterar senha">
+          <Link href="/dashboard/conta/alterar-senha">
+            <KeyRound className="h-4 w-4" />
+          </Link>
+        </Button>
         <Button
           variant="ghost"
           size="icon"

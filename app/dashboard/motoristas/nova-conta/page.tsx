@@ -1,14 +1,6 @@
-import { DriverAccountForm } from "@/components/motoristas/driver-account-form"
-import { PageHeader } from "@/components/shared/page-header"
+import { redirect } from "next/navigation"
 
+/** Fluxo legado — conta agora é criada em /dashboard/motoristas/novo. */
 export default function NovaContaMotoristaPage() {
-  return (
-    <div>
-      <PageHeader
-        title="Criar conta de motorista"
-        description="Login de acesso vinculado a um motorista já cadastrado"
-      />
-      <DriverAccountForm />
-    </div>
-  )
+  redirect("/dashboard/motoristas/novo")
 }

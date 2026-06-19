@@ -35,5 +35,6 @@ export function normalizeAuthUser(user: AuthUser): AuthUser {
     role,
     permissions,
     driver_id: extended.driver_id ?? undefined,
+    must_change_password: user.must_change_password ?? false,
   }
 }

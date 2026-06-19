@@ -32,6 +32,7 @@ export const mockStore = {
   customers: [...DEMO_CUSTOMERS],
   kpis: { ...DEMO_KPIS },
   users: DEMO_USERS,
+  passwordResetTokens: {} as Record<string, { email: string; expiresAt: number }>,
 }
 
 export function generateId(prefix: string): string {

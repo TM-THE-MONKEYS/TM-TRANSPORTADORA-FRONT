@@ -44,6 +44,8 @@ export interface AuthUser {
   /** Quando o login é de motorista vinculado ao cadastro de drivers. */
   driver_id?: string | null
   permissions: string[]
+  /** Senha provisória — exige troca no primeiro acesso. */
+  must_change_password?: boolean
 }
 
 export interface AuthTokens {
