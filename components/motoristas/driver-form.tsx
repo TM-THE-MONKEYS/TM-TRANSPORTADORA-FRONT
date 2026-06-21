@@ -58,7 +58,7 @@ type FormData = CreateFormData | EditFormData
 export function DriverForm({ driverId }: { driverId?: string }) {
   const router = useRouter()
   const isEdit = Boolean(driverId)
-  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null)
+  const [credentials, setCredentials] = useState<{ cpf: string; email: string; password: string } | null>(null)
   const [createdDriverId, setCreatedDriverId] = useState<string | null>(null)
   const { data: driver, isLoading } = useSWR(
     driverId ? ["driver", driverId] : null,
@@ -124,6 +124,7 @@ export function DriverForm({ driverId }: { driverId?: string }) {
       })
 
       setCredentials({
+        cpf: formatCpf(createData.cpf),
         email: createData.email.trim().toLowerCase(),
         password: result.provisionalPassword,
       })
@@ -145,6 +146,7 @@ export function DriverForm({ driverId }: { driverId?: string }) {
     <>
       <ProvisionalPasswordDialog
         open={!!credentials}
+        cpf={credentials?.cpf ?? ""}
         email={credentials?.email ?? ""}
         password={credentials?.password ?? ""}
         onClose={() => {
@@ -207,8 +209,8 @@ export function DriverForm({ driverId }: { driverId?: string }) {
                 <p className="text-sm text-destructive">{errors.provisional_password.message}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                Mínimo 8 caracteres, 1 maiúscula e 1 número. O motorista poderá trocar no primeiro
-                login ou via &quot;Esqueci minha senha&quot;.
+              Mínimo 8 caracteres, 1 maiúscula e 1 número. No login, o motorista usa o CPF e esta
+              senha provisória.
               </p>
             </div>
           </>

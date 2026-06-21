@@ -17,9 +17,20 @@ import { syncServerSession } from "@/lib/auth/sync-server-session"
 import { getStoredAccessToken } from "@/lib/api/storage"
 import { getSafeRedirectPath } from "@/lib/security/safe-redirect"
 import { getDefaultHomeRoute } from "@/lib/rbac/permissions"
+import { isValidCpfLength } from "@/lib/format/cpf"
 
 const schema = z.object({
-  email: z.string().email("E-mail inválido"),
+  identifier: z
+    .string()
+    .min(1, "Informe e-mail ou CPF")
+    .refine(
+      (value) => {
+        const trimmed = value.trim()
+        if (trimmed.includes("@")) return z.string().email().safeParse(trimmed).success
+        return isValidCpfLength(trimmed)
+      },
+      { message: "Informe um e-mail válido ou CPF com 11 dígitos" },
+    ),
   password: z.string().min(6, "Mínimo 6 caracteres"),
 })
 
@@ -68,22 +79,24 @@ export function LoginForm() {
       <CardHeader className="text-center sm:text-left">
         <CardTitle>Entrar</CardTitle>
         <CardDescription>
-          Acesse o painel {siteConfig.name}. Motoristas: use o e-mail e a senha provisória
-          repassada pelo administrador.
+          Acesse o painel {siteConfig.name}. Administradores: e-mail e senha. Motoristas: CPF e
+          senha provisória repassada pelo administrador.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
           <div className="space-y-2">
-            <Label htmlFor="login-email">E-mail</Label>
+            <Label htmlFor="login-identifier">E-mail ou CPF</Label>
             <AutofillGuardInput
-              id="login-email"
-              type="email"
-              placeholder="seu@email.com"
-              autoComplete="off"
-              {...register("email")}
+              id="login-identifier"
+              type="text"
+              placeholder="admin@empresa.com ou 000.000.000-00"
+              autoComplete="username"
+              {...register("identifier")}
             />
-            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+            {errors.identifier && (
+              <p className="text-sm text-destructive">{errors.identifier.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="login-password">Senha</Label>

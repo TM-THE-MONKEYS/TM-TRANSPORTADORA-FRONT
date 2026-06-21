@@ -1,5 +1,7 @@
 import { permissionsForRole } from "@/lib/rbac/permissions"
 import { ApiError } from "@/lib/api/errors"
+import { isEmailLoginIdentifier } from "@/lib/auth/login-identifier"
+import { stripCpf } from "@/lib/format/cpf"
 import type { CreateUserInput } from "@/lib/api/services/users"
 import { DEMO_BRANCHES, DEMO_TENANT } from "@/lib/mocks/seed"
 import { generateId, mockStore } from "@/lib/mocks/store"
@@ -58,12 +60,24 @@ function delay(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-export async function mockLogin(email: string, password: string): Promise<{
+export async function mockLogin(identifier: string, password: string): Promise<{
   tokens: AuthTokens
   user: AuthUser
 }> {
   await delay(300)
-  const record = mockStore.users[email.toLowerCase()]
+  const trimmed = identifier.trim()
+  let record = isEmailLoginIdentifier(trimmed)
+    ? mockStore.users[trimmed.toLowerCase()]
+    : undefined
+
+  if (!record) {
+    const cpfDigits = stripCpf(trimmed)
+    const driver = mockStore.drivers.find((d) => stripCpf(d.cpf ?? "") === cpfDigits)
+    if (driver?.user_id) {
+      record = Object.values(mockStore.users).find((u) => u.id === driver.user_id)
+    }
+  }
+
   if (!record || record.password !== password) {
     throw new Error("Credenciais inválidas")
   }

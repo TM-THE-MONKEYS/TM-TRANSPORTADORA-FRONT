@@ -14,26 +14,43 @@ import {
 
 type Props = {
   open: boolean
+  cpf: string
   email: string
   password: string
   onClose: () => void
 }
 
-export function ProvisionalPasswordDialog({ open, email, password, onClose }: Props) {
+export function ProvisionalPasswordDialog({ open, cpf, email, password, onClose }: Props) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Conta de acesso criada</DialogTitle>
           <DialogDescription>
-            Repasse e-mail e senha provisória ao motorista. A senha não será exibida novamente.
-            No primeiro login, ele poderá definir uma senha definitiva ou usar &quot;Esqueci minha
-            senha&quot;.
+            Repasse CPF, e-mail e senha provisória ao motorista. A senha não será exibida novamente.
+            No login, o motorista usa o CPF (não o e-mail) e a senha provisória.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>E-mail de login</Label>
+            <Label>CPF para login</Label>
+            <div className="flex items-center gap-2">
+              <Input readOnly value={cpf} />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(cpf)
+                  toast.success("CPF copiado!")
+                }}
+              >
+                Copiar
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>E-mail (cadastro / recuperação)</Label>
             <div className="flex items-center gap-2">
               <Input readOnly value={email} />
               <Button

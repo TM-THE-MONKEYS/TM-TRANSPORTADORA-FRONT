@@ -2,11 +2,17 @@ import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
 import { ApiError } from "@/lib/api/errors"
 import { normalizeAuthUser } from "@/lib/api/adapters/auth"
+import {
+  isEmailLoginIdentifier,
+  normalizeDriverLoginCpf,
+  normalizeStaffLoginEmail,
+} from "@/lib/auth/login-identifier"
+import { isValidCpfLength } from "@/lib/format/cpf"
 import { getStoredAccessToken } from "@/lib/api/storage"
 import * as mock from "@/lib/mocks/handlers"
 import type { AuthTokens, AuthUser } from "@/types"
 
-export type LoginInput = { email: string; password: string }
+export type LoginInput = { identifier: string; password: string }
 
 export type RegisterTenantInput = {
   tenant_name: string
@@ -29,22 +35,48 @@ function isDriverLoginRequiredError(error: unknown): boolean {
   return msg.includes("driver/login") || msg.includes("motoristas devem")
 }
 
-async function postLogin(path: string, input: LoginInput): Promise<LoginResponse> {
-  const session = await apiRequest<LoginResponse>(path, { method: "POST", body: input })
+async function postLogin(path: string, body: Record<string, string>): Promise<LoginResponse> {
+  const session = await apiRequest<LoginResponse>(path, { method: "POST", body })
   return normalizeSession(session)
 }
 
-export async function login(input: LoginInput): Promise<LoginResponse> {
-  if (shouldUseMocks()) return mock.mockLogin(input.email, input.password)
+async function staffLogin(email: string, password: string): Promise<LoginResponse> {
+  return postLogin("/auth/login", {
+    email: normalizeStaffLoginEmail(email),
+    password,
+  })
+}
 
-  try {
-    return await postLogin("/auth/login", input)
-  } catch (error) {
-    if (isDriverLoginRequiredError(error)) {
-      return postLogin("/auth/driver/login", input)
+async function driverLogin(cpf: string, password: string): Promise<LoginResponse> {
+  return postLogin("/auth/driver/login", {
+    cpf: normalizeDriverLoginCpf(cpf),
+    password,
+  })
+}
+
+export async function login(input: LoginInput): Promise<LoginResponse> {
+  const identifier = input.identifier.trim()
+  if (shouldUseMocks()) return mock.mockLogin(identifier, input.password)
+
+  if (isEmailLoginIdentifier(identifier)) {
+    try {
+      return await staffLogin(identifier, input.password)
+    } catch (error) {
+      if (isDriverLoginRequiredError(error)) {
+        throw new ApiError(
+          400,
+          "Contas de motorista entram com o CPF cadastrado (11 dígitos), não com e-mail.",
+        )
+      }
+      throw error
     }
-    throw error
   }
+
+  if (!isValidCpfLength(identifier)) {
+    throw new ApiError(400, "Informe um e-mail válido ou CPF com 11 dígitos.")
+  }
+
+  return driverLogin(identifier, input.password)
 }
 
 export async function registerTenant(input: RegisterTenantInput): Promise<LoginResponse> {
