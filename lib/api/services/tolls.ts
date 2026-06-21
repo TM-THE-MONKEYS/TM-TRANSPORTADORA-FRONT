@@ -17,7 +17,7 @@ const MAX_PAGE_SIZE = 100
 export interface TollCharge {
   id: string
   freight_id: string
-  driver_id: string
+  driver_id: string | null
   registrado_por_user_id: string | null
   freight_cost_id: string | null
   valor: number

@@ -24,6 +24,7 @@ import { getDriver, updateDriver } from "@/lib/api/services/drivers"
 import { generateProvisionalPassword, passwordSchema } from "@/lib/auth/password-policy"
 import { formatCpf, isValidCpfLength, stripCpf } from "@/lib/format/cpf"
 import { createDriverWithAccount } from "@/lib/motoristas/create-driver-account"
+import { formatDriverSaveError } from "@/lib/motoristas/driver-errors"
 import type { DriverStatus } from "@/types"
 
 const CNH_CATEGORIES = ["A", "B", "C", "D", "E", "AB", "AC", "AD", "AE"] as const
@@ -130,7 +131,7 @@ export function DriverForm({ driverId }: { driverId?: string }) {
       })
       setCreatedDriverId(result.driver.id)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao salvar motorista")
+      toast.error(formatDriverSaveError(e))
     }
   }
 

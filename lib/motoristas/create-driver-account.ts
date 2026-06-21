@@ -1,6 +1,7 @@
 import { ApiError } from "@/lib/api/errors"
 import { createDriver, updateDriver } from "@/lib/api/services/drivers"
 import { createUser } from "@/lib/api/services/users"
+import { formatDriverSaveError } from "@/lib/motoristas/driver-errors"
 import type { Driver } from "@/types"
 
 export type CreateDriverAccountInput = {
@@ -48,7 +49,7 @@ export async function createDriverWithAccount(
     return { driver: linked, provisionalPassword: input.provisionalPassword }
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
-      throw new Error("E-mail já cadastrado. Use outro e-mail de login.")
+      throw new Error(formatDriverSaveError(error))
     }
     throw error
   }

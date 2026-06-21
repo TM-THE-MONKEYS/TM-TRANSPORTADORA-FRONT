@@ -23,3 +23,8 @@ export async function createUser(input: CreateUserInput): Promise<UserRead> {
   })
   return normalizeUserRead(raw)
 }
+
+export async function deleteUser(userId: string): Promise<void> {
+  if (shouldUseMocks()) return mock.mockDeleteUser(userId)
+  await apiRequest(`/users/${userId}`, { method: "DELETE", auth: true })
+}

@@ -14,7 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState } from "@/components/shared/empty-state"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
-import { listDrivers, deleteDriver } from "@/lib/api/services/drivers"
+import { listDrivers } from "@/lib/api/services/drivers"
+import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
 import { formatDateBR } from "@/lib/format/dates"
 import { findActiveFreightByDriver } from "@/lib/freight/active-trip"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
@@ -34,7 +35,7 @@ export function DriversListView() {
     if (!deleteId) return
     setDeleting(true)
     try {
-      await deleteDriver(deleteId)
+      await deleteDriverWithAccount(deleteId)
       toast.success("Motorista excluído")
       await mutate("drivers")
       setDeleteId(null)

@@ -28,7 +28,9 @@ import {
 } from "@/lib/api/services/tolls"
 import { formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
 import { formatBRL } from "@/lib/format/currency"
+import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
+import { resolveDriverDisplayName } from "@/lib/drivers/display-name"
 import { isAdminRole, PERMISSIONS } from "@/lib/rbac/permissions"
 
 function formatDateBR(dateStr?: string) {
@@ -42,6 +44,7 @@ function isMotoristaRole(user: { role?: string } | null | undefined): boolean {
 
 export function TollView() {
   const { user } = useAuth()
+  const { drivers } = useOperationContext()
   const isMotorista = isMotoristaRole(user)
   const canManageTolls = usePermission(PERMISSIONS.freightWrite) || isAdminRole(user?.role)
 
@@ -138,7 +141,7 @@ export function TollView() {
   const visibleTolls = useMemo(() => {
     const all = tolls ?? []
     if (!isMotorista || !user?.driver_id) return all
-    return all.filter((t) => t.driver_id === user.driver_id)
+    return all.filter((t) => t.driver_id != null && t.driver_id === user.driver_id)
   }, [tolls, isMotorista, user?.driver_id])
 
   return (
@@ -388,6 +391,7 @@ export function TollView() {
             <thead>
               <tr className="border-y bg-muted/40">
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Frete</th>
+                <th className="px-5 py-3 text-left font-medium text-muted-foreground">Motorista</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">
                   Praça / Rodovia
                 </th>
@@ -399,19 +403,19 @@ export function TollView() {
             <tbody>
               {loadingTolls ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
                     Carregando histórico...
                   </td>
                 </tr>
               ) : tollsError ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-destructive">
+                  <td colSpan={6} className="px-5 py-10 text-center text-destructive">
                     Não foi possível carregar o histórico. Verifique se a API está no ar.
                   </td>
                 </tr>
               ) : visibleTolls.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
                     Nenhum pedágio registrado
                   </td>
                 </tr>
@@ -434,6 +438,9 @@ export function TollView() {
                             toll.freight_code ??
                             toll.freight_id.slice(0, 8)}
                         </Link>
+                      </td>
+                      <td className="px-5 py-3 text-muted-foreground">
+                        {resolveDriverDisplayName(toll, drivers)}
                       </td>
                       <td className="px-5 py-3 text-muted-foreground">
                         {descParts.length > 0 ? descParts.join(" · ") : "—"}

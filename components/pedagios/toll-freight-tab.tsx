@@ -4,6 +4,8 @@ import Link from "next/link"
 import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { resolveDriverDisplayName } from "@/lib/drivers/display-name"
+import { useOperationContext } from "@/hooks/use-operation-context"
 import { getTollSummaryByFreight, listTollsByFreight } from "@/lib/api/services/tolls"
 import { formatBRL } from "@/lib/format/currency"
 
@@ -13,6 +15,7 @@ function formatDateBR(dateStr?: string) {
 }
 
 export function TollFreightTab({ freightId }: { freightId: string }) {
+  const { drivers } = useOperationContext()
   const { data: summary, isLoading: loadingSummary } = useSWR(
     freightId ? ["toll-summary", freightId] : null,
     () => getTollSummaryByFreight(freightId),
@@ -87,7 +90,8 @@ export function TollFreightTab({ freightId }: { freightId: string }) {
                   )}
                   <p className="text-xs text-muted-foreground">
                     {formatDateBR(toll.data_pedagio)}
-                    {toll.driver_name ? ` · ${toll.driver_name}` : ""}
+                    {" · "}
+                    {resolveDriverDisplayName(toll, drivers)}
                   </p>
                 </div>
                 <span className="shrink-0 font-medium text-destructive">

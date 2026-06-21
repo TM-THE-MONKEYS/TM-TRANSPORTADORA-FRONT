@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/shared/page-header"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { SignaturePad } from "@/components/motoristas/signature-pad"
-import { getDriver, deleteDriver } from "@/lib/api/services/drivers"
+import { getDriver } from "@/lib/api/services/drivers"
+import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
 import { formatDateBR } from "@/lib/format/dates"
 import { findActiveFreightByDriver } from "@/lib/freight/active-trip"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
@@ -33,7 +34,7 @@ export function DriverDetailView({ id }: { id: string }) {
   async function handleDelete() {
     setDeleting(true)
     try {
-      await deleteDriver(id)
+      await deleteDriverWithAccount(id)
       toast.success("Motorista excluído")
       router.push("/dashboard/motoristas")
     } catch (e) {

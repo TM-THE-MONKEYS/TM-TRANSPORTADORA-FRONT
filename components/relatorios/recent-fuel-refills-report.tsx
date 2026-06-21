@@ -10,12 +10,13 @@ import { listAllFuelRefills } from "@/lib/api/services/fuel"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateBR } from "@/lib/format/dates"
 import { useOperationContext } from "@/hooks/use-operation-context"
+import { resolveDriverDisplayName } from "@/lib/drivers/display-name"
 import { cn } from "@/lib/utils"
 
 const LIMIT = 25
 
 export function RecentFuelRefillsReport() {
-  const { freights } = useOperationContext()
+  const { freights, drivers } = useOperationContext()
   const freightMap = useMemo(() => new Map(freights.map((f) => [f.id, f])), [freights])
 
   const { data: refills, isLoading } = useSWR("reports-fuel-refills", () =>
@@ -74,6 +75,7 @@ export function RecentFuelRefillsReport() {
                 <thead>
                   <tr className="border-b bg-muted/40">
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Frete</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Motorista</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Posto / Local</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground">Litros</th>
                     <th className="px-4 py-3 text-right font-medium text-muted-foreground">Valor</th>
@@ -84,7 +86,7 @@ export function RecentFuelRefillsReport() {
                 <tbody>
                   {items.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                      <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                         Nenhum abastecimento registrado
                       </td>
                     </tr>
@@ -104,6 +106,9 @@ export function RecentFuelRefillsReport() {
                             >
                               {freight?.code ?? r.freight_code ?? r.freight_id.slice(0, 8)}
                             </Link>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {resolveDriverDisplayName(r, drivers)}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {r.posto

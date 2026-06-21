@@ -22,6 +22,7 @@ import { useAuth } from "@/components/providers/auth-provider"
 import { listDrivers } from "@/lib/api/services/drivers"
 import { listFreights } from "@/lib/api/services/freight"
 import { listAllFuelRefills, registerFuelRefill } from "@/lib/api/services/fuel"
+import { resolveDriverDisplayName } from "@/lib/drivers/display-name"
 import { resolveDriverIdForUser } from "@/lib/drivers/resolve-driver"
 import {
   canDriverRefuelFreight,
@@ -406,6 +407,7 @@ export function FuelView() {
             <thead>
               <tr className="border-y bg-muted/40">
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Frete</th>
+                <th className="px-5 py-3 text-left font-medium text-muted-foreground">Motorista</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Descrição</th>
                 <th className="px-5 py-3 text-right font-medium text-muted-foreground">Km</th>
                 <th className="px-5 py-3 text-right font-medium text-muted-foreground">Litros</th>
@@ -416,20 +418,20 @@ export function FuelView() {
             <tbody>
               {loadingRefills ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground">
                     Carregando histórico...
                   </td>
                 </tr>
               ) : refillsError ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-destructive">
+                  <td colSpan={7} className="px-5 py-10 text-center text-destructive">
                     Não foi possível carregar o histórico. Verifique se a API está no ar e tente
                     novamente.
                   </td>
                 </tr>
               ) : visibleRefills.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground">
                     Nenhum abastecimento registrado
                   </td>
                 </tr>
@@ -448,6 +450,9 @@ export function FuelView() {
                         >
                           {freight?.code ?? entry.freight_code ?? entry.freight_id.slice(0, 8)}
                         </Link>
+                      </td>
+                      <td className="px-5 py-3 text-muted-foreground">
+                        {resolveDriverDisplayName(entry, drivers)}
                       </td>
                       <td className="px-5 py-3 text-muted-foreground">
                         {entry.posto ?? entry.cidade ?? "Abastecimento"}

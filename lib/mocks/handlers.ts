@@ -207,6 +207,19 @@ export async function mockUpdateDriver(id: string, data: Partial<Driver>): Promi
 
 export async function mockDeleteDriver(id: string): Promise<void> {
   await delay(200)
+  const driver = mockStore.drivers.find((d) => d.id === id)
+  if (driver?.user_id) {
+    const entry = Object.entries(mockStore.users).find(([, u]) => u.id === driver.user_id)
+    if (entry) delete mockStore.users[entry[0]]
+  }
+  if (driver?.name) {
+    for (const refill of mockStore.fuelRefills ?? []) {
+      if (refill.driver_id === id) {
+        refill.driver_id = null
+        refill.driver_name = driver.name
+      }
+    }
+  }
   mockStore.drivers = mockStore.drivers.filter((d) => d.id !== id)
 }
 
@@ -413,10 +426,12 @@ export async function mockRegisterFuelRefill(data: {
   }
 
   const costId = generateId("cost")
+  const driver = mockStore.drivers.find((d) => d.id === driverId)
   const refill = {
     id: generateId("fuel"),
     freight_id: data.freight_id,
     driver_id: driverId,
+    driver_name: driver?.name ?? null,
     truck_id: freight?.truck_id ?? null,
     litros: data.litros,
     valor_total: data.valor_total,
@@ -523,6 +538,13 @@ export async function mockCreateUser(input: CreateUserInput): Promise<UserRead> 
     created_at: now,
     updated_at: now,
   }
+}
+
+export async function mockDeleteUser(userId: string): Promise<void> {
+  await delay(200)
+  const entry = Object.entries(mockStore.users).find(([, u]) => u.id === userId)
+  if (!entry) throw new ApiError(404, "Usuário não encontrado")
+  delete mockStore.users[entry[0]]
 }
 
 export async function mockForgotPassword(email: string): Promise<void> {

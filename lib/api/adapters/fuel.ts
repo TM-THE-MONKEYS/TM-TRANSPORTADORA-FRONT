@@ -8,7 +8,11 @@ export function mapFuelRefillFromApi(raw: Record<string, unknown>): FuelRefill {
   return {
     id: String(raw.id),
     freight_id: String(raw.freight_id),
-    driver_id: String(raw.driver_id),
+    driver_id: raw.driver_id != null ? String(raw.driver_id) : null,
+    driver_name:
+      (raw.driver_name as string | null | undefined) ??
+      (raw.driver_nome as string | null | undefined) ??
+      null,
     truck_id: raw.truck_id != null ? String(raw.truck_id) : null,
     litros: Number(raw.litros ?? 0),
     valor_total: Number(raw.valor_total ?? 0),

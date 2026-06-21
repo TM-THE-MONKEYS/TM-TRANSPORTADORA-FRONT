@@ -4,7 +4,12 @@ export function mapTollChargeFromApi(raw: Record<string, unknown>): TollCharge {
   return {
     id: String(raw.id),
     freight_id: String(raw.freight_id ?? raw.freightId),
-    driver_id: String(raw.driver_id ?? raw.driverId),
+    driver_id:
+      raw.driver_id != null
+        ? String(raw.driver_id)
+        : raw.driverId != null
+          ? String(raw.driverId)
+          : null,
     registrado_por_user_id:
       raw.registrado_por_user_id != null
         ? String(raw.registrado_por_user_id)
@@ -34,6 +39,7 @@ export function mapTollChargeFromApi(raw: Record<string, unknown>): TollCharge {
       undefined,
     driver_name:
       (raw.driver_name as string | null) ??
+      (raw.driver_nome as string | null) ??
       (raw.driverName as string | null) ??
       undefined,
   }

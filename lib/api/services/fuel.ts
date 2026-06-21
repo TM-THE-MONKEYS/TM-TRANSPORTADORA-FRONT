@@ -11,7 +11,8 @@ const MAX_PAGE_SIZE = 100
 export interface FuelRefill {
   id: string
   freight_id: string
-  driver_id: string
+  driver_id: string | null
+  driver_name?: string | null
   truck_id: string | null
   litros: number
   valor_total: number
