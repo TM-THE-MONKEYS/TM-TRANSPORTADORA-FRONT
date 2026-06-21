@@ -3,10 +3,10 @@ import { PageHeader } from "@/components/shared/page-header"
 
 export default function NovoMotoristaPage() {
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Novo motorista"
-        description="Cadastro operacional e conta de acesso com senha provisória"
+        description="Cadastro completo com CNH, comissão e conta de acesso"
       />
       <DriverForm />
     </div>

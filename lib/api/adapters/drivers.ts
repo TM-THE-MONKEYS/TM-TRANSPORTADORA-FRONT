@@ -16,7 +16,7 @@ export function toDriverCreatePayload(
   }
   if (data.phone?.trim()) payload.phone = data.phone.trim()
   if (data.email?.trim()) payload.email = data.email.trim().toLowerCase()
-  if (data.commission_pct != null) payload.commission_pct = data.commission_pct
+  if (data.commission_pct !== undefined) payload.commission_pct = data.commission_pct
   return payload
 }
 
@@ -29,6 +29,6 @@ export function toDriverUpdatePayload(data: Partial<Driver>): Record<string, unk
   if (data.status !== undefined) payload.status = data.status
   if (data.user_id !== undefined) payload.user_id = data.user_id
   if (data.email !== undefined) payload.email = data.email
-  if (data.commission_pct != null) payload.commission_pct = data.commission_pct
+  if (data.commission_pct !== undefined) payload.commission_pct = data.commission_pct
   return payload
 }
