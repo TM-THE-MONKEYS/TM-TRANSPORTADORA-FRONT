@@ -1,5 +1,27 @@
 import type { NextConfig } from "next"
 
+const publicApiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "")
+
+function localApiConnectSources(baseUrl: string): string[] {
+  if (!baseUrl) return []
+  const urls = [baseUrl]
+  if (baseUrl.includes("localhost")) {
+    urls.push(baseUrl.replace("localhost", "127.0.0.1"))
+  } else if (baseUrl.includes("127.0.0.1")) {
+    urls.push(baseUrl.replace("127.0.0.1", "localhost"))
+  }
+  return urls
+}
+
+const connectSrc = [
+  "'self'",
+  ...localApiConnectSources(publicApiUrl),
+  "https://api-production-a071.up.railway.app",
+  "https://jkdkspbcqnfrweanmhpp.supabase.co",
+  "https://va.vercel-scripts.com",
+  "https://viacep.com.br",
+].join(" ")
+
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -20,7 +42,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' https://fonts.gstatic.com",
-      "connect-src 'self' https://api-production-a071.up.railway.app https://jkdkspbcqnfrweanmhpp.supabase.co https://va.vercel-scripts.com https://viacep.com.br",
+      `connect-src ${connectSrc}`,
       "frame-ancestors 'none'",
     ].join("; "),
   },
