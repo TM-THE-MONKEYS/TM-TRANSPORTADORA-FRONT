@@ -173,6 +173,42 @@ export async function mockListImplements(truckId: string): Promise<TruckImplemen
   return mockStore.implements.filter((i) => i.truck_id === truckId)
 }
 
+export async function mockCreateImplement(
+  truckId: string,
+  data: Omit<TruckImplement, "id" | "truck_id" | "tenant_id" | "created_at">,
+): Promise<TruckImplement> {
+  await delay(200)
+  const implement: TruckImplement = {
+    ...data,
+    id: generateId("imp"),
+    truck_id: truckId,
+    created_at: new Date().toISOString(),
+  }
+  mockStore.implements = [implement, ...mockStore.implements]
+  return implement
+}
+
+export async function mockUpdateImplement(
+  truckId: string,
+  implementId: string,
+  data: Partial<Omit<TruckImplement, "id" | "truck_id" | "tenant_id" | "created_at">>,
+): Promise<TruckImplement> {
+  await delay(200)
+  const idx = mockStore.implements.findIndex(
+    (i) => i.id === implementId && i.truck_id === truckId,
+  )
+  if (idx < 0) throw new Error("Implemento não encontrado")
+  mockStore.implements[idx] = { ...mockStore.implements[idx], ...data }
+  return mockStore.implements[idx]
+}
+
+export async function mockDeleteImplement(truckId: string, implementId: string): Promise<void> {
+  await delay(200)
+  mockStore.implements = mockStore.implements.filter(
+    (i) => !(i.id === implementId && i.truck_id === truckId),
+  )
+}
+
 export async function mockListDrivers(page = 1, pageSize = 20): Promise<Paginated<Driver>> {
   await delay(200)
   return paginate(mockStore.drivers, page, pageSize)

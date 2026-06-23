@@ -114,12 +114,20 @@ export interface Truck {
   created_at: string
 }
 
+export type ImplementType = "carreta" | "bau" | "tanque" | "prancha"
+
 export interface TruckImplement {
   id: string
   truck_id: string
-  type: "carreta" | "bau" | "tanque" | "prancha"
-  identifier: string
-  capacity_kg?: number
+  tenant_id?: string
+  name: string
+  type: ImplementType
+  plate?: string | null
+  identifier?: string | null
+  brand?: string | null
+  model?: string | null
+  capacity_kg?: number | null
+  created_at?: string
 }
 
 // ── Drivers ──────────────────────────────────────────────────────────────────

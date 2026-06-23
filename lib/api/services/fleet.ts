@@ -1,6 +1,10 @@
 import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
 import {
+  toImplementCreatePayload,
+  toImplementUpdatePayload,
+} from "@/lib/api/adapters/implements"
+import {
   toTruckCreatePayload,
   toTruckUpdatePayload,
 } from "@/lib/api/adapters/trucks"
@@ -52,8 +56,41 @@ export async function deleteTruck(id: string): Promise<void> {
   await apiRequest(`/trucks/${id}`, { method: "DELETE", auth: true })
 }
 
-/** Implementos: apenas mock — backend v1 não expõe endpoint. */
+/** Implementos vinculados ao caminhão (carreta, baú, etc.). */
 export async function listImplements(truckId: string): Promise<TruckImplement[]> {
   if (shouldUseMocks()) return mock.mockListImplements(truckId)
-  return []
+  return apiRequest(`/trucks/${truckId}/implements`, { auth: true })
+}
+
+export async function createImplement(
+  truckId: string,
+  data: Omit<TruckImplement, "id" | "truck_id" | "tenant_id" | "created_at">,
+): Promise<TruckImplement> {
+  if (shouldUseMocks()) return mock.mockCreateImplement(truckId, data)
+  return apiRequest(`/trucks/${truckId}/implements`, {
+    method: "POST",
+    body: toImplementCreatePayload(data),
+    auth: true,
+  })
+}
+
+export async function updateImplement(
+  truckId: string,
+  implementId: string,
+  data: Partial<Omit<TruckImplement, "id" | "truck_id" | "tenant_id" | "created_at">>,
+): Promise<TruckImplement> {
+  if (shouldUseMocks()) return mock.mockUpdateImplement(truckId, implementId, data)
+  return apiRequest(`/trucks/${truckId}/implements/${implementId}`, {
+    method: "PATCH",
+    body: toImplementUpdatePayload(data),
+    auth: true,
+  })
+}
+
+export async function deleteImplement(truckId: string, implementId: string): Promise<void> {
+  if (shouldUseMocks()) return mock.mockDeleteImplement(truckId, implementId)
+  await apiRequest(`/trucks/${truckId}/implements/${implementId}`, {
+    method: "DELETE",
+    auth: true,
+  })
 }

@@ -6,12 +6,13 @@ import { useRouter } from "next/navigation"
 import useSWR from "swr"
 import { Pencil, Trash2 } from "lucide-react"
 import { toast } from "sonner"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/shared/page-header"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { TruckImplementsPanel } from "@/components/frota/truck-implements-panel"
 import { getTruck, deleteTruck } from "@/lib/api/services/fleet"
 import { formatDateBR } from "@/lib/format/dates"
 import { findActiveFreightByTruck } from "@/lib/freight/active-trip"
@@ -30,7 +31,6 @@ export function TruckDetailView({ id }: { id: string }) {
   const { data: truck } = useSWR(["truck", id], () => getTruck(id))
   const activeTrip = truck ? findActiveFreightByTruck(freights, truck.id) : undefined
   const effectiveStatus = truck ? getEffectiveTruckStatus(truck, freights) : null
-  const implements_: { id: string; type: string; identifier: string }[] = []
 
   async function handleDelete() {
     setDeleting(true)
@@ -110,24 +110,7 @@ export function TruckDetailView({ id }: { id: string }) {
           </Card>
         </TabsContent>
         <TabsContent value="implementos" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Implementos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {(implements_ ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum implemento cadastrado.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {implements_!.map((imp) => (
-                    <li key={imp.id} className="text-sm">
-                      {imp.type} — {imp.identifier}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <TruckImplementsPanel truckId={id} canWrite={canWrite} />
         </TabsContent>
       </Tabs>
 

@@ -142,7 +142,17 @@ export const mockTrucks: Truck[] = [
 ]
 
 export const mockImplements: TruckImplement[] = [
-  { id: "imp-1", truck_id: "truck-1", type: "carreta", identifier: "CAR-001", capacity_kg: 30000 },
+  {
+    id: "imp-1",
+    truck_id: "truck-1",
+    type: "carreta",
+    name: "Carreta LS",
+    plate: "CAR0A01",
+    identifier: "CAR-001",
+    brand: "Randon",
+    model: "SR BAU",
+    capacity_kg: 30000,
+  },
 ]
 
 export const mockDrivers: Driver[] = [
