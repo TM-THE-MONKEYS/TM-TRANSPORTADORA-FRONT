@@ -14,7 +14,6 @@ import {
   Phone,
   Shield,
   Trash2,
-  Upload,
   UserRound,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -25,6 +24,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/shared/page-header"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { DriverDocumentsPanel } from "@/components/motoristas/driver-documents-panel"
 import { SignaturePad } from "@/components/motoristas/signature-pad"
 import { getDriver } from "@/lib/api/services/drivers"
 import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
@@ -164,22 +164,7 @@ export function DriverDetailView({ id }: { id: string }) {
         </TabsContent>
 
         <TabsContent value="documentos">
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-                <Upload className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-medium">Documentos e foto</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Upload via POST /uploads/presign — em breve na interface
-                </p>
-              </div>
-              <Button variant="outline" disabled>
-                Enviar foto
-              </Button>
-            </CardContent>
-          </Card>
+          <DriverDocumentsPanel driverId={id} canWrite={canWrite} />
         </TabsContent>
 
         <TabsContent value="assinatura">
