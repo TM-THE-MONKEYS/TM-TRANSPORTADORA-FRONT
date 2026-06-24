@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { ChevronDown, KeyRound, LogOut, Moon, Sun, UserRound } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -19,23 +21,41 @@ import { getUserRoleLabel } from "@/lib/navigation/user-role-labels"
 import { siteConfig } from "@/lib/site-config"
 
 export function AppHeader() {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, resolvedTheme } = useTheme()
   const { user, logout } = useAuth()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => setMounted(true), [])
 
   const homeRoute = user
     ? getDefaultHomeRoute(user.role, user.permissions)
     : "/dashboard/home"
   const roleLabel = getUserRoleLabel(user?.role)
   const isDark = theme === "dark"
+  const logoSrc =
+    mounted && resolvedTheme === "dark"
+      ? siteConfig.branding.navbarLogoDark
+      : siteConfig.branding.navbarLogo
 
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="flex min-h-[4.75rem] items-center gap-3 px-4 md:gap-4 md:px-6">
         <Link
           href={homeRoute}
-          className="shrink-0 text-sm font-semibold tracking-tight sm:text-base"
+          className="flex shrink-0 items-center gap-2.5"
+          aria-label={siteConfig.branding.navbarLogoAlt}
         >
-          {siteConfig.navbarBrand}
+          <Image
+            src={logoSrc}
+            alt=""
+            width={40}
+            height={40}
+            className="h-9 w-9 object-contain"
+            priority
+          />
+          <span className="hidden text-sm font-semibold tracking-tight sm:inline sm:text-base">
+            {siteConfig.navbarBrand}
+          </span>
         </Link>
 
         <ModuleNavLinks />
