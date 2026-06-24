@@ -621,3 +621,54 @@ export async function mockChangePassword(
   user.password = newPassword
   user.must_change_password = false
 }
+
+export async function mockListDriverDocuments(driverId: string): Promise<import("@/types").DriverDocument[]> {
+  await delay(100)
+  return mockStore.driverDocuments.filter((d) => d.driver_id === driverId)
+}
+
+export async function mockUploadDriverDocument(
+  driverId: string,
+  file: File,
+  documentType: import("@/types").DriverDocumentType,
+  label?: string,
+): Promise<import("@/types").DriverDocument> {
+  await delay(300)
+  const id = generateId("doc")
+  const doc: import("@/types").DriverDocument = {
+    id,
+    driver_id: driverId,
+    type: documentType,
+    label: label ?? null,
+    filename: file.name,
+    content_type: file.type || "application/octet-stream",
+    file_size: file.size,
+    download_path: `/drivers/${driverId}/documents/${id}/file`,
+    created_at: new Date().toISOString(),
+  }
+  mockStore.driverDocuments = [doc, ...mockStore.driverDocuments]
+  return doc
+}
+
+export async function mockDeleteDriverDocument(driverId: string, documentId: string): Promise<void> {
+  await delay(200)
+  mockStore.driverDocuments = mockStore.driverDocuments.filter(
+    (d) => !(d.id === documentId && d.driver_id === driverId),
+  )
+}
+
+const mockBlobCache = new Map<string, string>()
+
+export async function mockDriverDocumentBlobUrl(
+  driverId: string,
+  downloadPath: string,
+): Promise<string> {
+  await delay(100)
+  const cached = mockBlobCache.get(downloadPath)
+  if (cached) return cached
+  const url = "data:image/svg+xml," + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect fill="#e2e8f0" width="200" height="120"/><text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="12">Mock doc</text></svg>`,
+  )
+  mockBlobCache.set(downloadPath, url)
+  return url
+}

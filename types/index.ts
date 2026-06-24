@@ -114,7 +114,7 @@ export interface Truck {
   created_at: string
 }
 
-export type ImplementType = "carreta" | "bau" | "tanque" | "prancha"
+export type ImplementType = "carreta" | "bau" | "tanque" | "prancha" | "camera_fria"
 
 export interface TruckImplement {
   id: string
@@ -149,6 +149,20 @@ export interface Driver {
   created_at: string
   /** Returned once on creation when password is auto-generated. Never stored. */
   temporary_password?: string | null
+}
+
+export type DriverDocumentType = "photo" | "cnh_front" | "cnh_back" | "other"
+
+export interface DriverDocument {
+  id: string
+  driver_id: string
+  type: DriverDocumentType
+  label?: string | null
+  filename: string
+  content_type: string
+  file_size: number
+  download_path: string
+  created_at: string
 }
 
 // ── Freights ─────────────────────────────────────────────────────────────────

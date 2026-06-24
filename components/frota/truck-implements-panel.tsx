@@ -39,7 +39,7 @@ import type { ImplementType, TruckImplement } from "@/types"
 
 const schema = z.object({
   name: z.string().min(2, "Informe o nome"),
-  type: z.enum(["carreta", "bau", "tanque", "prancha"]),
+  type: z.enum(["carreta", "bau", "tanque", "prancha", "camera_fria"]),
   plate: z.string().optional(),
   brand: z.string().optional(),
   model: z.string().optional(),
@@ -154,7 +154,7 @@ export function TruckImplementsPanel({
               Implementos
             </CardTitle>
             <CardDescription>
-              Carretas, baús, tanques e outros acoplados a este cavalo
+              Carretas, baús, câmaras frias e outros acoplados a este cavalo
             </CardDescription>
           </div>
           {canWrite && (
@@ -172,7 +172,7 @@ export function TruckImplementsPanel({
               <Truck className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
               <p className="text-sm font-medium">Nenhum implemento cadastrado</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Adicione carreta, baú ou tanque com placa e capacidade
+                Adicione carreta, baú, câmara fria ou tanque com placa e capacidade
               </p>
               {canWrite && (
                 <Button variant="outline" size="sm" className="mt-4" onClick={openCreate}>

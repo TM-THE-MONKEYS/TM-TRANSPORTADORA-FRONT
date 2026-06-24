@@ -1,5 +1,6 @@
 import type {
   Driver,
+  DriverDocument,
   FreightCost,
   FreightEvent,
   FreightOccurrence,
@@ -32,6 +33,7 @@ export const mockStore = {
   customers: [...DEMO_CUSTOMERS],
   kpis: { ...DEMO_KPIS },
   users: DEMO_USERS,
+  driverDocuments: [] as DriverDocument[],
   passwordResetTokens: {} as Record<string, { email: string; expiresAt: number }>,
 }
 
