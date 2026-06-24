@@ -1,18 +1,26 @@
 import type { NextConfig } from "next"
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "")
+const publicApiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "")
+
+/** Inclui localhost e 127.0.0.1 quando a API local estiver configurada. */
+function localApiConnectSources(baseUrl: string): string[] {
+  if (!baseUrl) return []
+  const urls = [baseUrl]
+  if (baseUrl.includes("localhost")) {
+    urls.push(baseUrl.replace("localhost", "127.0.0.1"))
+  } else if (baseUrl.includes("127.0.0.1")) {
+    urls.push(baseUrl.replace("127.0.0.1", "localhost"))
+  }
+  return urls
+}
 
 const connectSrc = [
   "'self'",
+  ...localApiConnectSources(publicApiUrl),
   "https://api-production-a071.up.railway.app",
-  "https://tm-transportadora-api.onrender.com",
   "https://jkdkspbcqnfrweanmhpp.supabase.co",
   "https://va.vercel-scripts.com",
   "https://viacep.com.br",
-  ...(apiUrl ? [apiUrl] : []),
-  ...(process.env.NODE_ENV === "development"
-    ? ["http://localhost:8000", "http://127.0.0.1:8000"]
-    : []),
 ].join(" ")
 
 const securityHeaders = [
