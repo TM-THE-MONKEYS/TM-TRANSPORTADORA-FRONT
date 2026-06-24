@@ -19,5 +19,11 @@ export const siteConfig = {
      */
     loginImage: process.env.NEXT_PUBLIC_LOGIN_IMAGE ?? "/branding/login.jpg",
     loginImageAlt: "TSV Transportes — gestão logística",
+    /** Navbar: PNG transparente recomendado (tema claro = traços escuros). */
+    navbarLogo: process.env.NEXT_PUBLIC_NAVBAR_LOGO ?? "/branding/logo.png",
+    /** Navbar tema escuro: traços claros em fundo transparente. */
+    navbarLogoDark:
+      process.env.NEXT_PUBLIC_NAVBAR_LOGO_DARK ?? "/branding/logo-dark.png",
+    navbarLogoAlt: "The Monkeys — TSV Transportes",
   },
 } as const
