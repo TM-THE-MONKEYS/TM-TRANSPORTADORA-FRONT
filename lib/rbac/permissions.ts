@@ -71,15 +71,38 @@ export function hasPermission(
   return permissionsForRole(role).includes(permission)
 }
 
+export type NavRoute = {
+  href: string
+  label: string
+  permission: Permission
+}
+
+export const HOME_NAV_ROUTE: NavRoute = {
+  href: "/dashboard/home",
+  label: "Home",
+  permission: PERMISSIONS.dashboard,
+}
+
+/** Módulos principais do painel (exclui a própria Home). */
+export const DASHBOARD_MODULE_ROUTES: NavRoute[] = [
+  { href: "/dashboard", label: "Dashboard", permission: PERMISSIONS.dashboard },
+  { href: "/dashboard/fretes", label: "Fretes", permission: PERMISSIONS.freightRead },
+  { href: "/dashboard/rastreamento", label: "Rastreamento", permission: PERMISSIONS.freightRead },
+  { href: "/dashboard/frota", label: "Frota", permission: PERMISSIONS.fleetRead },
+  { href: "/dashboard/motoristas", label: "Motoristas", permission: PERMISSIONS.driversRead },
+  { href: "/dashboard/abastecimento", label: "Abastecimento", permission: PERMISSIONS.freightRead },
+  { href: "/dashboard/manutencao", label: "Manutenção", permission: PERMISSIONS.fleetRead },
+  { href: "/dashboard/financeiro", label: "Financeiro", permission: PERMISSIONS.financeRead },
+  { href: "/dashboard/relatorios", label: "Relatórios", permission: PERMISSIONS.financeRead },
+]
+
 export const ROUTE_PERMISSIONS: Record<string, Permission> = {
-  "/dashboard/frota": PERMISSIONS.fleetRead,
-  "/dashboard/motoristas": PERMISSIONS.driversRead,
+  ...Object.fromEntries(
+    DASHBOARD_MODULE_ROUTES.filter((route) => route.href !== "/dashboard").map(
+      (route) => [route.href, route.permission],
+    ),
+  ),
   "/dashboard/motoristas/nova-conta": PERMISSIONS.tenantAdmin,
-  "/dashboard/fretes": PERMISSIONS.freightRead,
-  "/dashboard/financeiro": PERMISSIONS.financeRead,
-  "/dashboard/abastecimento": PERMISSIONS.freightRead,
-  "/dashboard/manutencao": PERMISSIONS.fleetRead,
-  "/dashboard/relatorios": PERMISSIONS.financeRead,
 }
 
 const ROUTE_PERMISSION_ENTRIES = Object.entries(ROUTE_PERMISSIONS).sort(
@@ -101,6 +124,7 @@ export function canAccessRoute(
   userPermissions?: string[],
 ): boolean {
   if (pathname.startsWith("/dashboard/conta")) return true
+  if (pathname === HOME_NAV_ROUTE.href) return true
 
   if (isAdminRole(role)) return true
 
@@ -114,41 +138,24 @@ export function canAccessRoute(
 
 /** Rota inicial após login ou quando o guard bloqueia acesso. */
 export function getDefaultHomeRoute(
-  role: UserRole,
-  userPermissions?: string[],
+  _role: UserRole,
+  _userPermissions?: string[],
 ): string {
-  if (hasPermission(userPermissions, role, PERMISSIONS.dashboard)) {
-    return "/dashboard"
-  }
-  if (hasPermission(userPermissions, role, PERMISSIONS.freightRead)) {
-    return "/dashboard/fretes"
-  }
-  return "/login"
+  return HOME_NAV_ROUTE.href
 }
 
-export type NavRoute = {
-  href: string
-  label: string
-  permission: Permission
-}
-
-export const NAV_ROUTES: NavRoute[] = [
-  { href: "/dashboard", label: "Dashboard", permission: PERMISSIONS.dashboard },
-  { href: "/dashboard/fretes", label: "Fretes", permission: PERMISSIONS.freightRead },
-  { href: "/dashboard/frota", label: "Frota", permission: PERMISSIONS.fleetRead },
-  { href: "/dashboard/motoristas", label: "Motoristas", permission: PERMISSIONS.driversRead },
-  { href: "/dashboard/financeiro", label: "Financeiro", permission: PERMISSIONS.financeRead },
-  { href: "/dashboard/abastecimento", label: "Abastecimento", permission: PERMISSIONS.freightRead },
-  { href: "/dashboard/manutencao", label: "Manutenção", permission: PERMISSIONS.fleetRead },
-  { href: "/dashboard/relatorios", label: "Relatórios", permission: PERMISSIONS.financeRead },
-]
+export const NAV_ROUTES: NavRoute[] = [HOME_NAV_ROUTE, ...DASHBOARD_MODULE_ROUTES]
 
 export function getAllowedNavRoutes(
   role: UserRole,
   userPermissions?: string[],
 ): NavRoute[] {
-  if (isAdminRole(role)) return NAV_ROUTES
-  return NAV_ROUTES.filter((route) =>
-    hasPermission(userPermissions, role, route.permission),
-  )
+  const modules = isAdminRole(role)
+    ? DASHBOARD_MODULE_ROUTES
+    : DASHBOARD_MODULE_ROUTES.filter((route) =>
+        hasPermission(userPermissions, role, route.permission),
+      )
+
+  if (modules.length === 0) return []
+  return [HOME_NAV_ROUTE, ...modules]
 }

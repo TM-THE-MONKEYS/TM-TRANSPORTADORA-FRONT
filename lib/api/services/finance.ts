@@ -178,6 +178,10 @@ export async function updateFinanceEntry(
 }
 
 export async function deleteFinanceEntry(id: string): Promise<void> {
-  if (shouldUseMocks()) return
+  if (shouldUseMocks()) {
+    const idx = mockFinanceEntries.findIndex((e) => e.id === id)
+    if (idx >= 0) mockFinanceEntries.splice(idx, 1)
+    return
+  }
   return apiRequest(`/finance/${id}`, { method: "DELETE", auth: true })
 }

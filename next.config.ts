@@ -1,5 +1,20 @@
 import type { NextConfig } from "next"
 
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "")
+
+const connectSrc = [
+  "'self'",
+  "https://api-production-a071.up.railway.app",
+  "https://tm-transportadora-api.onrender.com",
+  "https://jkdkspbcqnfrweanmhpp.supabase.co",
+  "https://va.vercel-scripts.com",
+  "https://viacep.com.br",
+  ...(apiUrl ? [apiUrl] : []),
+  ...(process.env.NODE_ENV === "development"
+    ? ["http://localhost:8000", "http://127.0.0.1:8000"]
+    : []),
+].join(" ")
+
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -20,7 +35,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' https://fonts.gstatic.com",
-      "connect-src 'self' https://api-production-a071.up.railway.app https://jkdkspbcqnfrweanmhpp.supabase.co https://va.vercel-scripts.com https://viacep.com.br",
+      `connect-src ${connectSrc}`,
       "frame-ancestors 'none'",
     ].join("; "),
   },

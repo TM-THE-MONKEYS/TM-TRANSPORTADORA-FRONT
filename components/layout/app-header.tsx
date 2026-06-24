@@ -1,80 +1,92 @@
 "use client"
 
 import Link from "next/link"
-import { Menu, Moon, Sun, LogOut, Building2, KeyRound } from "lucide-react"
+import { ChevronDown, KeyRound, LogOut, Moon, Sun, UserRound } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ModuleNavLinks } from "@/components/navigation/module-nav-links"
 import { useAuth } from "@/components/providers/auth-provider"
-import { useTenant } from "@/components/providers/tenant-provider"
-import { CommandPalette } from "@/components/layout/command-palette"
+import { getDefaultHomeRoute } from "@/lib/rbac/permissions"
+import { getUserRoleLabel } from "@/lib/navigation/user-role-labels"
+import { siteConfig } from "@/lib/site-config"
 
-export function AppHeader({
-  onMenuClick,
-  sidebarOpen,
-}: {
-  onMenuClick?: () => void
-  sidebarOpen?: boolean
-}) {
+export function AppHeader() {
   const { theme, setTheme } = useTheme()
   const { user, logout } = useAuth()
-  const { branches, branchId, setBranchId, isLoadingBranches } = useTenant()
+
+  const homeRoute = user
+    ? getDefaultHomeRoute(user.role, user.permissions)
+    : "/dashboard/home"
+  const roleLabel = getUserRoleLabel(user?.role)
+  const isDark = theme === "dark"
 
   return (
-    <header className="flex h-14 items-center gap-3 border-b bg-background px-4">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onMenuClick}
-        aria-expanded={sidebarOpen}
-        aria-controls="dashboard-sidebar"
-        title={sidebarOpen ? "Fechar menu" : "Abrir menu"}
-      >
-        <Menu className="h-5 w-5" />
-      </Button>
-      <CommandPalette />
-      <div className="ml-auto flex items-center gap-2">
-        <div className="hidden items-center gap-2 sm:flex">
-          <Building2 className="h-4 w-4 text-muted-foreground" />
-          <Select
-            value={branchId ?? undefined}
-            onValueChange={(v) => setBranchId(v)}
-            disabled={isLoadingBranches}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filial" />
-            </SelectTrigger>
-            <SelectContent>
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <span className="hidden text-sm text-muted-foreground md:inline">{user?.name}</span>
-        <Button variant="ghost" size="icon" asChild title="Alterar senha">
-          <Link href="/dashboard/conta/alterar-senha">
-            <KeyRound className="h-4 w-4" />
-          </Link>
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+    <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="flex min-h-[4.75rem] items-center gap-3 px-4 md:gap-4 md:px-6">
+        <Link
+          href={homeRoute}
+          className="shrink-0 text-sm font-semibold tracking-tight sm:text-base"
         >
-          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </Button>
-        <Button variant="ghost" size="icon" onClick={logout} title="Sair">
-          <LogOut className="h-4 w-4" />
-        </Button>
+          {siteConfig.navbarBrand}
+        </Link>
+
+        <ModuleNavLinks />
+
+        {user && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="ml-auto h-10 shrink-0 gap-2 px-3"
+                aria-label="Menu do usuário"
+              >
+                <UserRound className="h-4 w-4 text-muted-foreground" />
+                <span className="hidden max-w-[9rem] truncate text-sm font-medium sm:inline">
+                  {user.name || roleLabel}
+                </span>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col gap-0.5">
+                  <span className="truncate font-medium">{user.name || roleLabel}</span>
+                  <span className="text-xs font-normal text-muted-foreground">{roleLabel}</span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/conta/alterar-senha" className="cursor-pointer">
+                  <KeyRound />
+                  Alterar senha
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => setTheme(isDark ? "light" : "dark")}
+              >
+                {isDark ? <Sun /> : <Moon />}
+                {isDark ? "Modo claro" : "Modo escuro"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="cursor-pointer text-destructive focus:text-destructive"
+                onClick={logout}
+              >
+                <LogOut />
+                Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </header>
   )
