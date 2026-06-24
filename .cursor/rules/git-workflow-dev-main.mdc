@@ -1,0 +1,34 @@
+---
+description: Desenvolver na branch dev; produção só via merge/PR em main
+alwaysApply: true
+---
+
+# Git — dev → PR → main
+
+## Branches
+
+| Branch | Uso |
+|--------|-----|
+| **`dev`** | Desenvolvimento diário (front e back) |
+| **`main`** | Produção — merge só após revisão/testes locais |
+
+Trabalhar sempre a partir de `dev`. **Não** commitar features direto em `main`.
+
+## Fluxo
+
+1. `git checkout dev` e `git pull`
+2. Implementar e testar em **localhost**
+3. Commit + push em **`dev`**
+4. Abrir **PR `dev` → `main`** quando estiver ok
+5. Merge em `main` dispara deploy de produção (quando Git/auto-deploy estiver ativo)
+
+## Produção (Vercel + Railway)
+
+- **Somente `main`** publica em prod.
+- Push em `dev` **não** deve gerar deploy de produção.
+- Deploy manual (`vercel deploy --prod`, Railway redeploy) **só quando o usuário pedir**, sempre a partir de `main` mergeada.
+
+## Repositórios
+
+- Front: `TM-THE-MONKEYS/TM-TRANSPORTADORA-FRONT`
+- Back: `TM-THE-MONKEYS/TM-TRANSPORTADORA-BACK`

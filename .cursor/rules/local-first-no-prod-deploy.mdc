@@ -1,0 +1,38 @@
+---
+description: Testar só em local; deploy em prod apenas quando o usuário pedir
+alwaysApply: true
+---
+
+# Local first — sem deploy não solicitado
+
+## Testes e validação
+
+- Validar mudanças em **ambiente local** (`npm run dev`, API local, mocks).
+- Front local: `NEXT_PUBLIC_API_URL` apontando para backend local (ex. `http://localhost:8000/api/v1`) ou `NEXT_PUBLIC_USE_MOCKS=true`.
+- **Não** usar Railway/Vercel/prod como ambiente de teste padrão.
+
+## Deploy e produção
+
+**Só fazer deploy ou alterar produção quando o usuário pedir explicitamente** (ex.: "faça deploy", "suba para prod").
+
+Sem pedido explícito, **não**:
+
+- `vercel deploy`, `railway deploy`, `git push` visando release
+- MCP `deploy_to_vercel`, `redeploy`, `railway-agent` para deploy
+- Commits pensados só para publicar
+- Chamadas de teste à API de produção (`api-production-*.up.railway.app`, `tm-transportadora.vercel.app`)
+- Criar/alterar/excluir dados reais em prod
+
+## Quando o usuário pedir deploy
+
+1. Confirmar escopo (front, back, ambos).
+2. Verificar commits e variáveis.
+3. Executar deploy e reportar URLs/IDs.
+
+## Exceção
+
+Investigar bug **já em prod** que o usuário reportou — só leitura/diagnóstico, sem writes, salvo autorização.
+
+## Branches
+
+Ver regra **`git-workflow-dev-main`**: código novo em `dev`; `main` = produção após PR.

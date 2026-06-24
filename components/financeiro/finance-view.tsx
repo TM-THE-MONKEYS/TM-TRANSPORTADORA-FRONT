@@ -49,6 +49,7 @@ import { PageHeader } from "@/components/shared/page-header"
 import { useAuth } from "@/components/providers/auth-provider"
 import {
   createFinanceEntry,
+  deleteFinanceEntry,
   getCashFlow,
   invalidateFinanceCaches,
   listFinanceEntries,
@@ -120,6 +121,7 @@ export function FinanceView() {
     date: new Date().toISOString().slice(0, 10),
   })
   const [deleteFixedId, setDeleteFixedId] = useState<string | null>(null)
+  const [deleteEntry, setDeleteEntry] = useState<FinanceEntry | null>(null)
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
@@ -215,6 +217,20 @@ export function FinanceView() {
       toast.success("Gasto fixo removido")
     } catch {
       toast.error("Erro ao remover gasto fixo")
+    }
+  }
+
+  async function handleDeleteEntry() {
+    if (!deleteEntry) return
+    try {
+      await deleteFinanceEntry(deleteEntry.id)
+      invalidateFinanceCaches()
+      await refreshEntries()
+      await refreshCash()
+      setDeleteEntry(null)
+      toast.success("Lançamento removido")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao remover lançamento")
     }
   }
 
@@ -522,6 +538,15 @@ export function FinanceView() {
                                   >
                                     <Pencil className="h-3.5 w-3.5" />
                                   </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => setDeleteEntry(entry)}
+                                    title="Excluir lançamento"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
                                 </div>
                               </td>
                             )}
@@ -760,7 +785,7 @@ export function FinanceView() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm */}
+      {/* Delete fixed expense confirm */}
       <Dialog open={Boolean(deleteFixedId)} onOpenChange={() => setDeleteFixedId(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -772,6 +797,39 @@ export function FinanceView() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteFixedId(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleDeleteFixed}>Remover</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete finance entry confirm */}
+      <Dialog open={Boolean(deleteEntry)} onOpenChange={() => setDeleteEntry(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Excluir lançamento</DialogTitle>
+            <DialogDescription>
+              {deleteEntry ? (
+                <>
+                  Remover permanentemente{" "}
+                  <strong>
+                    {deleteEntry.tipo === "receita" ? "receita" : "despesa"} de{" "}
+                    {formatBRL(deleteEntry.valor)}
+                  </strong>
+                  {deleteEntry.descricao ? (
+                    <>
+                      {" "}
+                      ({deleteEntry.descricao})
+                    </>
+                  ) : null}
+                  ? Esta ação não pode ser desfeita.
+                </>
+              ) : (
+                "Esta ação não pode ser desfeita."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteEntry(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDeleteEntry}>Excluir</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

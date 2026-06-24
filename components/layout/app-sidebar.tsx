@@ -2,34 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  LayoutDashboard,
-  Truck,
-  Users,
-  Package,
-  Fuel,
-  Wrench,
-  DollarSign,
-  BarChart3,
-  PanelLeftClose,
-  type LucideIcon,
-} from "lucide-react"
+import { LayoutDashboard, PanelLeftClose, type LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { siteConfig } from "@/lib/site-config"
 import { useAuth } from "@/components/providers/auth-provider"
 import { getAllowedNavRoutes, getDefaultHomeRoute, type NavRoute } from "@/lib/rbac/permissions"
-
-const NAV_ICONS: Record<string, LucideIcon> = {
-  "/dashboard": LayoutDashboard,
-  "/dashboard/fretes": Package,
-  "/dashboard/frota": Truck,
-  "/dashboard/motoristas": Users,
-  "/dashboard/financeiro": DollarSign,
-  "/dashboard/abastecimento": Fuel,
-  "/dashboard/manutencao": Wrench,
-  "/dashboard/relatorios": BarChart3,
-}
+import { getNavIcon } from "@/lib/navigation/nav-icons"
 
 function SidebarLink({
   item,
@@ -39,7 +18,9 @@ function SidebarLink({
   onNavigate?: () => void
 }) {
   const pathname = usePathname()
-  const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+  const active =
+    pathname === item.href ||
+    (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`))
 
   return (
     <Link
@@ -70,7 +51,7 @@ export function AppSidebar({
   const allowedRoutes = user
     ? getAllowedNavRoutes(user.role, user.permissions).map((route) => ({
         ...route,
-        icon: NAV_ICONS[route.href] ?? LayoutDashboard,
+        icon: getNavIcon(route.href),
       }))
     : []
 

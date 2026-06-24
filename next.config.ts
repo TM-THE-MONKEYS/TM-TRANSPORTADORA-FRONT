@@ -2,6 +2,7 @@ import type { NextConfig } from "next"
 
 const publicApiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "")
 
+/** Inclui localhost e 127.0.0.1 quando a API local estiver configurada. */
 function localApiConnectSources(baseUrl: string): string[] {
   if (!baseUrl) return []
   const urls = [baseUrl]
