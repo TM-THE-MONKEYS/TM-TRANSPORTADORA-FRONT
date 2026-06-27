@@ -97,6 +97,12 @@ async function syncMockFinanceFromFreights(): Promise<{ receitas: number; despes
       ensureMockFreightRevenue(freight)
       receitas++
     }
+
+    if (freight.status === "entregue" && freight.driver_id) {
+      const driver = mockStore.drivers.find((d) => d.id === freight.driver_id)
+      const { ensureMockDriverCommissionExpense } = await import("@/lib/mocks/finance-sync")
+      if (ensureMockDriverCommissionExpense(freight, driver)) despesas++
+    }
   }
 
   for (const refill of mockStore.fuelRefills ?? []) {

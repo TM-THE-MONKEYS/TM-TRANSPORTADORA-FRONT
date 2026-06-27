@@ -127,6 +127,12 @@ export interface TruckImplement {
   brand?: string | null
   model?: string | null
   capacity_kg?: number | null
+  /** Comprimento útil (m) */
+  length_m?: number | null
+  /** Largura útil (m) */
+  width_m?: number | null
+  /** Altura útil (m) */
+  height_m?: number | null
   created_at?: string
 }
 
@@ -167,6 +173,19 @@ export interface DriverDocument {
 
 // ── Freights ─────────────────────────────────────────────────────────────────
 
+export interface FreightStop {
+  id?: string
+  /** Ordem da parada na rota (1 = primeira entrega após origem) */
+  sequence: number
+  city: string
+  state: string
+  street?: string | null
+  neighborhood?: string | null
+  cep?: string | null
+  cargo_description?: string | null
+  weight_kg?: number | null
+}
+
 export interface FreightOrder {
   id: string
   tenant_id: string
@@ -193,6 +212,8 @@ export interface FreightOrder {
   responsible_id?: string | null
   truck_id?: string | null
   driver_id?: string | null
+  /** Entregas intermediárias antes do destino final */
+  stops?: FreightStop[]
   created_at: string
   updated_at: string
 }
@@ -264,6 +285,12 @@ export interface FixedExpense {
   valor: number
   frequencia: FixedExpenseFrequency
   dia_vencimento?: number
+  /** Número de parcelas/meses; omitido = recorrente sem fim */
+  total_parcelas?: number | null
+  /** Parcelas já lançadas como despesa */
+  parcelas_lancadas?: number
+  /** Início da vigência (ISO date); padrão: created_at */
+  data_inicio?: string
   ativo: boolean
   observacao?: string
   created_at: string

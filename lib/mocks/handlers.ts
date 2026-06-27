@@ -310,6 +310,13 @@ export async function mockUpdateFreight(id: string, data: Partial<FreightOrder>)
   if (data.status !== undefined || data.truck_id !== undefined) {
     syncMockTrucksForFreight(updated, previous.truck_id)
   }
+  if (updated.status === "entregue") {
+    const driver = updated.driver_id
+      ? mockStore.drivers.find((d) => d.id === updated.driver_id)
+      : undefined
+    const { ensureMockDriverCommissionExpense } = await import("@/lib/mocks/finance-sync")
+    ensureMockDriverCommissionExpense(updated, driver)
+  }
   return updated
 }
 

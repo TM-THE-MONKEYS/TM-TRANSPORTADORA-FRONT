@@ -4,7 +4,7 @@ import { useState } from "react"
 import useSWR, { mutate } from "swr"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { BadgePercent, Container, Pencil, Plus, Trash2, Truck } from "lucide-react"
+import { BadgePercent, Container, Pencil, Plus, Ruler, Trash2, Truck } from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
@@ -37,6 +37,12 @@ import {
 import { IMPLEMENT_TYPE_LABELS, IMPLEMENT_TYPES } from "@/lib/fleet/implement-types"
 import type { ImplementType, TruckImplement } from "@/types"
 
+const optionalDimension = z.preprocess((val) => {
+  if (val === "" || val === null || val === undefined) return undefined
+  const n = Number(val)
+  return Number.isFinite(n) ? n : undefined
+}, z.number().positive("Dimensão inválida").optional())
+
 const schema = z.object({
   name: z.string().min(2, "Informe o nome"),
   type: z.enum(["carreta", "bau", "tanque", "prancha", "camera_fria"]),
@@ -48,6 +54,9 @@ const schema = z.object({
     const n = Number(val)
     return Number.isFinite(n) ? n : undefined
   }, z.number().positive("Capacidade inválida").optional()),
+  length_m: optionalDimension,
+  width_m: optionalDimension,
+  height_m: optionalDimension,
 })
 
 type FormData = z.infer<typeof schema>
@@ -55,6 +64,21 @@ type FormData = z.infer<typeof schema>
 function formatCapacity(value?: number | null) {
   if (value == null) return "—"
   return `${value.toLocaleString("pt-BR")} kg`
+}
+
+function formatDimension(value: number) {
+  return value.toLocaleString("pt-BR", { maximumFractionDigits: 2 })
+}
+
+function formatDimensions(item: Pick<TruckImplement, "length_m" | "width_m" | "height_m">) {
+  const parts = [item.length_m, item.width_m, item.height_m].filter(
+    (v): v is number => v != null && v > 0,
+  )
+  if (parts.length === 0) return null
+  if (parts.length === 3) {
+    return `${formatDimension(item.length_m!)} × ${formatDimension(item.width_m!)} × ${formatDimension(item.height_m!)} m`
+  }
+  return parts.map(formatDimension).join(" × ") + " m"
 }
 
 export function TruckImplementsPanel({
@@ -85,7 +109,17 @@ export function TruckImplementsPanel({
 
   function openCreate() {
     setEditing(null)
-    reset({ name: "", type: "carreta", plate: "", brand: "", model: "", capacity_kg: undefined })
+    reset({
+      name: "",
+      type: "carreta",
+      plate: "",
+      brand: "",
+      model: "",
+      capacity_kg: undefined,
+      length_m: undefined,
+      width_m: undefined,
+      height_m: undefined,
+    })
     setDialogOpen(true)
   }
 
@@ -98,6 +132,9 @@ export function TruckImplementsPanel({
       brand: item.brand ?? "",
       model: item.model ?? "",
       capacity_kg: item.capacity_kg ?? undefined,
+      length_m: item.length_m ?? undefined,
+      width_m: item.width_m ?? undefined,
+      height_m: item.height_m ?? undefined,
     })
     setDialogOpen(true)
   }
@@ -111,6 +148,9 @@ export function TruckImplementsPanel({
         brand: data.brand?.trim() || undefined,
         model: data.model?.trim() || undefined,
         capacity_kg: data.capacity_kg,
+        length_m: data.length_m,
+        width_m: data.width_m,
+        height_m: data.height_m,
       }
 
       if (editing) {
@@ -183,7 +223,9 @@ export function TruckImplementsPanel({
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              {implements_.map((item) => (
+              {implements_.map((item) => {
+                const dimensions = formatDimensions(item)
+                return (
                 <div
                   key={item.id}
                   className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-4"
@@ -205,6 +247,12 @@ export function TruckImplementsPanel({
                         Capacidade {formatCapacity(item.capacity_kg)}
                       </p>
                     )}
+                    {dimensions && (
+                      <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Ruler className="h-3 w-3" />
+                        {dimensions} (C × L × A)
+                      </p>
+                    )}
                   </div>
                   {canWrite && (
                     <div className="flex shrink-0 gap-1">
@@ -222,7 +270,8 @@ export function TruckImplementsPanel({
                     </div>
                   )}
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
@@ -293,6 +342,57 @@ export function TruckImplementsPanel({
               />
               {errors.capacity_kg && (
                 <p className="text-sm text-destructive">{errors.capacity_kg.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Dimensões úteis (m)</Label>
+              <p className="text-xs text-muted-foreground">Comprimento × largura × altura — opcional</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="imp-length" className="text-xs font-normal text-muted-foreground">
+                    Comprimento
+                  </Label>
+                  <Input
+                    id="imp-length"
+                    type="number"
+                    min={0.01}
+                    step={0.01}
+                    placeholder="14,6"
+                    {...register("length_m")}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="imp-width" className="text-xs font-normal text-muted-foreground">
+                    Largura
+                  </Label>
+                  <Input
+                    id="imp-width"
+                    type="number"
+                    min={0.01}
+                    step={0.01}
+                    placeholder="2,6"
+                    {...register("width_m")}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="imp-height" className="text-xs font-normal text-muted-foreground">
+                    Altura
+                  </Label>
+                  <Input
+                    id="imp-height"
+                    type="number"
+                    min={0.01}
+                    step={0.01}
+                    placeholder="2,8"
+                    {...register("height_m")}
+                  />
+                </div>
+              </div>
+              {(errors.length_m || errors.width_m || errors.height_m) && (
+                <p className="text-sm text-destructive">
+                  {errors.length_m?.message ?? errors.width_m?.message ?? errors.height_m?.message}
+                </p>
               )}
             </div>
 

@@ -1,5 +1,10 @@
-import type { FinanceEntry, FreightOrder } from "@/types"
+import type { Driver, FinanceEntry, FreightOrder } from "@/types"
 import type { FuelRefill } from "@/lib/api/services/fuel"
+import {
+  DRIVER_COMMISSION_CATEGORY,
+  computeDriverCommission,
+  driverCommissionDescription,
+} from "@/lib/freight/driver-commission"
 import { generateId } from "@/lib/mocks/store"
 
 /** Lançamentos financeiros mock (fonte única para `finance.ts`). */
@@ -47,6 +52,40 @@ export function ensureMockFreightRevenue(freight: FreightOrder): void {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   })
+}
+
+/** Despesa de comissão ao entregar frete com motorista comissionado. */
+export function ensureMockDriverCommissionExpense(
+  freight: FreightOrder,
+  driver: Pick<Driver, "name" | "commission_pct"> | null | undefined,
+): boolean {
+  if (freight.status !== "entregue") return false
+  if (!freight.driver_id || !driver) return false
+
+  const valor = computeDriverCommission(freight.value_brl, driver.commission_pct)
+  if (valor == null || valor <= 0) return false
+
+  const exists = mockFinanceEntries.some(
+    (e) =>
+      e.freight_id === freight.id &&
+      e.tipo === "despesa" &&
+      e.categoria === DRIVER_COMMISSION_CATEGORY,
+  )
+  if (exists) return false
+
+  mockFinanceEntries.unshift({
+    id: generateId("fin"),
+    tipo: "despesa",
+    categoria: DRIVER_COMMISSION_CATEGORY,
+    descricao: driverCommissionDescription(freight.code, driver.name),
+    valor,
+    status: "pendente",
+    freight_id: freight.id,
+    data_vencimento: freight.deadline_at ?? undefined,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  })
+  return true
 }
 
 export function addMockFuelExpense(refill: FuelRefill, label: string): void {

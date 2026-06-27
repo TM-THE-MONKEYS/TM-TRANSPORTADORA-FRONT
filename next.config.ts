@@ -52,6 +52,13 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  async rewrites() {
+    if (process.env.NODE_ENV === "production" || !publicApiUrl) return []
+    return [
+      { source: "/api/v1/:path*", destination: `${publicApiUrl}/api/v1/:path*` },
+      { source: "/api/backend-health", destination: `${publicApiUrl}/health` },
+    ]
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }]
   },

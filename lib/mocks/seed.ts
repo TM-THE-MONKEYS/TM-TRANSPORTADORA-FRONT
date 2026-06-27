@@ -152,6 +152,9 @@ export const mockImplements: TruckImplement[] = [
     brand: "Randon",
     model: "SR BAU",
     capacity_kg: 30000,
+    length_m: 14.6,
+    width_m: 2.6,
+    height_m: 2.8,
   },
 ]
 
@@ -180,6 +183,7 @@ export const mockDrivers: Driver[] = [
     status: "ativo",
     email: "motorista@demo.tm",
     user_id: "drv-2",
+    commission_pct: 10,
     created_at: "2023-08-01T10:00:00Z",
   },
 ]
@@ -204,6 +208,16 @@ export const mockFreights: FreightOrder[] = [
     deadline_at: "2026-05-25",
     truck_id: "truck-1",
     driver_id: "drv-2",
+    stops: [
+      {
+        id: "stop-1",
+        sequence: 1,
+        city: "Campinas",
+        state: "SP",
+        street: "Rod. Anhanguera, km 102",
+        cargo_description: "Soja — cliente Agro Norte (lote 1)",
+      },
+    ],
     created_at: "2026-05-10T08:00:00Z",
     updated_at: "2026-05-18T14:00:00Z",
   },

@@ -25,6 +25,7 @@ import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState } from "@/components/shared/empty-state"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { advanceFreightStatus, listFreights } from "@/lib/api/services/freight"
+import { formatFreightRouteShort } from "@/lib/freight/route-label"
 import { formatBRL } from "@/lib/format/currency"
 import { formatWeightKg } from "@/lib/format/numbers"
 import { formatDateBR } from "@/lib/format/dates"
@@ -150,7 +151,8 @@ export function FreightsListView() {
           f.code.toLowerCase().includes(q) ||
           (f.customer_name ?? "").toLowerCase().includes(q) ||
           f.origin_city.toLowerCase().includes(q) ||
-          f.destination_city.toLowerCase().includes(q),
+          f.destination_city.toLowerCase().includes(q) ||
+          (f.stops ?? []).some((s) => s.city.toLowerCase().includes(q)),
       )
     }
     return items
@@ -364,9 +366,12 @@ export function FreightsListView() {
                       </div>
 
                       <p className="flex items-center gap-1 text-sm font-medium text-foreground/80">
-                        <span className="truncate">{f.origin_city}/{f.origin_state}</span>
-                        <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        <span className="truncate">{f.destination_city}/{f.destination_state}</span>
+                        <span className="truncate">{formatFreightRouteShort(f)}</span>
+                        {(f.stops?.length ?? 0) > 0 && (
+                          <Badge variant="secondary" className="shrink-0 text-[10px] px-1.5 py-0">
+                            {f.stops!.length + 1} entregas
+                          </Badge>
+                        )}
                       </p>
 
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
