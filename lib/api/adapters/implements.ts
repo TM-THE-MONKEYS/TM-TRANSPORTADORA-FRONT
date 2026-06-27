@@ -20,6 +20,12 @@ export function toImplementCreatePayload(
   if (data.model?.trim()) payload.model = data.model.trim()
   const cap = positiveOrNull(data.capacity_kg ?? undefined)
   if (cap != null) payload.capacity_kg = cap
+  const length = positiveOrNull(data.length_m ?? undefined)
+  if (length != null) payload.length_m = length
+  const width = positiveOrNull(data.width_m ?? undefined)
+  if (width != null) payload.width_m = width
+  const height = positiveOrNull(data.height_m ?? undefined)
+  if (height != null) payload.height_m = height
   return payload
 }
 
@@ -35,6 +41,15 @@ export function toImplementUpdatePayload(
   if (data.model !== undefined) payload.model = data.model?.trim() || null
   if (data.capacity_kg !== undefined) {
     payload.capacity_kg = positiveOrNull(data.capacity_kg ?? undefined)
+  }
+  if (data.length_m !== undefined) {
+    payload.length_m = positiveOrNull(data.length_m ?? undefined)
+  }
+  if (data.width_m !== undefined) {
+    payload.width_m = positiveOrNull(data.width_m ?? undefined)
+  }
+  if (data.height_m !== undefined) {
+    payload.height_m = positiveOrNull(data.height_m ?? undefined)
   }
   return payload
 }

@@ -7,7 +7,12 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const session = request.cookies.get("tmt_session")?.value
 
-  if (pathname.startsWith("/api/") && pathname !== "/api/auth/session") {
+  if (
+    pathname.startsWith("/api/") &&
+    pathname !== "/api/auth/session" &&
+    !pathname.startsWith("/api/v1/") &&
+    pathname !== "/api/backend-health"
+  ) {
     return new NextResponse(null, { status: 404 })
   }
 

@@ -61,12 +61,16 @@ import {
   FREQUENCY_LABELS,
   createFixedExpense,
   deleteFixedExpense,
+  fixedExpenseEndDate,
+  fixedExpenseRemainingParcelas,
+  isFixedExpenseActive,
   launchFixedExpense,
   listFixedExpenses,
   monthlyEquivalent,
   updateFixedExpense,
 } from "@/lib/api/services/fixed-expenses"
 import { formatBRL } from "@/lib/format/currency"
+import { formatDateBR } from "@/lib/format/dates"
 import { isAdminRole } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
 import type { FinanceEntry, FinanceEntryStatus, FinanceEntryType, FixedExpense } from "@/types"
@@ -159,7 +163,10 @@ export function FinanceView() {
       .sort((a, b) => b.value - a.value)
   }, [entries])
 
-  const activeFixed = useMemo(() => (fixedExpenses ?? []).filter((f) => f.ativo), [fixedExpenses])
+  const activeFixed = useMemo(
+    () => (fixedExpenses ?? []).filter((f) => isFixedExpenseActive(f)),
+    [fixedExpenses],
+  )
   const fixedMonthlyTotal = useMemo(
     () => activeFixed.reduce((s, f) => s + monthlyEquivalent(f), 0),
     [activeFixed],
@@ -201,6 +208,7 @@ export function FinanceView() {
       invalidateFinanceCaches()
       await refreshEntries()
       await refreshCash()
+      await refreshFixed()
       setLaunchDialog({ open: false, date: new Date().toISOString().slice(0, 10) })
       toast.success(`"${launchDialog.item.nome}" lançado como despesa pendente`)
     } catch (e) {
@@ -943,15 +951,21 @@ function FixedExpenseCard({
   onDelete: () => void
   onLaunch: () => void
 }) {
+  const active = isFixedExpenseActive(item)
+  const remaining = fixedExpenseRemainingParcelas(item)
+  const endDate = fixedExpenseEndDate(item)
+
   return (
-    <Card className={cn("transition-all", !item.ativo && "opacity-60")}>
+    <Card className={cn("transition-all", !active && "opacity-60")}>
       <CardContent className="pt-4">
         <div className="mb-3 flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <p className="truncate font-semibold">{item.nome}</p>
-              {!item.ativo && (
-                <Badge variant="outline" className="shrink-0 text-xs">Inativo</Badge>
+              {!active && (
+                <Badge variant="outline" className="shrink-0 text-xs">
+                  {item.total_parcelas ? "Encerrado" : "Inativo"}
+                </Badge>
               )}
             </div>
             <p className="text-xs text-muted-foreground">{item.categoria}</p>
@@ -985,18 +999,26 @@ function FixedExpenseCard({
               ≈ {formatBRL(monthlyEquivalent(item))}/mês
             </p>
           )}
+          {item.total_parcelas ? (
+            <p className="text-xs text-muted-foreground">
+              {item.parcelas_lancadas ?? 0}/{item.total_parcelas} parcela(s)
+              {remaining !== null && remaining > 0 ? ` · ${remaining} restante(s)` : ""}
+              {endDate ? ` · até ${formatDateBR(endDate.toISOString())}` : ""}
+            </p>
+          ) : null}
         </div>
 
         {item.observacao && (
           <p className="mb-3 text-xs text-muted-foreground line-clamp-2">{item.observacao}</p>
         )}
 
-        {item.ativo && (
+        {active && (
           <Button
             variant="outline"
             size="sm"
             className="w-full text-xs"
             onClick={onLaunch}
+            disabled={remaining === 0}
           >
             <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
             Lançar como despesa
@@ -1191,6 +1213,9 @@ type FxForm = {
   valor: string
   frequencia: string
   dia_vencimento: string
+  duracao_limitada: boolean
+  total_parcelas: string
+  data_inicio: string
   ativo: boolean
   observacao: string
 }
@@ -1201,6 +1226,9 @@ const FX_DEFAULTS: FxForm = {
   valor: "",
   frequencia: "mensal",
   dia_vencimento: "",
+  duracao_limitada: false,
+  total_parcelas: "",
+  data_inicio: "",
   ativo: true,
   observacao: "",
 }
@@ -1230,10 +1258,16 @@ function FixedExpenseDialog({
               valor: String(item.valor),
               frequencia: item.frequencia,
               dia_vencimento: item.dia_vencimento ? String(item.dia_vencimento) : "",
+              duracao_limitada: Boolean(item.total_parcelas),
+              total_parcelas: item.total_parcelas ? String(item.total_parcelas) : "",
+              data_inicio: (item.data_inicio ?? item.created_at).slice(0, 10),
               ativo: item.ativo,
               observacao: item.observacao ?? "",
             }
-          : FX_DEFAULTS,
+          : {
+              ...FX_DEFAULTS,
+              data_inicio: new Date().toISOString().slice(0, 10),
+            },
       )
     }
     onOpenChange(o)
@@ -1248,6 +1282,18 @@ function FixedExpenseDialog({
     const valor = parseFloat(form.valor.replace(",", "."))
     if (!valor || valor <= 0) { toast.error("Valor inválido"); return }
 
+    let total_parcelas: number | null | undefined
+    if (form.duracao_limitada) {
+      const parcelas = Number.parseInt(form.total_parcelas, 10)
+      if (!parcelas || parcelas <= 0) {
+        toast.error("Informe o número de parcelas (meses)")
+        return
+      }
+      total_parcelas = parcelas
+    } else {
+      total_parcelas = null
+    }
+
     setSaving(true)
     try {
       const payload = {
@@ -1256,6 +1302,9 @@ function FixedExpenseDialog({
         valor,
         frequencia: form.frequencia as FixedExpense["frequencia"],
         dia_vencimento: form.dia_vencimento ? Number(form.dia_vencimento) : undefined,
+        total_parcelas,
+        data_inicio: form.duracao_limitada ? form.data_inicio : undefined,
+        parcelas_lancadas: item?.parcelas_lancadas ?? 0,
         ativo: form.ativo,
         observacao: form.observacao.trim() || undefined,
       }
@@ -1281,7 +1330,7 @@ function FixedExpenseDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar gasto fixo" : "Novo gasto fixo"}</DialogTitle>
           <DialogDescription>
-            Gastos fixos representam despesas recorrentes da empresa.
+            Gastos fixos representam despesas recorrentes. Opcionalmente defina parcelas para encerrar após X meses.
           </DialogDescription>
         </DialogHeader>
 
@@ -1343,6 +1392,54 @@ function FixedExpenseDialog({
                 onChange={(e) => set("dia_vencimento", e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+            <div className="flex items-center gap-3">
+              <input
+                id="fx-duracao"
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={form.duracao_limitada}
+                onChange={(e) => set("duracao_limitada", e.target.checked)}
+              />
+              <Label htmlFor="fx-duracao" className="cursor-pointer font-normal">
+                Duração limitada (parcelas/meses)
+              </Label>
+            </div>
+
+            {form.duracao_limitada && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Nº de parcelas *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={360}
+                    placeholder="Ex: 12"
+                    value={form.total_parcelas}
+                    onChange={(e) => set("total_parcelas", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Início da vigência</Label>
+                  <Input
+                    type="date"
+                    value={form.data_inicio}
+                    onChange={(e) => set("data_inicio", e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {form.duracao_limitada && (
+              <p className="text-xs text-muted-foreground">
+                Após {form.total_parcelas || "X"} mês(es), o gasto fixo encerra automaticamente
+                {isEdit && item?.parcelas_lancadas
+                  ? ` (${item.parcelas_lancadas} parcela(s) já lançada(s)).`
+                  : "."}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">

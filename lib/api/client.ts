@@ -1,4 +1,4 @@
-import { requirePublicApiUrl, shouldUseMocks } from "@/lib/api/config"
+import { buildApiV1Url, getClientApiBaseUrl, requirePublicApiUrl, shouldUseMocks } from "@/lib/api/config"
 import { ApiError, formatFastApiDetail } from "@/lib/api/errors"
 import {
   getStoredAccessToken,
@@ -26,7 +26,7 @@ async function refreshAccessToken(): Promise<string> {
   if (!refresh) throw new ApiError(401, "Sessão expirada. Faça login novamente.")
 
   const base = requirePublicApiUrl()
-  const res = await fetch(`${base}/api/v1/auth/refresh`, {
+  const res = await fetch(buildApiV1Url("/auth/refresh", getClientApiBaseUrl() || base), {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ refresh_token: refresh }),
@@ -70,8 +70,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     _retry = false,
   } = options
 
-  const base = requirePublicApiUrl()
-  const url = `${base}/api/v1${path.startsWith("/") ? path : `/${path}`}`
+  requirePublicApiUrl()
+  const url = buildApiV1Url(path)
 
   const headers: Record<string, string> = { Accept: "application/json" }
 
@@ -93,9 +93,12 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   try {
     res = await fetch(url, { method, headers, body: payload, cache: "no-store" })
   } catch (err) {
+    const remote = requirePublicApiUrl()
     const hint =
       err instanceof TypeError && err.message === "Failed to fetch"
-        ? `Não foi possível conectar à API em ${base}. Verifique se o backend está rodando.`
+        ? process.env.NODE_ENV === "development"
+          ? `Não foi possível conectar à API (${remote}). Verifique se o backend está no ar e reinicie o npm run dev após alterar .env.local.`
+          : `Não foi possível conectar à API em ${remote}. Verifique se o backend está rodando.`
         : "Erro de rede ao chamar a API."
     throw new ApiError(0, hint)
   }
@@ -132,8 +135,10 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
 export async function checkApiHealth(): Promise<{ status: string; version?: string }> {
   if (shouldUseMocks()) return { status: "ok", version: "mock" }
-  const base = requirePublicApiUrl()
-  const res = await fetch(`${base}/health`, { cache: "no-store" })
+  requirePublicApiUrl()
+  const base = getClientApiBaseUrl()
+  const healthUrl = base ? `${base}/health` : "/api/backend-health"
+  const res = await fetch(healthUrl, { cache: "no-store" })
   if (!res.ok) throw new ApiError(res.status, "API indisponível")
   return res.json()
 }

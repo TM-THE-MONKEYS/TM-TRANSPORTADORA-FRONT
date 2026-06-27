@@ -1,4 +1,4 @@
-import type { FreightCost, FreightEvent, FreightOrder, TrackingUpdate } from "@/types"
+import type { FreightCost, FreightEvent, FreightOrder, FreightStop, TrackingUpdate } from "@/types"
 
 function parseLitrosFromCostDescription(descricao: string | null): number | null {
   if (!descricao) return null
@@ -24,10 +24,23 @@ export function mapFreightCostFromApi(
   }
 }
 
+function toStopPayload(stop: FreightStop): Record<string, unknown> {
+  return {
+    ordem: stop.sequence,
+    cep: stop.cep ?? undefined,
+    logradouro: stop.street || stop.city,
+    bairro: stop.neighborhood ?? undefined,
+    cidade: stop.city,
+    estado: stop.state,
+    observacoes: stop.cargo_description ?? undefined,
+    peso_kg: stop.weight_kg ?? undefined,
+  }
+}
+
 export function toFreightCreatePayload(
   data: Omit<FreightOrder, "id" | "code" | "created_at" | "updated_at" | "tenant_id">,
 ): Record<string, unknown> {
-  return {
+  const payload: Record<string, unknown> = {
     client_id: data.customer_id,
     driver_id: data.driver_id ?? null,
     truck_id: data.truck_id ?? null,
@@ -51,6 +64,10 @@ export function toFreightCreatePayload(
     observacoes: data.cargo_description,
     costs: [],
   }
+  if (data.stops?.length) {
+    payload.paradas = data.stops.map(toStopPayload)
+  }
+  return payload
 }
 
 export function toFreightUpdatePayload(data: Partial<FreightOrder>): Record<string, unknown> {

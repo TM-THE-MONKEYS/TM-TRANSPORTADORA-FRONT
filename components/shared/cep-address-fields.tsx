@@ -18,14 +18,20 @@ export type AddressFieldPrefix = "origin" | "destination"
 
 type CepAddressFieldsProps<T extends FieldValues> = {
   title: string
-  prefix: AddressFieldPrefix
+  /** `origin` / `destination` ou caminho aninhado ex. `stops.0` */
+  prefix: AddressFieldPrefix | string
   register: UseFormRegister<T>
   setValue: UseFormSetValue<T>
   errors: FieldErrors<T>
+  /** Oculta bloco de legenda externa quando dentro de card numerado */
+  nested?: boolean
 }
 
-function fieldName(prefix: AddressFieldPrefix, suffix: string): string {
-  return `${prefix}_${suffix}`
+function fieldName(prefix: string, suffix: string): string {
+  if (prefix === "origin" || prefix === "destination") {
+    return `${prefix}_${suffix}`
+  }
+  return `${prefix}.${suffix}`
 }
 
 export function CepAddressFields<T extends FieldValues>({
@@ -34,6 +40,7 @@ export function CepAddressFields<T extends FieldValues>({
   register,
   setValue,
   errors,
+  nested = false,
 }: CepAddressFieldsProps<T>) {
   const cepKey = fieldName(prefix, "cep") as Path<T>
   const streetKey = fieldName(prefix, "street") as Path<T>
@@ -64,15 +71,28 @@ export function CepAddressFields<T extends FieldValues>({
   }
 
   function err(key: Path<T>): string | undefined {
-    const message = errors[key]?.message
+    const parts = String(key).split(".")
+    let node: unknown = errors
+    for (const part of parts) {
+      if (!node || typeof node !== "object") return undefined
+      node = (node as Record<string, unknown>)[part]
+    }
+    const message = (node as { message?: unknown })?.message
     return typeof message === "string" ? message : undefined
   }
 
   const cepRegister = register(cepKey)
 
   return (
-    <fieldset className="space-y-3 rounded-lg border border-border/60 p-4">
-      <legend className="px-1 text-sm font-medium">{title}</legend>
+    <fieldset
+      className={
+        nested
+          ? "space-y-3"
+          : "space-y-3 rounded-lg border border-border/60 p-4"
+      }
+    >
+      {!nested && <legend className="px-1 text-sm font-medium">{title}</legend>}
+      {nested && <p className="text-sm font-medium">{title}</p>}
 
       <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
         <div className="space-y-2">

@@ -35,7 +35,7 @@ import { trackingUpdatesWithoutOccurrences } from "@/lib/freight/occurrences"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateTimeBR } from "@/lib/format/dates"
 import { FREIGHT_STATUS_FLOW } from "@/lib/freight/status"
-import { isFreightInTransit } from "@/lib/freight/active-trip"
+import { formatFreightRouteShort, formatFreightRouteStops } from "@/lib/freight/route-label"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { useOperationContext } from "@/hooks/use-operation-context"
@@ -127,20 +127,13 @@ export function FreightDetailView({ id }: { id: string }) {
   const driverName = drivers.find((d) => d.id === freight.driver_id)?.name
   const truck = trucks.find((t) => t.id === freight.truck_id)
 
-  function formatRouteLabel(
-    street: string | null | undefined,
-    city: string,
-    state: string,
-  ): string {
-    const place = street?.trim() ? `${street}, ${city}/${state}` : `${city}/${state}`
-    return place
-  }
+  const routeStops = formatFreightRouteStops(freight)
 
   return (
     <div>
       <PageHeader
         title={freight.code}
-        description={`${formatRouteLabel(freight.origin_street, freight.origin_city, freight.origin_state)} → ${formatRouteLabel(freight.destination_street, freight.destination_city, freight.destination_state)}`}
+        description={formatFreightRouteShort(freight)}
         actions={
           canStatus && flowIdx < FREIGHT_STATUS_FLOW.length - 1 ? (
             <Button onClick={handleAdvance}>
@@ -161,6 +154,48 @@ export function FreightDetailView({ id }: { id: string }) {
           </span>
         )}
       </div>
+
+      {(freight.stops?.length ?? 0) > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MapPin className="h-4 w-4 text-primary" />
+              Rota com paradas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="space-y-3">
+              {routeStops.map((point, index) => (
+                <li key={`${point.kind}-${point.sequence ?? index}`} className="flex gap-3">
+                  <span
+                    className={cn(
+                      "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+                      point.kind === "origin" && "bg-muted text-muted-foreground",
+                      point.kind === "stop" && "bg-primary/15 text-primary",
+                      point.kind === "destination" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+                    )}
+                  >
+                    {point.kind === "origin" ? "O" : point.kind === "destination" ? "F" : point.sequence}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {point.kind === "origin"
+                        ? "Origem"
+                        : point.kind === "destination"
+                          ? "Destino final"
+                          : `Parada ${point.sequence}`}
+                    </p>
+                    <p className="text-sm font-medium">{point.label}</p>
+                    {point.detail && (
+                      <p className="text-xs text-muted-foreground">{point.detail}</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
 
       {canWrite && (
         <Card className="mb-6">

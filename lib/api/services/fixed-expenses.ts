@@ -76,10 +76,55 @@ const mockFixed: FixedExpense[] = [
   },
 ]
 
+// ── Parcelas / vigência ───────────────────────────────────────────────────────
+
+function parseIsoDate(value: string): Date {
+  const [y, m, d] = value.slice(0, 10).split("-").map(Number)
+  return new Date(y, (m ?? 1) - 1, d ?? 1)
+}
+
+export function monthsBetween(from: Date, to: Date): number {
+  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth())
+}
+
+export function isFixedExpenseExpired(fx: FixedExpense, now = new Date()): boolean {
+  if (!fx.total_parcelas || fx.total_parcelas <= 0) return false
+
+  if ((fx.parcelas_lancadas ?? 0) >= fx.total_parcelas) return true
+
+  const start = parseIsoDate(fx.data_inicio ?? fx.created_at)
+  return monthsBetween(start, now) >= fx.total_parcelas
+}
+
+export function isFixedExpenseActive(fx: FixedExpense, now = new Date()): boolean {
+  return fx.ativo && !isFixedExpenseExpired(fx, now)
+}
+
+export function fixedExpenseRemainingParcelas(fx: FixedExpense): number | null {
+  if (!fx.total_parcelas || fx.total_parcelas <= 0) return null
+  return Math.max(0, fx.total_parcelas - (fx.parcelas_lancadas ?? 0))
+}
+
+export function fixedExpenseEndDate(fx: FixedExpense): Date | null {
+  if (!fx.total_parcelas || fx.total_parcelas <= 0) return null
+  const start = parseIsoDate(fx.data_inicio ?? fx.created_at)
+  return new Date(start.getFullYear(), start.getMonth() + fx.total_parcelas, start.getDate())
+}
+
+function syncFixedExpenseExpiry(fx: FixedExpense): FixedExpense {
+  if (!fx.ativo || !isFixedExpenseExpired(fx)) return fx
+  return { ...fx, ativo: false, updated_at: new Date().toISOString() }
+}
+
 // ── Service functions ─────────────────────────────────────────────────────────
 
 export async function listFixedExpenses(): Promise<FixedExpense[]> {
-  if (shouldUseMocks()) return [...mockFixed]
+  if (shouldUseMocks()) {
+    for (let i = 0; i < mockFixed.length; i++) {
+      mockFixed[i] = syncFixedExpenseExpiry(mockFixed[i])
+    }
+    return [...mockFixed]
+  }
   return apiRequest("/finance/fixed-expenses", { auth: true })
 }
 
@@ -127,8 +172,16 @@ export async function launchFixedExpense(
   vencimento?: string,
 ): Promise<void> {
   if (shouldUseMocks()) {
-    const fx = mockFixed.find((e) => e.id === id)
-    if (!fx) throw new Error("Gasto fixo não encontrado")
+    const idx = mockFixed.findIndex((e) => e.id === id)
+    if (idx < 0) throw new Error("Gasto fixo não encontrado")
+    const fx = mockFixed[idx]
+    if (!isFixedExpenseActive(fx)) {
+      throw new Error("Gasto fixo encerrado — vigência ou parcelas esgotadas")
+    }
+    if (fx.total_parcelas && (fx.parcelas_lancadas ?? 0) >= fx.total_parcelas) {
+      throw new Error("Todas as parcelas deste gasto fixo já foram lançadas")
+    }
+
     const { mockFinanceEntries } = await import("@/lib/mocks/finance-sync")
     mockFinanceEntries.unshift({
       id: generateId("fin"),
@@ -141,6 +194,18 @@ export async function launchFixedExpense(
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
+
+    const parcelas_lancadas = (fx.parcelas_lancadas ?? 0) + 1
+    const expired =
+      Boolean(fx.total_parcelas) &&
+      (parcelas_lancadas >= fx.total_parcelas! ||
+        isFixedExpenseExpired({ ...fx, parcelas_lancadas }))
+    mockFixed[idx] = {
+      ...fx,
+      parcelas_lancadas,
+      ativo: expired ? false : fx.ativo,
+      updated_at: new Date().toISOString(),
+    }
     return
   }
   return apiRequest(`/finance/fixed-expenses/${id}/launch`, {
@@ -169,8 +234,9 @@ export const FREQUENCY_LABELS: Record<FixedExpenseFrequency, string> = {
   anual: "Anual",
 }
 
-/** Valor mensal equivalente de um gasto fixo. */
+/** Valor mensal equivalente de um gasto fixo ativo. */
 export function monthlyEquivalent(fx: FixedExpense): number {
+  if (!isFixedExpenseActive(fx)) return 0
   switch (fx.frequencia) {
     case "mensal":      return fx.valor
     case "trimestral":  return fx.valor / 3

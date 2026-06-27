@@ -2,6 +2,24 @@ export function getPublicApiUrl(): string {
   return (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "")
 }
 
+/**
+ * Base da API no browser. Em dev, usa proxy same-origin (/api/v1 → Railway)
+ * porque o backend em produção não libera CORS para localhost.
+ */
+export function getClientApiBaseUrl(): string {
+  const remote = getPublicApiUrl()
+  if (!remote) return ""
+  if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+    return ""
+  }
+  return remote
+}
+
+export function buildApiV1Url(path: string, base = getClientApiBaseUrl()): string {
+  const suffix = path.startsWith("/") ? path : `/${path}`
+  return base ? `${base}/api/v1${suffix}` : `/api/v1${suffix}`
+}
+
 export function isApiUrlConfigured(): boolean {
   return getPublicApiUrl().length > 0
 }
