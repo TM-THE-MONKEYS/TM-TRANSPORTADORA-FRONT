@@ -18,6 +18,7 @@ import { formatBRL } from "@/lib/format/currency"
 import { formatWeightKg } from "@/lib/format/numbers"
 import { formatDateBR, formatDateTimeBR } from "@/lib/format/dates"
 import { buildFreightReportMetrics } from "@/lib/freight/report-metrics"
+import { DRIVER_COMMISSION_CATEGORY } from "@/lib/freight/driver-commission"
 import { getDriverName, getTruckLabel } from "@/lib/freight/active-trip"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { cn } from "@/lib/utils"
@@ -55,10 +56,18 @@ export function FreightReportDetailSheet({
   const metricsReady =
     Boolean(freight) && events !== undefined && costs !== undefined && finance !== undefined
 
+  const driver = freight?.driver_id
+    ? drivers.find((d) => d.id === freight.driver_id)
+    : undefined
+
   const metrics =
     metricsReady && freight
-      ? buildFreightReportMetrics(freight, events ?? [], costs ?? [], finance ?? [])
+      ? buildFreightReportMetrics(freight, events ?? [], costs ?? [], finance ?? [], driver)
       : null
+
+  const financeWithoutCommission = (finance ?? []).filter(
+    (e) => !(e.tipo === "despesa" && e.categoria === DRIVER_COMMISSION_CATEGORY),
+  )
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -99,6 +108,26 @@ export function FreightReportDetailSheet({
                       ? `+ ${formatBRL(metrics.receivedPending)} pendente`
                       : undefined
                   }
+                />
+                <MetricCard
+                  label={
+                    metrics.driverCommissionEstimated
+                      ? "Comissão motorista (est.)"
+                      : "Comissão motorista"
+                  }
+                  value={
+                    metrics.driverCommission > 0
+                      ? `−${formatBRL(metrics.driverCommission)}`
+                      : "—"
+                  }
+                  sub={
+                    metrics.driverCommission > 0 && driver
+                      ? driver.name
+                      : metrics.driverCommission === 0
+                        ? "Sem comissão"
+                        : undefined
+                  }
+                  negative={metrics.driverCommission > 0}
                 />
                 <MetricCard label="Total gasto" value={formatBRL(metrics.totalSpent)} negative />
                 <MetricCard
@@ -162,6 +191,37 @@ export function FreightReportDetailSheet({
               )}
             </DetailSection>
 
+            <DetailSection title="Descontos e custos do frete">
+              <ul className="space-y-2 text-sm">
+                {metrics && metrics.driverCommission > 0 && (
+                  <li className="flex items-start justify-between gap-2 rounded-md border border-amber-200/80 bg-amber-50/50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-950/20">
+                    <div>
+                      <p className="font-medium">
+                        Comissão motorista
+                        {metrics.driverCommissionEstimated ? " (estimada)" : ""}
+                      </p>
+                      {driver && (
+                        <p className="text-muted-foreground">
+                          {driver.name}
+                          {driver.commission_pct != null
+                            ? ` · ${driver.commission_pct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`
+                            : ""}
+                        </p>
+                      )}
+                    </div>
+                    <span className="shrink-0 font-medium text-destructive">
+                      −{formatBRL(metrics.driverCommission)}
+                    </span>
+                  </li>
+                )}
+                {(costs ?? []).length === 0 && (!metrics || metrics.driverCommission === 0) ? (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum desconto ou custo registrado neste frete.
+                  </p>
+                ) : null}
+              </ul>
+            </DetailSection>
+
             <DetailSection title={`Custos e abastecimentos (${(costs ?? []).length})`}>
               {(costs ?? []).length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum custo lançado neste frete.</p>
@@ -191,14 +251,14 @@ export function FreightReportDetailSheet({
             </DetailSection>
 
             <DetailSection title="Financeiro (receitas e despesas)">
-              {(finance ?? []).length === 0 ? (
+              {financeWithoutCommission.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Sem lançamentos financeiros. No módulo Financeiro, use &quot;Importar dos
-                  fretes&quot; para gerar receitas e despesas de abastecimentos.
+                  Sem lançamentos financeiros além da comissão. No módulo Financeiro, use
+                  &quot;Atualizar valores&quot; para gerar receitas e despesas de abastecimentos.
                 </p>
               ) : (
                 <ul className="space-y-2 text-sm">
-                  {(finance ?? []).map((e) => (
+                  {financeWithoutCommission.map((e) => (
                     <li
                       key={e.id}
                       className="flex items-start justify-between gap-2 rounded-md border px-3 py-2"
