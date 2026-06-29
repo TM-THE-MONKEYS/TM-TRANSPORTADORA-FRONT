@@ -21,6 +21,7 @@ import {
 import { PageHeader } from "@/components/shared/page-header"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { DeliveryChecklist } from "@/components/fretes/delivery-checklist"
+import { FreightFinancialBreakdown } from "@/components/fretes/freight-financial-breakdown"
 import { FreightExpensesList } from "@/components/shared/freight-expenses-list"
 import {
   addOccurrence,
@@ -347,7 +348,8 @@ export function FreightDetailView({ id }: { id: string }) {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="custos" className="mt-4">
+        <TabsContent value="custos" className="mt-4 space-y-4">
+          <FreightFinancialBreakdown freightId={id} />
           <Card>
             <CardHeader>
               <CardTitle>Custos e abastecimentos</CardTitle>

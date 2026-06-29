@@ -1,11 +1,18 @@
 import { differenceInMinutes, parseISO } from "date-fns"
-import type { FinanceEntry, FreightCost, FreightEvent, FreightOrder } from "@/types"
+import {
+  DRIVER_COMMISSION_CATEGORY,
+  resolveFreightDriverCommission,
+} from "@/lib/freight/driver-commission"
+import type { Driver, FinanceEntry, FreightCost, FreightEvent, FreightOrder } from "@/types"
 
 export interface FreightReportMetrics {
   tripDurationLabel: string
   tripInProgress: boolean
   freightValue: number
   totalCosts: number
+  driverCommission: number
+  driverCommissionEstimated: boolean
+  otherExpenses: number
   totalExpenses: number
   totalSpent: number
   receivedPaid: number
@@ -60,6 +67,7 @@ export function buildFreightReportMetrics(
   events: FreightEvent[],
   costs: FreightCost[],
   financeEntries: FinanceEntry[],
+  driver?: Pick<Driver, "name" | "commission_pct"> | null,
 ): FreightReportMetrics {
   const { label, inProgress } = computeTripDuration(freight, events)
 
@@ -73,19 +81,31 @@ export function buildFreightReportMetrics(
   const receivedPending = receitas
     .filter((e) => e.status !== "pago" && e.status !== "cancelado")
     .reduce((s, e) => s + e.valor, 0)
-  const totalExpenses = despesas.reduce((s, e) => s + e.valor, 0)
+
+  const commission = resolveFreightDriverCommission(freight, financeEntries, driver)
+  const driverCommission = commission?.amount ?? 0
+  const driverCommissionEstimated = commission?.estimated ?? false
+  const otherExpenses = despesas
+    .filter((e) => e.categoria !== DRIVER_COMMISSION_CATEGORY)
+    .reduce((s, e) => s + e.valor, 0)
+  const totalExpenses = otherExpenses + driverCommission
   const totalSpent = totalCosts + totalExpenses
+
+  const revenueBase = receivedPaid > 0 ? receivedPaid : freight.value_brl
 
   return {
     tripDurationLabel: label,
     tripInProgress: inProgress,
     freightValue: freight.value_brl,
     totalCosts,
+    driverCommission,
+    driverCommissionEstimated,
+    otherExpenses,
     totalExpenses,
     totalSpent,
     receivedPaid,
     receivedPending,
-    netMargin: receivedPaid > 0 ? receivedPaid - totalSpent : freight.value_brl - totalSpent,
+    netMargin: revenueBase - totalSpent,
   }
 }
 
