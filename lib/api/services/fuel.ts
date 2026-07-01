@@ -36,6 +36,8 @@ export interface FuelRefillCreate {
   cidade?: string
   estado?: string
   observacoes?: string
+  /** Admin: permite abastecimento em frete entregue/cancelado. */
+  admin_override?: boolean
 }
 
 export async function registerFuelRefill(data: FuelRefillCreate): Promise<FuelRefill> {
@@ -54,6 +56,7 @@ export async function registerFuelRefill(data: FuelRefillCreate): Promise<FuelRe
             cidade: data.cidade,
             estado: data.estado,
             observacoes: data.observacoes,
+            admin_override: data.admin_override,
           },
           auth: true,
         })) as Record<string, unknown>,

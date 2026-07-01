@@ -316,6 +316,20 @@ export async function mockUpdateFreight(id: string, data: Partial<FreightOrder>)
       : undefined
     const { ensureMockDriverCommissionExpense } = await import("@/lib/mocks/finance-sync")
     ensureMockDriverCommissionExpense(updated, driver)
+  } else if (
+    previous.status === "entregue" &&
+    data.status !== undefined &&
+    data.status !== "entregue"
+  ) {
+    const { DRIVER_COMMISSION_CATEGORY } = await import("@/lib/freight/driver-commission")
+    const { mockFinanceEntries } = await import("@/lib/mocks/finance-sync")
+    const idxCommission = mockFinanceEntries.findIndex(
+      (e) =>
+        e.freight_id === id &&
+        e.tipo === "despesa" &&
+        e.categoria === DRIVER_COMMISSION_CATEGORY,
+    )
+    if (idxCommission >= 0) mockFinanceEntries.splice(idxCommission, 1)
   }
   return updated
 }
@@ -436,19 +450,20 @@ export async function mockRegisterFuelRefill(data: {
   cidade?: string
   estado?: string
   observacoes?: string
+  admin_override?: boolean
 }) {
   await delay(200)
   const freight = mockStore.freights.find((f) => f.id === data.freight_id)
   if (!freight) throw new Error("Frete não encontrado")
-  if (!isFreightOpenForFuel(freight.status)) {
+  if (!data.admin_override && !isFreightOpenForFuel(freight.status)) {
     throw new Error("Não é possível abastecer frete já concluído ou cancelado")
   }
   const driverId = data.driver_id ?? freight.driver_id
   if (!driverId) throw new Error("Frete sem motorista vinculado")
-  if (freight.driver_id !== driverId) {
+  if (!data.admin_override && freight.driver_id !== driverId) {
     throw new Error("Somente o motorista vinculado a este frete pode registrar abastecimento")
   }
-  if (!canDriverRefuelFreight(freight, driverId)) {
+  if (!data.admin_override && !canDriverRefuelFreight(freight, driverId)) {
     throw new Error("Abastecimento não permitido para este frete")
   }
 

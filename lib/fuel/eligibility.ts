@@ -9,15 +9,28 @@ export function isFreightOpenForFuel(status: FreightStatus): boolean {
 
 export function filterFreightsForFuel(
   freights: FreightOrder[],
-  options?: { driverId?: string | null },
+  options?: { driverId?: string | null; includeClosed?: boolean },
 ): FreightOrder[] {
-  let list = freights.filter(
-    (f) => isFreightOpenForFuel(f.status) && Boolean(f.driver_id),
-  )
+  let list = freights.filter((f) => {
+    if (!Boolean(f.driver_id)) return false
+    if (options?.includeClosed) return true
+    return isFreightOpenForFuel(f.status)
+  })
   if (options?.driverId) {
     list = list.filter((f) => f.driver_id === options.driverId)
   }
   return list
+}
+
+export function canRegisterFuelForFreight(
+  freight: FreightOrder,
+  driverId: string,
+  options?: { adminOverride?: boolean },
+): boolean {
+  if (options?.adminOverride) {
+    return Boolean(freight.driver_id)
+  }
+  return canDriverRefuelFreight(freight, driverId)
 }
 
 export function canDriverRefuelFreight(freight: FreightOrder, driverId: string): boolean {
