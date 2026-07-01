@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { toast } from "sonner"
 import { CircleDollarSign, Fuel, Gauge, Route } from "lucide-react"
@@ -24,8 +25,10 @@ import { listFreights } from "@/lib/api/services/freight"
 import { listAllFuelRefills, registerFuelRefill } from "@/lib/api/services/fuel"
 import { resolveDriverDisplayName } from "@/lib/drivers/display-name"
 import { resolveDriverIdForUser } from "@/lib/drivers/resolve-driver"
+import { isFreightClosed } from "@/lib/freight/closed-freight"
 import {
   canDriverRefuelFreight,
+  canRegisterFuelForFreight,
   filterFreightsForFuel,
   isMotoristaRole,
 } from "@/lib/fuel/eligibility"
@@ -51,8 +54,14 @@ function formatDate(dateStr?: string) {
 }
 
 export function FuelView() {
+  const searchParams = useSearchParams()
+  const presetFreightId = searchParams.get("freightId") ?? ""
+  const allowClosedParam = searchParams.get("allowClosed") === "1"
+
   const { user } = useAuth()
   const isMotorista = isMotoristaRole(user)
+  const isAdmin = isAdminRole(user?.role)
+  const allowClosedFuel = allowClosedParam && isAdmin && !isMotorista
   const [freightId, setFreightId] = useState("")
   const [valorDisplay, setValorDisplay] = useState("")
   const [litrosDisplay, setLitrosDisplay] = useState("")
@@ -80,8 +89,9 @@ export function FuelView() {
     if (!freightsPage?.items) return []
     return filterFreightsForFuel(freightsPage.items, {
       driverId: isMotorista ? currentDriverId : undefined,
+      includeClosed: allowClosedFuel,
     })
-  }, [freightsPage?.items, isMotorista, currentDriverId])
+  }, [freightsPage?.items, isMotorista, currentDriverId, allowClosedFuel])
 
   const freightMap = useMemo(
     () => new Map((freightsPage?.items ?? []).map((f) => [f.id, f])),
@@ -94,15 +104,21 @@ export function FuelView() {
     return all.filter((r) => r.driver_id === currentDriverId)
   }, [refills, isMotorista, currentDriverId])
 
-  const selectedFreight = eligibleFreights.find((f) => f.id === freightId)
+  const selectedFreight =
+    eligibleFreights.find((f) => f.id === freightId) ??
+    (allowClosedFuel ? freightMap.get(freightId) : undefined)
   const selectedTruck = useMemo(
     () => trucks.find((t) => t.id === selectedFreight?.truck_id),
     [trucks, selectedFreight?.truck_id],
   )
 
   useEffect(() => {
+    if (presetFreightId && eligibleFreights.some((f) => f.id === presetFreightId)) {
+      setFreightId(presetFreightId)
+      return
+    }
     if (eligibleFreights.length === 1) setFreightId(eligibleFreights[0].id)
-  }, [eligibleFreights])
+  }, [eligibleFreights, presetFreightId])
 
   useEffect(() => {
     setKmDisplay("")
@@ -127,14 +143,26 @@ export function FuelView() {
     if (!freightId) { toast.error("Selecione a ordem de frete"); return }
     if (valor_total <= 0) { toast.error("Informe o valor do abastecimento"); return }
     if (litros <= 0) { toast.error("Informe os litros abastecidos"); return }
-    if (!selectedFreight) { toast.error("Frete inválido ou já concluído"); return }
+    if (!selectedFreight) { toast.error("Frete inválido ou indisponível"); return }
     if (!selectedFreight.driver_id) { toast.error("Vincule um motorista ao frete antes de abastecer"); return }
-    if (!selectedFreight.truck_id) { toast.error("Vincule um caminhão ao frete para registrar a quilometragem"); return }
+
+    const adminOverride =
+      allowClosedFuel && isFreightClosed(selectedFreight.status)
+
+    if (!adminOverride && !selectedFreight.truck_id) {
+      toast.error("Vincule um caminhão ao frete para registrar a quilometragem")
+      return
+    }
 
     const km_atual = parseKmInput(kmDisplay)
-    if (km_atual <= 0) { toast.error("Informe a quilometragem atual do caminhão"); return }
-    if (selectedTruck && km_atual < selectedTruck.mileage_km) {
-      toast.error(`A quilometragem não pode ser menor que a da frota (${formatKm(selectedTruck.mileage_km)})`)
+    if (!adminOverride) {
+      if (km_atual <= 0) { toast.error("Informe a quilometragem atual do caminhão"); return }
+      if (selectedTruck && km_atual < selectedTruck.mileage_km) {
+        toast.error(`A quilometragem não pode ser menor que a da frota (${formatKm(selectedTruck.mileage_km)})`)
+        return
+      }
+    } else if (kmDisplay.trim() && km_atual <= 0) {
+      toast.error("Quilometragem inválida")
       return
     }
 
@@ -148,6 +176,14 @@ export function FuelView() {
       }
       driverIdForRefill = currentDriverId
     } else if (canManageFuel) {
+      if (
+        !canRegisterFuelForFreight(selectedFreight, selectedFreight.driver_id, {
+          adminOverride,
+        })
+      ) {
+        toast.error("Abastecimento não permitido para este frete")
+        return
+      }
       driverIdForRefill = selectedFreight.driver_id
     } else {
       toast.error("Sem permissão para registrar abastecimento")
@@ -161,9 +197,10 @@ export function FuelView() {
         driver_id: driverIdForRefill,
         litros,
         valor_total,
-        km_atual,
+        km_atual: km_atual > 0 ? km_atual : undefined,
         posto: posto.trim() || undefined,
         observacoes: posto.trim() || undefined,
+        admin_override: adminOverride || undefined,
       })
       toast.success("Abastecimento registrado e quilometragem da frota atualizada")
       setValorDisplay("")
@@ -248,17 +285,31 @@ export function FuelView() {
                 <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
                   <Fuel className="h-4 w-4 text-primary" />
                 </span>
-                Registrar abastecimento
+                {allowClosedFuel ? "Abastecimento retroativo (admin)" : "Registrar abastecimento"}
               </CardTitle>
             </CardHeader>
 
             <Separator />
 
             <CardContent className="pt-6">
+              {allowClosedFuel && (
+                <p className="mb-4 rounded-md border border-amber-200/80 bg-amber-50/50 px-3 py-2 text-xs text-muted-foreground dark:border-amber-900/50 dark:bg-amber-950/20">
+                  Modo administrativo: permite lançar abastecimento em frete já encerrado.
+                  {presetFreightId && (
+                    <>
+                      {" "}
+                      <Link href={`/dashboard/fretes/${presetFreightId}`} className="text-primary underline">
+                        Voltar ao frete
+                      </Link>
+                    </>
+                  )}
+                </p>
+              )}
               {eligibleFreights.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nenhum frete em andamento{isMotorista ? " com você como motorista" : " com motorista vinculado"}.
-                  Fretes concluídos ou cancelados não aparecem aqui.
+                  {allowClosedFuel
+                    ? "Nenhum frete com motorista vinculado disponível para abastecimento retroativo."
+                    : `Nenhum frete em andamento${isMotorista ? " com você como motorista" : " com motorista vinculado"}. Fretes concluídos ou cancelados não aparecem aqui.`}
                 </p>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-5">

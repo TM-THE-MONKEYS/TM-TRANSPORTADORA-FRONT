@@ -21,6 +21,7 @@ import {
 import { PageHeader } from "@/components/shared/page-header"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { DeliveryChecklist } from "@/components/fretes/delivery-checklist"
+import { FreightClosedAdminPanel } from "@/components/fretes/freight-closed-admin-panel"
 import { FreightFinancialBreakdown } from "@/components/fretes/freight-financial-breakdown"
 import { FreightExpensesList } from "@/components/shared/freight-expenses-list"
 import {
@@ -38,6 +39,8 @@ import { formatDateTimeBR } from "@/lib/format/dates"
 import { FREIGHT_STATUS_FLOW } from "@/lib/freight/status"
 import { formatFreightRouteShort, formatFreightRouteStops } from "@/lib/freight/route-label"
 import { isFreightInTransit } from "@/lib/freight/active-trip"
+import { canAdminManageClosedFreight, isFreightClosed } from "@/lib/freight/closed-freight"
+import { useAuth } from "@/components/providers/auth-provider"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { useOperationContext } from "@/hooks/use-operation-context"
@@ -64,8 +67,10 @@ const TRACKING_STATUS_STYLES: Record<string, string> = {
 }
 
 export function FreightDetailView({ id }: { id: string }) {
+  const { user } = useAuth()
   const canStatus = usePermission(PERMISSIONS.freightStatus)
   const canWrite = usePermission(PERMISSIONS.freightWrite)
+  const isAdmin = canAdminManageClosedFreight(user?.role)
   const { drivers, trucks } = useOperationContext()
   const { data: freight, mutate: mutateFreight } = useSWR(["freight", id], () => getFreight(id))
   const { data: events, mutate: mutateEvents } = useSWR(["freight-events", id], () =>
@@ -126,6 +131,10 @@ export function FreightDetailView({ id }: { id: string }) {
   }
 
   const flowIdx = FREIGHT_STATUS_FLOW.indexOf(freight.status)
+  const closed = isFreightClosed(freight.status)
+  const canEditClosed = closed && isAdmin
+  const canAssign = canWrite && (!closed || isAdmin)
+  const canAddOccurrence = !closed || isAdmin
   const driverName = drivers.find((d) => d.id === freight.driver_id)?.name
   const truck = trucks.find((t) => t.id === freight.truck_id)
 
@@ -156,6 +165,17 @@ export function FreightDetailView({ id }: { id: string }) {
           </span>
         )}
       </div>
+
+      {closed && !isAdmin && (
+        <div className="mb-6 rounded-lg border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          Frete encerrado ({freight.status === "entregue" ? "entregue" : "cancelado"}). Edição
+          restrita — contate um administrador para reabrir ou lançar gastos retroativos.
+        </div>
+      )}
+
+      {canEditClosed && (
+        <FreightClosedAdminPanel freight={freight} onUpdated={() => mutateFreight()} />
+      )}
 
       {(freight.stops?.length ?? 0) > 0 && (
         <Card className="mb-6">
@@ -199,7 +219,7 @@ export function FreightDetailView({ id }: { id: string }) {
         </Card>
       )}
 
-      {canWrite && (
+      {canAssign && (
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-base">Operação — motorista e veículo</CardTitle>
@@ -305,27 +325,36 @@ export function FreightDetailView({ id }: { id: string }) {
           </Card>
         </TabsContent>
         <TabsContent value="ocorrencias" className="mt-4 space-y-4">
-          <Card>
-            <CardContent className="space-y-3 pt-6">
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <select
-                  className="flex h-9 w-full rounded-md border px-3 text-sm"
-                  value={occType}
-                  onChange={(e) => setOccType(e.target.value)}
-                >
-                  <option value="atraso">Atraso</option>
-                  <option value="avaria">Avaria</option>
-                  <option value="documentacao">Documentação</option>
-                </select>
-              </div>
-              <Textarea value={occDesc} onChange={(e) => setOccDesc(e.target.value)} placeholder="Descrição" />
-              <Button onClick={handleOccurrence}>Registrar ocorrência</Button>
-              <p className="text-xs text-muted-foreground">
-                Vinculada ao frete {freight.code}. Aparece aqui e na aba Rastreamento.
-              </p>
-            </CardContent>
-          </Card>
+          {canAddOccurrence ? (
+            <Card>
+              <CardContent className="space-y-3 pt-6">
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <select
+                    className="flex h-9 w-full rounded-md border px-3 text-sm"
+                    value={occType}
+                    onChange={(e) => setOccType(e.target.value)}
+                  >
+                    <option value="atraso">Atraso</option>
+                    <option value="avaria">Avaria</option>
+                    <option value="documentacao">Documentação</option>
+                  </select>
+                </div>
+                <Textarea value={occDesc} onChange={(e) => setOccDesc(e.target.value)} placeholder="Descrição" />
+                <Button onClick={handleOccurrence}>Registrar ocorrência</Button>
+                <p className="text-xs text-muted-foreground">
+                  Vinculada ao frete {freight.code}. Aparece aqui e na aba Rastreamento.
+                  {closed && isAdmin ? " Registro retroativo permitido (admin)." : ""}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-6 text-sm text-muted-foreground">
+                Frete encerrado — novas ocorrências só podem ser registradas por um administrador.
+              </CardContent>
+            </Card>
+          )}
           {(occurrences ?? []).map((o) => (
             <Card key={o.id}>
               <CardContent className="pt-4">
@@ -357,12 +386,19 @@ export function FreightDetailView({ id }: { id: string }) {
             </CardHeader>
             <CardContent>
               <FreightExpensesList freightId={id} />
-              <Link
-                href="/dashboard/abastecimento"
-                className="mt-4 inline-block text-sm text-primary hover:underline"
-              >
-                Registrar abastecimento →
-              </Link>
+              {!closed && (
+                <Link
+                  href="/dashboard/abastecimento"
+                  className="mt-4 inline-block text-sm text-primary hover:underline"
+                >
+                  Registrar abastecimento →
+                </Link>
+              )}
+              {canEditClosed && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Use o painel administrativo acima para gastos retroativos ou abastecimento.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
