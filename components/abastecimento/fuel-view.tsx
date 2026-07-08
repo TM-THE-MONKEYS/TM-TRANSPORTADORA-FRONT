@@ -5,12 +5,20 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { toast } from "sonner"
-import { CircleDollarSign, Fuel, Gauge, Route } from "lucide-react"
+import { CircleDollarSign, Fuel, Gauge, Pencil, Route, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -22,7 +30,7 @@ import { PageHeader } from "@/components/shared/page-header"
 import { useAuth } from "@/components/providers/auth-provider"
 import { listDrivers } from "@/lib/api/services/drivers"
 import { listFreights } from "@/lib/api/services/freight"
-import { listAllFuelRefills, registerFuelRefill } from "@/lib/api/services/fuel"
+import { listAllFuelRefills, registerFuelRefill, deleteFuelRefill, updateFuelRefill, type FuelRefill } from "@/lib/api/services/fuel"
 import { resolveDriverDisplayName } from "@/lib/drivers/display-name"
 import { resolveDriverIdForUser } from "@/lib/drivers/resolve-driver"
 import { isFreightClosed } from "@/lib/freight/closed-freight"
@@ -44,13 +52,14 @@ import {
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { getDriverName, getTruckLabel } from "@/lib/freight/active-trip"
 import { formatBRL } from "@/lib/format/currency"
+import { formatDateBR, isoToDateInput } from "@/lib/format/dates"
 import { usePermission } from "@/hooks/use-permission"
 import { isAdminRole, PERMISSIONS } from "@/lib/rbac/permissions"
 import { FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return "—"
-  return new Date(dateStr).toLocaleDateString("pt-BR")
+  return formatDateBR(dateStr)
 }
 
 export function FuelView() {
@@ -68,6 +77,14 @@ export function FuelView() {
   const [posto, setPosto] = useState("")
   const [kmDisplay, setKmDisplay] = useState("")
   const [saving, setSaving] = useState(false)
+  const [editRefill, setEditRefill] = useState<FuelRefill | null>(null)
+  const [deleteRefill, setDeleteRefill] = useState<FuelRefill | null>(null)
+  const [editValor, setEditValor] = useState("")
+  const [editLitros, setEditLitros] = useState("")
+  const [editPosto, setEditPosto] = useState("")
+  const [editKm, setEditKm] = useState("")
+  const [editDate, setEditDate] = useState("")
+  const [editSaving, setEditSaving] = useState(false)
 
   const { trucks } = useOperationContext()
   const { data: driversPage } = useSWR("fuel-drivers", () => listDrivers(1, 100))
@@ -212,6 +229,55 @@ export function FuelView() {
       toast.error(err instanceof Error ? err.message : "Erro ao registrar")
     } finally {
       setSaving(false)
+    }
+  }
+
+  function openEdit(refill: FuelRefill) {
+    setEditRefill(refill)
+    setEditValor(formatMoneyInput(String(refill.valor_total)))
+    setEditLitros(formatLitersInput(String(refill.litros)))
+    setEditPosto(refill.posto ?? "")
+    setEditKm(refill.km_atual != null ? formatKmInput(String(refill.km_atual)) : "")
+    setEditDate(isoToDateInput(refill.created_at))
+  }
+
+  async function handleEditSave() {
+    if (!editRefill) return
+    const valor_total = parseMoneyInput(editValor)
+    const litros = parseLitersInput(editLitros)
+    if (valor_total <= 0 || litros <= 0) {
+      toast.error("Informe valor e litros válidos")
+      return
+    }
+    setEditSaving(true)
+    try {
+      await updateFuelRefill(editRefill.id, {
+        valor_total,
+        litros,
+        posto: editPosto.trim() || undefined,
+        observacoes: editPosto.trim() || undefined,
+        km_atual: parseKmInput(editKm) > 0 ? parseKmInput(editKm) : undefined,
+        data_abastecimento: editDate || undefined,
+      })
+      toast.success("Abastecimento atualizado")
+      setEditRefill(null)
+      await refreshRefills(undefined, { revalidate: true })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar")
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleteRefill) return
+    try {
+      await deleteFuelRefill(deleteRefill.id, deleteRefill.freight_id)
+      toast.success("Abastecimento excluído")
+      setDeleteRefill(null)
+      await refreshRefills(undefined, { revalidate: true })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir")
     }
   }
 
@@ -464,25 +530,28 @@ export function FuelView() {
                 <th className="px-5 py-3 text-right font-medium text-muted-foreground">Litros</th>
                 <th className="px-5 py-3 text-right font-medium text-muted-foreground">Valor</th>
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Data</th>
+                {canManageFuel && (
+                  <th className="px-5 py-3 text-right font-medium text-muted-foreground">Ações</th>
+                )}
               </tr>
             </thead>
             <tbody>
               {loadingRefills ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground">
+                  <td colSpan={canManageFuel ? 8 : 7} className="px-5 py-10 text-center text-muted-foreground">
                     Carregando histórico...
                   </td>
                 </tr>
               ) : refillsError ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-destructive">
+                  <td colSpan={canManageFuel ? 8 : 7} className="px-5 py-10 text-center text-destructive">
                     Não foi possível carregar o histórico. Verifique se a API está no ar e tente
                     novamente.
                   </td>
                 </tr>
               ) : visibleRefills.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground">
+                  <td colSpan={canManageFuel ? 8 : 7} className="px-5 py-10 text-center text-muted-foreground">
                     Nenhum abastecimento registrado
                   </td>
                 </tr>
@@ -521,6 +590,32 @@ export function FuelView() {
                       <td className="px-5 py-3 text-muted-foreground">
                         {formatDate(entry.created_at)}
                       </td>
+                      {canManageFuel && (
+                        <td className="px-5 py-3 text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEdit(entry)}
+                              aria-label="Editar abastecimento"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => setDeleteRefill(entry)}
+                              aria-label="Excluir abastecimento"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   )
                 })
@@ -529,6 +624,65 @@ export function FuelView() {
           </table>
         </div>
       </Card>
+
+      <Dialog open={Boolean(editRefill)} onOpenChange={(o) => !o && setEditRefill(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar abastecimento</DialogTitle>
+            <DialogDescription>Ajuste valor, litros, posto, data ou quilometragem.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid gap-2">
+              <Label>Valor (R$)</Label>
+              <Input value={editValor} onChange={(e) => setEditValor(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Litros</Label>
+              <Input value={editLitros} onChange={(e) => setEditLitros(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Posto / observação</Label>
+              <Input value={editPosto} onChange={(e) => setEditPosto(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Quilometragem</Label>
+              <Input value={editKm} onChange={(e) => setEditKm(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Data</Label>
+              <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRefill(null)} disabled={editSaving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditSave} disabled={editSaving}>
+              {editSaving ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(deleteRefill)} onOpenChange={(o) => !o && setDeleteRefill(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir abastecimento</DialogTitle>
+            <DialogDescription>
+              Esta ação cancela o lançamento financeiro vinculado e remove o custo do frete. Deseja
+              continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteRefill(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
