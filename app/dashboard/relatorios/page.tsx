@@ -1,5 +1,10 @@
+import { Suspense } from "react"
 import { ReportsView } from "@/components/relatorios/reports-view"
 
 export default function RelatoriosPage() {
-  return <ReportsView />
+  return (
+    <Suspense fallback={null}>
+      <ReportsView />
+    </Suspense>
+  )
 }

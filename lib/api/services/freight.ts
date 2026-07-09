@@ -94,8 +94,13 @@ export async function updateFreightStatus(id: string, status: FreightStatus): Pr
 }
 
 export async function deleteFreight(id: string): Promise<void> {
-  if (shouldUseMocks()) return
+  if (shouldUseMocks()) {
+    await mock.mockDeleteFreight(id)
+    revalidateFleetAndFreightCaches()
+    return
+  }
   await apiRequest(`/freights/${id}`, { method: "DELETE", auth: true })
+  revalidateFleetAndFreightCaches()
 }
 
 /** Timeline operacional (sem ocorrências — estas ficam na aba dedicada). */

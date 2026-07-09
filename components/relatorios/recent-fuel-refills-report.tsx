@@ -15,12 +15,20 @@ import { cn } from "@/lib/utils"
 
 const LIMIT = 25
 
-export function RecentFuelRefillsReport() {
+export function RecentFuelRefillsReport({
+  competencia,
+}: {
+  competencia?: { mes: number; ano: number }
+}) {
   const { freights, drivers } = useOperationContext()
   const freightMap = useMemo(() => new Map(freights.map((f) => [f.id, f])), [freights])
 
-  const { data: refills, isLoading } = useSWR("reports-fuel-refills", () =>
-    listAllFuelRefills(1, 100),
+  const swrKey = competencia
+    ? ["reports-fuel-refills", competencia.mes, competencia.ano]
+    : "reports-fuel-refills"
+
+  const { data: refills, isLoading } = useSWR(swrKey, () =>
+    listAllFuelRefills(1, 100, competencia),
   )
 
   const items = (refills ?? []).slice(0, LIMIT)
@@ -61,7 +69,9 @@ export function RecentFuelRefillsReport() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Abastecimentos recentes</CardTitle>
           <CardDescription>
-            Vinculados aos fretes — também visíveis no detalhe de cada frete
+            {competencia
+              ? `Competência ${competencia.mes}/${competencia.ano} — vinculados aos fretes`
+              : "Vinculados aos fretes — também visíveis no detalhe de cada frete"}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">

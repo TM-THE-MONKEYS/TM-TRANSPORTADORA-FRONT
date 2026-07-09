@@ -1,7 +1,7 @@
 import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
 import { generateId } from "@/lib/mocks/store"
-import type { FixedExpense, FixedExpenseFrequency } from "@/types"
+import type { FixedExpense, FixedExpenseFrequency, FixedExpenseLaunchStatus, LaunchPendingResult } from "@/types"
 
 // ── Mock store ────────────────────────────────────────────────────────────────
 
@@ -213,6 +213,56 @@ export async function launchFixedExpense(
     body: vencimento ? { data_vencimento: vencimento } : undefined,
     auth: true,
   })
+}
+
+export async function getFixedExpenseLaunchStatus(
+  competencia: { mes: number; ano: number },
+): Promise<FixedExpenseLaunchStatus[]> {
+  if (shouldUseMocks()) {
+    const { mockFinanceEntries } = await import("@/lib/mocks/finance-sync")
+    return mockFixed
+      .filter((fx) => isFixedExpenseActive(fx))
+      .map((fx) => {
+        const key = `fixed_expense:${fx.id}:${competencia.ano}-${String(competencia.mes).padStart(2, "0")}`
+        const linked = mockFinanceEntries.find((e) => e.observacoes?.startsWith(key))
+        return {
+          id: fx.id,
+          nome: fx.nome,
+          categoria: fx.categoria,
+          valor: fx.valor,
+          ativo: fx.ativo,
+          launched_this_month: Boolean(linked),
+          linked_entry_id: linked?.id ?? null,
+          suggested_vencimento: fx.dia_vencimento
+            ? `${competencia.ano}-${String(competencia.mes).padStart(2, "0")}-${String(fx.dia_vencimento).padStart(2, "0")}`
+            : null,
+        }
+      })
+  }
+  const qs = new URLSearchParams({
+    competencia_mes: String(competencia.mes),
+    competencia_ano: String(competencia.ano),
+  })
+  return apiRequest(`/finance/fixed-expenses/launch-status?${qs}`, { auth: true })
+}
+
+export async function launchPendingFixedExpenses(
+  competencia: { mes: number; ano: number },
+): Promise<LaunchPendingResult> {
+  if (shouldUseMocks()) {
+    const pending = await getFixedExpenseLaunchStatus(competencia)
+    let launched_count = 0
+    for (const item of pending.filter((p) => !p.launched_this_month)) {
+      await launchFixedExpense(item.id, item.suggested_vencimento ?? undefined)
+      launched_count++
+    }
+    return { launched_count, skipped_count: pending.length - launched_count }
+  }
+  const qs = new URLSearchParams({
+    competencia_mes: String(competencia.mes),
+    competencia_ano: String(competencia.ano),
+  })
+  return apiRequest(`/finance/fixed-expenses/launch-pending?${qs}`, { method: "POST", auth: true })
 }
 
 export const FIXED_EXPENSE_CATEGORIES = [

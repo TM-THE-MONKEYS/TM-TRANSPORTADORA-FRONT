@@ -5,6 +5,8 @@ import useSWR from "swr"
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
   Pie,
@@ -18,7 +20,6 @@ import {
   CircleDollarSign,
   Fuel,
   Package,
-  TrendingDown,
   TrendingUp,
   Truck,
 } from "lucide-react"
@@ -26,10 +27,14 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/shared/page-header"
+import { CompetenciaNavigator } from "@/components/shared/competencia-navigator"
 import { RecentFuelRefillsReport } from "@/components/relatorios/recent-fuel-refills-report"
 import { RecentFreightsReport } from "@/components/relatorios/recent-freights-report"
-import { getDashboardKpis, getFreightsByStatus, getRevenueSeries } from "@/lib/api/services/dashboard"
+import { useCompetencia } from "@/hooks/use-competencia"
+import { getCompetenciaReport } from "@/lib/api/services/finance"
+import { getDashboardKpis, getFreightsByStatus } from "@/lib/api/services/dashboard"
 import { formatBRL } from "@/lib/format/currency"
+import { formatCompetenciaLabel } from "@/lib/format/dates"
 import { FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
@@ -57,18 +62,17 @@ function formatChartDate(iso: string) {
 
 export function ReportsView() {
   const canFinance = usePermission(PERMISSIONS.financeRead)
+  const { competencia, shift } = useCompetencia()
 
   const { data: kpis, isLoading: loadingKpis } = useSWR(
-    canFinance ? "reports-kpis" : null,
+    "reports-kpis",
     () => getDashboardKpis(),
   )
   const { data: byStatus } = useSWR("reports-freight-status", getFreightsByStatus)
-  const { data: revenue } = useSWR(
-    canFinance ? "reports-revenue" : null,
-    () => getRevenueSeries(30),
+  const { data: competenciaReport, isLoading: loadingCompetencia } = useSWR(
+    canFinance ? ["competencia-report", competencia.mes, competencia.ano] : null,
+    () => getCompetenciaReport(competencia),
   )
-
-  // ── Derived ──────────────────────────────────────────────────────────────
 
   const statusData = useMemo(
     () =>
@@ -85,30 +89,49 @@ export function ReportsView() {
   )
 
   const revenueData = useMemo(
-    () => (revenue ?? []).map((p) => ({ ...p, label: formatChartDate(p.date) })),
-    [revenue],
+    () =>
+      (competenciaReport?.daily_series ?? []).map((p) => ({
+        ...p,
+        label: formatChartDate(p.date),
+        revenue: p.receitas,
+      })),
+    [competenciaReport],
   )
 
-  const totalRevenue30d = useMemo(
-    () => (revenue ?? []).reduce((s, p) => s + p.revenue, 0),
-    [revenue],
-  )
+  const totalRevenueMonth = competenciaReport?.cash_flow.total_receitas ?? 0
+  const totalExpensesMonth = competenciaReport?.cash_flow.total_despesas ?? 0
+  const margin = totalRevenueMonth - totalExpensesMonth
 
   const peakRevenue = useMemo(
-    () => (revenue ?? []).reduce((best, p) => (p.revenue > best.revenue ? p : best), { date: "", revenue: 0 }),
-    [revenue],
+    () =>
+      revenueData.reduce(
+        (best, p) => (p.revenue > best.revenue ? p : best),
+        { date: "", revenue: 0, label: "" },
+      ),
+    [revenueData],
   )
 
-  const margin =
-    (kpis?.monthly_revenue_brl ?? 0) - (kpis?.operational_costs_brl ?? 0)
-
-  // ── Render ────────────────────────────────────────────────────────────────
+  const categoryData = useMemo(
+    () => competenciaReport?.expenses_by_category ?? [],
+    [competenciaReport],
+  )
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Relatórios"
-        description="Análise de desempenho operacional e financeiro"
+        description="Análise operacional e financeira por competência"
+        actions={
+          canFinance ? (
+            <CompetenciaNavigator
+              mes={competencia.mes}
+              ano={competencia.ano}
+              onPrevious={() => shift(-1)}
+              onNext={() => shift(1)}
+              size="md"
+            />
+          ) : undefined
+        }
       />
 
       {/* KPIs */}
@@ -131,24 +154,24 @@ export function ReportsView() {
         {canFinance && (
           <>
             <ReportKpiCard
-              label="Receita — 30 dias"
-              value={formatBRL(totalRevenue30d)}
+              label={`Receita — ${formatCompetenciaLabel(competencia.mes, competencia.ano)}`}
+              value={formatBRL(totalRevenueMonth)}
               hint={
-                peakRevenue.date
-                  ? `Pico: ${formatBRL(peakRevenue.revenue)} em ${formatChartDate(peakRevenue.date)}`
+                peakRevenue.revenue > 0
+                  ? `Pico diário: ${formatBRL(peakRevenue.revenue)}`
                   : undefined
               }
               icon={TrendingUp}
               tone="success"
-              loading={loadingKpis && !revenue}
+              loading={loadingCompetencia}
             />
             <ReportKpiCard
-              label="Margem estimada"
+              label="Margem da competência"
               value={formatBRL(margin)}
-              hint="Receita − custos operacionais"
+              hint="Receitas − despesas do mês"
               icon={CircleDollarSign}
               tone={margin >= 0 ? "success" : "danger"}
-              loading={loadingKpis}
+              loading={loadingCompetencia}
             />
           </>
         )}
@@ -179,9 +202,11 @@ export function ReportsView() {
             {canFinance && (
               <Card className="lg:col-span-2">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Receita — últimos 30 dias</CardTitle>
+                  <CardTitle className="text-base">
+                    Receitas — {formatCompetenciaLabel(competencia.mes, competencia.ano)}
+                  </CardTitle>
                   <CardDescription>
-                    Receitas pagas registradas no módulo financeiro
+                    Série diária por competência (lançamentos financeiros)
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -244,15 +269,15 @@ export function ReportsView() {
                   {revenueData.length > 0 && (
                     <div className="mt-3 grid grid-cols-3 divide-x rounded-lg border bg-muted/20 text-center text-xs">
                       <div className="py-2">
-                        <p className="text-muted-foreground">Total 30d</p>
+                        <p className="text-muted-foreground">Total mês</p>
                         <p className="mt-0.5 font-semibold tabular-nums text-green-700 dark:text-green-400">
-                          {formatBRL(totalRevenue30d)}
+                          {formatBRL(totalRevenueMonth)}
                         </p>
                       </div>
                       <div className="py-2">
-                        <p className="text-muted-foreground">Média/dia</p>
-                        <p className="mt-0.5 font-semibold tabular-nums">
-                          {formatBRL(revenueData.length > 0 ? totalRevenue30d / revenueData.length : 0)}
+                        <p className="text-muted-foreground">Despesas mês</p>
+                        <p className="mt-0.5 font-semibold tabular-nums text-destructive">
+                          {formatBRL(totalExpensesMonth)}
                         </p>
                       </div>
                       <div className="py-2">
@@ -363,37 +388,63 @@ export function ReportsView() {
             {canFinance && (
               <Card className="lg:col-span-3">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Indicadores financeiros do período</CardTitle>
-                  <CardDescription>Baseado nos KPIs operacionais e financeiros</CardDescription>
+                  <CardTitle className="text-base">Indicadores financeiros da competência</CardTitle>
+                  <CardDescription>
+                    {formatCompetenciaLabel(competencia.mes, competencia.ano)} — receitas, despesas e pendências
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <FinSummaryTile
                       label="Receita total"
-                      value={formatBRL(kpis?.monthly_revenue_brl ?? 0)}
+                      value={formatBRL(competenciaReport?.cash_flow.total_receitas ?? 0)}
                       tone="success"
-                      loading={loadingKpis}
+                      loading={loadingCompetencia}
                     />
                     <FinSummaryTile
-                      label="Custos operacionais"
-                      value={formatBRL(kpis?.operational_costs_brl ?? 0)}
+                      label="Despesas totais"
+                      value={formatBRL(competenciaReport?.cash_flow.total_despesas ?? 0)}
                       tone="danger"
-                      loading={loadingKpis}
+                      loading={loadingCompetencia}
                     />
                     <FinSummaryTile
-                      label="Margem estimada"
-                      value={formatBRL(margin)}
+                      label="Saldo líquido"
+                      value={formatBRL(competenciaReport?.cash_flow.saldo ?? 0)}
                       tone={margin >= 0 ? "success" : "danger"}
-                      loading={loadingKpis}
+                      loading={loadingCompetencia}
                     />
                     <FinSummaryTile
-                      label="Pendências financeiras"
-                      value={String(kpis?.financial_pending ?? 0)}
-                      suffix={kpis?.financial_pending === 1 ? " em aberto" : " em aberto"}
-                      tone={(kpis?.financial_pending ?? 0) > 0 ? "warning" : "default"}
-                      loading={loadingKpis}
+                      label="Pendências"
+                      value={formatBRL(
+                        (competenciaReport?.cash_flow.receitas_pendentes ?? 0) +
+                          (competenciaReport?.cash_flow.despesas_pendentes ?? 0),
+                      )}
+                      hint="Receitas + despesas pendentes"
+                      tone={
+                        (competenciaReport?.cash_flow.receitas_pendentes ?? 0) +
+                          (competenciaReport?.cash_flow.despesas_pendentes ?? 0) >
+                        0
+                          ? "warning"
+                          : "default"
+                      }
+                      loading={loadingCompetencia}
                     />
                   </div>
+
+                  {categoryData.length > 0 && (
+                    <div className="mt-6 h-[220px]">
+                      <p className="mb-2 text-sm font-medium">Despesas por categoria</p>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={categoryData.slice(0, 8)} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                          <XAxis dataKey="categoria" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={50} />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => (v >= 1000 ? `R$${(v / 1000).toFixed(0)}k` : `R$${v}`)} />
+                          <Tooltip formatter={(v: number) => [formatBRL(v), "Total"]} />
+                          <Bar dataKey="valor" fill="var(--color-chart-4)" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -407,7 +458,7 @@ export function ReportsView() {
 
         {/* ── COMBUSTÍVEL ── */}
         <TabsContent value="fuel" className="mt-4">
-          <RecentFuelRefillsReport />
+          <RecentFuelRefillsReport competencia={competencia} />
         </TabsContent>
       </Tabs>
     </div>
@@ -499,12 +550,14 @@ function FinSummaryTile({
   label,
   value,
   suffix,
+  hint,
   tone = "default",
   loading,
 }: {
   label: string
   value: string
   suffix?: string
+  hint?: string
   tone?: "default" | "success" | "danger" | "warning"
   loading?: boolean
 }) {
@@ -537,9 +590,9 @@ function FinSummaryTile({
           )}
         </p>
       )}
+      {hint && !loading && (
+        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+      )}
     </div>
   )
 }
-
-// unused below — kept for tree-shaking safety
-const _TrendingDown = TrendingDown

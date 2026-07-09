@@ -534,6 +534,36 @@ export async function mockListFuelRefills(page = 1, size = 100, freightId?: stri
   }
 }
 
+export async function mockUpdateFuelRefill(
+  id: string,
+  data: {
+    litros?: number
+    valor_total?: number
+    km_atual?: number
+    posto?: string
+    cidade?: string
+    observacoes?: string
+  },
+) {
+  await delay(150)
+  const refills = mockStore.fuelRefills ?? []
+  const idx = refills.findIndex((r) => r.id === id)
+  if (idx < 0) throw new ApiError(404, "Abastecimento não encontrado")
+  refills[idx] = { ...refills[idx], ...data }
+  mockStore.fuelRefills = refills
+  return refills[idx]
+}
+
+export async function mockDeleteFuelRefill(id: string) {
+  await delay(150)
+  mockStore.fuelRefills = (mockStore.fuelRefills ?? []).filter((r) => r.id !== id)
+}
+
+export async function mockDeleteFreight(id: string) {
+  await delay(150)
+  mockStore.freights = mockStore.freights.filter((f) => f.id !== id)
+}
+
 export async function mockAddFreightCost(
   freightId: string,
   data: { tipo: string; valor: number; litros?: number; descricao?: string },

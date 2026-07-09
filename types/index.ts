@@ -259,6 +259,8 @@ export interface FinanceEntry {
   valor: number
   status: FinanceEntryStatus
   data_vencimento?: string
+  data_pagamento?: string
+  observacoes?: string | null
   freight_id?: string
   created_at: string
   updated_at: string
@@ -272,6 +274,41 @@ export interface CashFlowSummary {
   despesas_pendentes: number
   receitas_pagas: number
   despesas_pagas: number
+}
+
+export interface DailyCompetenciaPoint {
+  date: string
+  receitas: number
+  despesas: number
+}
+
+export interface CategoryAmount {
+  categoria: string
+  valor: number
+}
+
+export interface CompetenciaReport {
+  competencia_mes: number
+  competencia_ano: number
+  cash_flow: CashFlowSummary
+  daily_series: DailyCompetenciaPoint[]
+  expenses_by_category: CategoryAmount[]
+}
+
+export interface FixedExpenseLaunchStatus {
+  id: string
+  nome: string
+  categoria: string
+  valor: number
+  ativo: boolean
+  launched_this_month: boolean
+  linked_entry_id: string | null
+  suggested_vencimento: string | null
+}
+
+export interface LaunchPendingResult {
+  launched_count: number
+  skipped_count: number
 }
 
 // ── Fixed Expenses ────────────────────────────────────────────────────────────

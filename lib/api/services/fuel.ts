@@ -94,9 +94,15 @@ function sortFuelRefillsNewestFirst(items: FuelRefill[]): FuelRefill[] {
 async function fetchFuelRefillsPage(
   page: number,
   size: number,
+  competencia?: { mes: number; ano: number },
 ): Promise<Paginated<FuelRefill>> {
+  const qs = new URLSearchParams({ page: String(page), size: String(size) })
+  if (competencia) {
+    qs.set("competencia_mes", String(competencia.mes))
+    qs.set("competencia_ano", String(competencia.ano))
+  }
   const res = await apiRequest<Paginated<Record<string, unknown>>>(
-    `/fuel?page=${page}&size=${size}`,
+    `/fuel?${qs}`,
     { auth: true },
   )
   return {
@@ -135,12 +141,23 @@ async function listFuelRefillsAggregatedByFreights(size: number): Promise<FuelRe
 }
 
 /** Histórico geral — origem: `tm_fuel_refills` via GET /api/v1/fuel. */
-export async function listAllFuelRefills(page = 1, size = 100): Promise<FuelRefill[]> {
+export async function listAllFuelRefills(
+  page = 1,
+  size = 100,
+  competencia?: { mes: number; ano: number },
+): Promise<FuelRefill[]> {
   const safeSize = Math.min(size, MAX_PAGE_SIZE)
 
   if (shouldUseMocks()) {
     const res = await mock.mockListFuelRefills(page, safeSize)
-    return res.items
+    let items = res.items
+    if (competencia) {
+      items = items.filter((r) => {
+        const d = new Date(r.created_at)
+        return d.getMonth() + 1 === competencia.mes && d.getFullYear() === competencia.ano
+      })
+    }
+    return items
   }
 
   try {
@@ -148,7 +165,7 @@ export async function listAllFuelRefills(page = 1, size = 100): Promise<FuelRefi
     let currentPage = page
 
     while (currentPage <= 50) {
-      const batch = await fetchFuelRefillsPage(currentPage, safeSize)
+      const batch = await fetchFuelRefillsPage(currentPage, safeSize, competencia)
       collected.push(...batch.items)
       if (!batch.has_next) break
       currentPage++
@@ -165,6 +182,42 @@ export function invalidateFuelListCaches(): void {
   revalidateFuelCaches()
   void mutate("fuel-refills-all")
   void mutate("reports-fuel-refills")
+}
+
+export interface FuelRefillUpdate {
+  litros?: number
+  valor_total?: number
+  km_atual?: number
+  posto?: string
+  cidade?: string
+  estado?: string
+  observacoes?: string
+  data_abastecimento?: string
+}
+
+export async function updateFuelRefill(id: string, data: FuelRefillUpdate): Promise<FuelRefill> {
+  const updated = shouldUseMocks()
+    ? await mock.mockUpdateFuelRefill(id, data)
+    : mapFuelRefillFromApi(
+        (await apiRequest<Record<string, unknown>>(`/fuel/${id}`, {
+          method: "PATCH",
+          body: data,
+          auth: true,
+        })) as Record<string, unknown>,
+      )
+  revalidateFuelCaches(updated.freight_id)
+  void mutate("fuel-refills-all")
+  return updated
+}
+
+export async function deleteFuelRefill(id: string, freightId: string): Promise<void> {
+  if (shouldUseMocks()) {
+    await mock.mockDeleteFuelRefill(id)
+  } else {
+    await apiRequest(`/fuel/${id}`, { method: "DELETE", auth: true })
+  }
+  revalidateFuelCaches(freightId)
+  void mutate("fuel-refills-all")
 }
 
 /** Converte abastecimento para linha da tabela de custos (compat). */

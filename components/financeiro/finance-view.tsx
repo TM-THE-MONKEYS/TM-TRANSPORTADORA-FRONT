@@ -1,30 +1,17 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import Link from "next/link"
 import useSWR, { mutate as globalMutate } from "swr"
 import { toast } from "sonner"
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
 import {
-  AlertTriangle,
-  ArrowUpDown,
-  BadgeDollarSign,
   Building2,
-  CalendarClock,
-  CheckCircle2,
-  ChevronDown,
   CircleDollarSign,
-  Pencil,
   Plus,
   RefreshCcw,
-  Trash2,
   TrendingDown,
   TrendingUp,
-  Wallet,
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -42,17 +29,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { PageHeader } from "@/components/shared/page-header"
+import { FinanceMonthHub } from "@/components/financeiro/finance-month-hub"
+import { FixedExpenseManagerSheet } from "@/components/financeiro/fixed-expense-manager-sheet"
 import { useAuth } from "@/components/providers/auth-provider"
+import { useCompetencia } from "@/hooks/use-competencia"
 import {
   createFinanceEntry,
   deleteFinanceEntry,
   getCashFlow,
   invalidateFinanceCaches,
-  listFinanceEntries,
   syncFinanceFromFreights,
   updateFinanceEntry,
 } from "@/lib/api/services/finance"
@@ -61,8 +48,6 @@ import {
   FREQUENCY_LABELS,
   createFixedExpense,
   deleteFixedExpense,
-  fixedExpenseEndDate,
-  fixedExpenseRemainingParcelas,
   isFixedExpenseActive,
   launchFixedExpense,
   listFixedExpenses,
@@ -70,54 +55,17 @@ import {
   updateFixedExpense,
 } from "@/lib/api/services/fixed-expenses"
 import { formatBRL } from "@/lib/format/currency"
-import { formatDateBR } from "@/lib/format/dates"
 import { isAdminRole } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
 import type { FinanceEntry, FinanceEntryStatus, FinanceEntryType, FixedExpense } from "@/types"
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const STATUS_BADGE: Record<FinanceEntryStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  pendente:  { label: "Pendente",  variant: "outline" },
-  pago:      { label: "Pago",      variant: "secondary" },
-  cancelado: { label: "Cancelado", variant: "destructive" },
-  vencido:   { label: "Vencido",   variant: "destructive" },
-}
-
-const PIE_COLORS = [
-  "var(--color-chart-1)",
-  "var(--color-chart-2)",
-  "var(--color-chart-3)",
-  "var(--color-chart-4)",
-  "var(--color-chart-5)",
-  "oklch(0.65 0.15 145)",
-]
-
-function formatDate(d?: string) {
-  if (!d) return "—"
-  return new Date(d).toLocaleDateString("pt-BR")
-}
-
-function effectiveStatus(entry: { status: FinanceEntryStatus; data_vencimento?: string | null }): FinanceEntryStatus {
-  if (
-    entry.status === "pendente" &&
-    entry.data_vencimento &&
-    new Date(entry.data_vencimento) < new Date(new Date().toDateString())
-  ) {
-    return "vencido"
-  }
-  return entry.status
-}
-
-// ── Main view ─────────────────────────────────────────────────────────────────
-
 export function FinanceView() {
   const { user } = useAuth()
   const canAdmin = isAdminRole(user?.role) || user?.role === "financeiro"
+  const { competencia, shift } = useCompetencia()
 
   const [syncing, setSyncing] = useState(false)
-  const [filterType, setFilterType] = useState<FinanceEntryType | "all">("all")
-  const [filterStatus, setFilterStatus] = useState<FinanceEntryStatus | "all">("all")
+  const [fixedManagerOpen, setFixedManagerOpen] = useState(false)
   const [entryDialog, setEntryDialog] = useState<{ open: boolean; entry?: FinanceEntry }>({ open: false })
   const [fixedDialog, setFixedDialog] = useState<{ open: boolean; item?: FixedExpense }>({ open: false })
   const [launchDialog, setLaunchDialog] = useState<{ open: boolean; item?: FixedExpense; date: string }>({
@@ -127,41 +75,12 @@ export function FinanceView() {
   const [deleteFixedId, setDeleteFixedId] = useState<string | null>(null)
   const [deleteEntry, setDeleteEntry] = useState<FinanceEntry | null>(null)
 
-  // ── Data ──────────────────────────────────────────────────────────────────
-
   const { data: cashFlow, isLoading: loadingCash, mutate: refreshCash } = useSWR(
-    "cash-flow",
-    getCashFlow,
+    ["cash-flow", competencia.mes, competencia.ano],
+    () => getCashFlow(competencia),
   )
-
-  const swrEntriesKey = ["finance-entries", filterType, filterStatus]
-  const { data: entriesPage, isLoading: loadingEntries, mutate: refreshEntries } = useSWR(
-    swrEntriesKey,
-    () =>
-      listFinanceEntries(
-        1,
-        100,
-        filterType === "all" ? undefined : filterType,
-        filterStatus === "all" ? undefined : filterStatus,
-      ),
-  )
-  const entries = entriesPage?.items ?? []
 
   const { data: fixedExpenses, mutate: refreshFixed } = useSWR("fixed-expenses", listFixedExpenses)
-
-  // ── Derived ───────────────────────────────────────────────────────────────
-
-  const expensesByCategory = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const e of entries) {
-      if (e.tipo === "despesa") {
-        map[e.categoria] = (map[e.categoria] ?? 0) + e.valor
-      }
-    }
-    return Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-  }, [entries])
 
   const activeFixed = useMemo(
     () => (fixedExpenses ?? []).filter((f) => isFixedExpenseActive(f)),
@@ -172,14 +91,11 @@ export function FinanceView() {
     [activeFixed],
   )
 
-  // ── Actions ───────────────────────────────────────────────────────────────
-
   async function handleSync() {
     setSyncing(true)
     try {
       const stats = await syncFinanceFromFreights()
       invalidateFinanceCaches()
-      await refreshEntries()
       await refreshCash()
       toast.success(`Sincronizado: ${stats.receitas} receita(s) e ${stats.despesas} despesa(s).`)
     } catch (e) {
@@ -189,24 +105,11 @@ export function FinanceView() {
     }
   }
 
-  async function handleMarkPaid(entry: FinanceEntry) {
-    try {
-      await updateFinanceEntry(entry.id, { status: "pago" })
-      invalidateFinanceCaches()
-      await refreshEntries()
-      await refreshCash()
-      toast.success("Lançamento marcado como pago")
-    } catch {
-      toast.error("Erro ao atualizar lançamento")
-    }
-  }
-
   async function handleLaunchFixed() {
     if (!launchDialog.item) return
     try {
       await launchFixedExpense(launchDialog.item.id, launchDialog.date || undefined)
       invalidateFinanceCaches()
-      await refreshEntries()
       await refreshCash()
       await refreshFixed()
       setLaunchDialog({ open: false, date: new Date().toISOString().slice(0, 10) })
@@ -233,7 +136,6 @@ export function FinanceView() {
     try {
       await deleteFinanceEntry(deleteEntry.id)
       invalidateFinanceCaches()
-      await refreshEntries()
       await refreshCash()
       setDeleteEntry(null)
       toast.success("Lançamento removido")
@@ -250,7 +152,7 @@ export function FinanceView() {
     <div className="space-y-6">
       <PageHeader
         title="Controle financeiro"
-        description="Receitas, despesas, gastos fixos e fluxo de caixa"
+        description="Hub mensal por competência — receitas, despesas e gastos fixos"
         actions={
           <div className="flex gap-2">
             {canAdmin && (
@@ -304,437 +206,38 @@ export function FinanceView() {
         />
       </div>
 
-      {/* ── Tabs ── */}
-      <Tabs defaultValue={canAdmin ? "fixed" : "entries"}>
-        <TabsList className="mb-1">
-          {canAdmin && (
-            <TabsTrigger value="fixed">
-              <Building2 className="mr-1.5 h-4 w-4" />
-              Gastos fixos
-              {activeFixed.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
-                  {activeFixed.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="entries">
-            <Wallet className="mr-1.5 h-4 w-4" />
-            Lançamentos
-          </TabsTrigger>
-          <TabsTrigger value="overview">
-            <BadgeDollarSign className="mr-1.5 h-4 w-4" />
-            Visão geral
-          </TabsTrigger>
-        </TabsList>
+      <FinanceMonthHub
+        competencia={competencia}
+        onShift={shift}
+        canAdmin={canAdmin}
+        onEditEntry={(entry) => setEntryDialog({ open: true, entry })}
+        onDeleteEntry={setDeleteEntry}
+        onOpenFixedManager={() => setFixedManagerOpen(true)}
+      />
 
-        {/* ── GASTOS FIXOS ── */}
-        {canAdmin && (
-          <TabsContent value="fixed" className="mt-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">
-                  Total mensal estimado:{" "}
-                  <span className="font-bold text-amber-600 dark:text-amber-400">
-                    {formatBRL(fixedMonthlyTotal)}
-                  </span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {activeFixed.length} gasto(s) fixo(s) ativo(s) de {(fixedExpenses ?? []).length} cadastrado(s)
-                </p>
-              </div>
-              <Button size="sm" onClick={() => setFixedDialog({ open: true })}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                Novo gasto fixo
-              </Button>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {(fixedExpenses ?? []).map((fx) => (
-                <FixedExpenseCard
-                  key={fx.id}
-                  item={fx}
-                  onEdit={() => setFixedDialog({ open: true, item: fx })}
-                  onDelete={() => setDeleteFixedId(fx.id)}
-                  onLaunch={() =>
-                    setLaunchDialog({
-                      open: true,
-                      item: fx,
-                      date: new Date().toISOString().slice(0, 10),
-                    })
-                  }
-                />
-              ))}
-              {(fixedExpenses ?? []).length === 0 && (
-                <div className="col-span-full flex flex-col items-center gap-3 rounded-xl border border-dashed py-16 text-center">
-                  <Building2 className="h-10 w-10 text-muted-foreground opacity-40" />
-                  <p className="text-sm text-muted-foreground">
-                    Nenhum gasto fixo cadastrado.
-                    <br />
-                    Clique em "Novo gasto fixo" para começar.
-                  </p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        )}
-
-        {/* ── LANÇAMENTOS ── */}
-        <TabsContent value="entries" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-base">Lançamentos</CardTitle>
-                  <CardDescription>
-                    {entries.length} registro(s) com os filtros aplicados
-                  </CardDescription>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Select value={filterType} onValueChange={(v) => setFilterType(v as FinanceEntryType | "all")}>
-                    <SelectTrigger className="h-8 w-[130px] text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos tipos</SelectItem>
-                      <SelectItem value="receita">Receitas</SelectItem>
-                      <SelectItem value="despesa">Despesas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as FinanceEntryStatus | "all")}>
-                    <SelectTrigger className="h-8 w-[130px] text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos status</SelectItem>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="pago">Pago</SelectItem>
-                      <SelectItem value="vencido">Vencido</SelectItem>
-                      <SelectItem value="cancelado">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/40">
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tipo</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Categoria</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Descrição</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Frete</th>
-                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                        <span className="flex items-center justify-end gap-1">
-                          Valor <ArrowUpDown className="h-3 w-3" />
-                        </span>
-                      </th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Vencimento</th>
-                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
-                      {canAdmin && (
-                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">Ações</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loadingEntries ? (
-                      Array.from({ length: 5 }).map((_, i) => (
-                        <tr key={i} className="border-b">
-                          {Array.from({ length: canAdmin ? 8 : 7 }).map((_, j) => (
-                            <td key={j} className="px-4 py-3">
-                              <div className="h-4 animate-pulse rounded bg-muted" />
-                            </td>
-                          ))}
-                        </tr>
-                      ))
-                    ) : entries.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={canAdmin ? 8 : 7}
-                          className="px-4 py-10 text-center text-muted-foreground"
-                        >
-                          Nenhum lançamento encontrado.{" "}
-                          {canAdmin ? 'Clique em "Novo lançamento" ou "Atualizar valores".' : ""}
-                        </td>
-                      </tr>
-                    ) : (
-                      entries.map((entry) => {
-                        const effStatus = effectiveStatus(entry)
-                        const statusInfo = STATUS_BADGE[effStatus]
-                        return (
-                          <tr
-                            key={entry.id}
-                            className="border-b transition-colors last:border-0 hover:bg-muted/30"
-                          >
-                            <td className="px-4 py-3">
-                              <span
-                                className={cn(
-                                  "inline-flex items-center gap-1 text-xs font-semibold",
-                                  entry.tipo === "receita"
-                                    ? "text-green-700 dark:text-green-400"
-                                    : "text-destructive",
-                                )}
-                              >
-                                {entry.tipo === "receita" ? (
-                                  <TrendingUp className="h-3 w-3" />
-                                ) : (
-                                  <TrendingDown className="h-3 w-3" />
-                                )}
-                                {entry.tipo === "receita" ? "Receita" : "Despesa"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-xs font-medium">{entry.categoria}</td>
-                            <td className="max-w-[200px] truncate px-4 py-3 text-muted-foreground">
-                              {entry.descricao ?? "—"}
-                            </td>
-                            <td className="px-4 py-3">
-                              {entry.freight_id ? (
-                                <Link
-                                  href={`/dashboard/fretes/${entry.freight_id}`}
-                                  className="text-xs text-primary hover:underline"
-                                >
-                                  Ver frete
-                                </Link>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td
-                              className={cn(
-                                "px-4 py-3 text-right font-semibold tabular-nums",
-                                entry.tipo === "receita"
-                                  ? "text-green-700 dark:text-green-400"
-                                  : "text-destructive",
-                              )}
-                            >
-                              {entry.tipo === "despesa" ? "−" : "+"}
-                              {formatBRL(entry.valor)}
-                            </td>
-                            <td className="px-4 py-3 text-xs text-muted-foreground">
-                              {formatDate(entry.data_vencimento)}
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge variant={statusInfo.variant} className="text-xs">
-                                {statusInfo.label}
-                              </Badge>
-                            </td>
-                            {canAdmin && (
-                              <td className="px-4 py-3 text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  {(effStatus === "pendente" || effStatus === "vencido") && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className={cn(
-                                        "h-7 px-2 text-xs",
-                                        effStatus === "vencido"
-                                          ? "text-destructive hover:text-destructive"
-                                          : "text-green-700",
-                                      )}
-                                      onClick={() => handleMarkPaid(entry)}
-                                    >
-                                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                                      Pagar
-                                    </Button>
-                                  )}
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={() => setEntryDialog({ open: true, entry })}
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive hover:text-destructive"
-                                    onClick={() => setDeleteEntry(entry)}
-                                    title="Excluir lançamento"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        )
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ── VISÃO GERAL ── */}
-        <TabsContent value="overview" className="mt-4">
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Receitas vs despesas */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Resumo financeiro</CardTitle>
-                <CardDescription>Entradas e saídas consolidadas</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <OverviewRow
-                  label="Receitas pagas"
-                  value={formatBRL(cashFlow?.receitas_pagas ?? 0)}
-                  tone="success"
-                />
-                <OverviewRow
-                  label="Receitas pendentes"
-                  value={formatBRL(cashFlow?.receitas_pendentes ?? 0)}
-                  tone="warning"
-                />
-                <Separator />
-                <OverviewRow
-                  label="Despesas pagas"
-                  value={formatBRL(cashFlow?.despesas_pagas ?? 0)}
-                  tone="danger"
-                />
-                <OverviewRow
-                  label="Despesas pendentes"
-                  value={formatBRL(cashFlow?.despesas_pendentes ?? 0)}
-                  tone="warning"
-                />
-                <Separator />
-                <OverviewRow
-                  label="Saldo líquido"
-                  value={formatBRL(cashFlow?.saldo ?? 0)}
-                  tone={(cashFlow?.saldo ?? 0) >= 0 ? "success" : "danger"}
-                  bold
-                />
-                <OverviewRow
-                  label="Custo fixo mensal estimado"
-                  value={formatBRL(fixedMonthlyTotal)}
-                  tone="warning"
-                />
-              </CardContent>
-            </Card>
-
-            {/* Despesas por categoria */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Despesas por categoria</CardTitle>
-                <CardDescription>
-                  Baseado nos lançamentos{filterType !== "all" ? " filtrados" : ""}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {expensesByCategory.length === 0 ? (
-                  <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-                    Sem despesas registradas
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <div className="h-[180px] w-full sm:w-[180px] shrink-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={expensesByCategory}
-                            dataKey="value"
-                            nameKey="name"
-                            innerRadius="55%"
-                            outerRadius="80%"
-                            paddingAngle={2}
-                          >
-                            {expensesByCategory.map((_, i) => (
-                              <Cell
-                                key={i}
-                                fill={PIE_COLORS[i % PIE_COLORS.length]}
-                              />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            formatter={(v: number) => [formatBRL(v), "Total"]}
-                            contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      {expensesByCategory.slice(0, 6).map((cat, i) => {
-                        const total = expensesByCategory.reduce((s, c) => s + c.value, 0)
-                        const pct = total > 0 ? Math.round((cat.value / total) * 100) : 0
-                        return (
-                          <div key={cat.name}>
-                            <div className="mb-0.5 flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5">
-                                <span
-                                  className="h-2 w-2 shrink-0 rounded-full"
-                                  style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
-                                />
-                                <span className="truncate text-xs">{cat.name}</span>
-                              </div>
-                              <span className="shrink-0 text-xs font-semibold tabular-nums">
-                                {pct}%
-                              </span>
-                            </div>
-                            <div className="h-1 overflow-hidden rounded-full bg-muted">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${pct}%`,
-                                  backgroundColor: PIE_COLORS[i % PIE_COLORS.length],
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Gastos fixos resumo */}
-            {canAdmin && (
-              <Card className="lg:col-span-2">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">Gastos fixos ativos</CardTitle>
-                      <CardDescription>
-                        Total estimado: {formatBRL(fixedMonthlyTotal)}/mês
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {activeFixed.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Nenhum gasto fixo ativo. Configure na aba "Gastos fixos".
-                    </p>
-                  ) : (
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {activeFixed.map((fx) => (
-                        <div
-                          key={fx.id}
-                          className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5"
-                        >
-                          <Building2 className="h-4 w-4 shrink-0 text-amber-500" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{fx.nome}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatBRL(monthlyEquivalent(fx))}/mês
-                              {" · "}{FREQUENCY_LABELS[fx.frequencia]}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
-
-      </Tabs>
+      {canAdmin && (
+        <FixedExpenseManagerSheet
+          open={fixedManagerOpen}
+          onOpenChange={setFixedManagerOpen}
+          items={fixedExpenses ?? []}
+          onCreate={() => {
+            setFixedManagerOpen(false)
+            setFixedDialog({ open: true })
+          }}
+          onEdit={(item) => {
+            setFixedManagerOpen(false)
+            setFixedDialog({ open: true, item })
+          }}
+          onDelete={setDeleteFixedId}
+          onLaunch={(item) =>
+            setLaunchDialog({
+              open: true,
+              item,
+              date: new Date().toISOString().slice(0, 10),
+            })
+          }
+        />
+      )}
 
       {/* ── Dialogs ── */}
 
@@ -744,7 +247,6 @@ export function FinanceView() {
         onOpenChange={(open) => setEntryDialog({ open })}
         onSave={async () => {
           invalidateFinanceCaches()
-          await refreshEntries()
           await refreshCash()
         }}
       />
@@ -907,125 +409,6 @@ function FinKpiCard({
         {hint && !loading && <p className="text-xs text-muted-foreground">{hint}</p>}
       </div>
     </div>
-  )
-}
-
-function OverviewRow({
-  label,
-  value,
-  tone = "default",
-  bold,
-}: {
-  label: string
-  value: string
-  tone?: "default" | "success" | "danger" | "warning"
-  bold?: boolean
-}) {
-  const valueCn = {
-    default: "",
-    success: "text-green-700 dark:text-green-400",
-    danger:  "text-destructive",
-    warning: "text-amber-600 dark:text-amber-400",
-  }[tone]
-
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className={cn("text-sm text-muted-foreground", bold && "font-medium text-foreground")}>
-        {label}
-      </span>
-      <span className={cn("tabular-nums", bold ? "text-base font-bold" : "text-sm font-medium", valueCn)}>
-        {value}
-      </span>
-    </div>
-  )
-}
-
-function FixedExpenseCard({
-  item,
-  onEdit,
-  onDelete,
-  onLaunch,
-}: {
-  item: FixedExpense
-  onEdit: () => void
-  onDelete: () => void
-  onLaunch: () => void
-}) {
-  const active = isFixedExpenseActive(item)
-  const remaining = fixedExpenseRemainingParcelas(item)
-  const endDate = fixedExpenseEndDate(item)
-
-  return (
-    <Card className={cn("transition-all", !active && "opacity-60")}>
-      <CardContent className="pt-4">
-        <div className="mb-3 flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <p className="truncate font-semibold">{item.nome}</p>
-              {!active && (
-                <Badge variant="outline" className="shrink-0 text-xs">
-                  {item.total_parcelas ? "Encerrado" : "Inativo"}
-                </Badge>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">{item.categoria}</p>
-          </div>
-          <div className="flex shrink-0 gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-destructive hover:text-destructive"
-              onClick={onDelete}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        <div className="mb-3 space-y-1">
-          <p className="text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">
-            {formatBRL(item.valor)}
-          </p>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <CalendarClock className="h-3 w-3" />
-            {FREQUENCY_LABELS[item.frequencia]}
-            {item.dia_vencimento ? ` · todo dia ${item.dia_vencimento}` : ""}
-          </div>
-          {item.frequencia !== "mensal" && (
-            <p className="text-xs text-muted-foreground">
-              ≈ {formatBRL(monthlyEquivalent(item))}/mês
-            </p>
-          )}
-          {item.total_parcelas ? (
-            <p className="text-xs text-muted-foreground">
-              {item.parcelas_lancadas ?? 0}/{item.total_parcelas} parcela(s)
-              {remaining !== null && remaining > 0 ? ` · ${remaining} restante(s)` : ""}
-              {endDate ? ` · até ${formatDateBR(endDate.toISOString())}` : ""}
-            </p>
-          ) : null}
-        </div>
-
-        {item.observacao && (
-          <p className="mb-3 text-xs text-muted-foreground line-clamp-2">{item.observacao}</p>
-        )}
-
-        {active && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full text-xs"
-            onClick={onLaunch}
-            disabled={remaining === 0}
-          >
-            <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
-            Lançar como despesa
-          </Button>
-        )}
-      </CardContent>
-    </Card>
   )
 }
 

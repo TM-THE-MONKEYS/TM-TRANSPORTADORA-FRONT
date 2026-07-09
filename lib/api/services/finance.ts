@@ -2,7 +2,14 @@ import { mutate } from "swr"
 import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
 import { mockFinanceEntries } from "@/lib/mocks/finance-sync"
-import type { CashFlowSummary, FinanceEntry, FinanceEntryStatus, FinanceEntryType, Paginated } from "@/types"
+import type {
+  CashFlowSummary,
+  CompetenciaReport,
+  FinanceEntry,
+  FinanceEntryStatus,
+  FinanceEntryType,
+  Paginated,
+} from "@/types"
 
 function computeMockCashFlow(): CashFlowSummary {
   let total_receitas = 0
@@ -42,12 +49,20 @@ export async function listFinanceEntries(
   tipo?: FinanceEntryType,
   status?: FinanceEntryStatus,
   freightId?: string,
+  competencia?: { mes: number; ano: number },
 ): Promise<Paginated<FinanceEntry>> {
   if (shouldUseMocks()) {
     let items = [...mockFinanceEntries]
     if (tipo) items = items.filter((e) => e.tipo === tipo)
     if (status) items = items.filter((e) => e.status === status)
     if (freightId) items = items.filter((e) => e.freight_id === freightId)
+    if (competencia) {
+      items = items.filter((e) => {
+        const ref = e.data_vencimento ?? e.data_pagamento ?? e.created_at
+        const d = new Date(ref)
+        return d.getMonth() + 1 === competencia.mes && d.getFullYear() === competencia.ano
+      })
+    }
     const start = (page - 1) * pageSize
     return {
       items: items.slice(start, start + pageSize),
@@ -61,6 +76,10 @@ export async function listFinanceEntries(
   if (tipo) qs.set("tipo", tipo)
   if (status) qs.set("status", status)
   if (freightId) qs.set("freight_id", freightId)
+  if (competencia) {
+    qs.set("competencia_mes", String(competencia.mes))
+    qs.set("competencia_ano", String(competencia.ano))
+  }
   return apiRequest(`/finance?${qs}`, { auth: true })
 }
 
@@ -72,9 +91,56 @@ export async function listFinanceByFreight(
   return page.items
 }
 
-export async function getCashFlow(): Promise<CashFlowSummary> {
+export async function getCashFlow(competencia?: { mes: number; ano: number }): Promise<CashFlowSummary> {
   if (shouldUseMocks()) return computeMockCashFlow()
-  return apiRequest("/finance/cash-flow", { auth: true })
+  const qs = new URLSearchParams()
+  if (competencia) {
+    qs.set("competencia_mes", String(competencia.mes))
+    qs.set("competencia_ano", String(competencia.ano))
+  }
+  const suffix = qs.toString() ? `?${qs}` : ""
+  return apiRequest(`/finance/cash-flow${suffix}`, { auth: true })
+}
+
+export async function getCompetenciaReport(
+  competencia: { mes: number; ano: number },
+): Promise<CompetenciaReport> {
+  if (shouldUseMocks()) {
+    const cash_flow = await getCashFlow(competencia)
+    const page = await listFinanceEntries(1, 500, undefined, undefined, undefined, competencia)
+    const dailyMap = new Map<string, { receitas: number; despesas: number }>()
+    const catMap = new Map<string, number>()
+
+    for (const e of page.items) {
+      const ref = e.data_vencimento ?? e.data_pagamento ?? e.created_at
+      const day = ref.slice(0, 10)
+      const row = dailyMap.get(day) ?? { receitas: 0, despesas: 0 }
+      if (e.tipo === "receita") row.receitas += e.valor
+      else if (e.tipo === "despesa") {
+        row.despesas += e.valor
+        catMap.set(e.categoria, (catMap.get(e.categoria) ?? 0) + e.valor)
+      }
+      dailyMap.set(day, row)
+    }
+
+    return {
+      competencia_mes: competencia.mes,
+      competencia_ano: competencia.ano,
+      cash_flow,
+      daily_series: [...dailyMap.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, vals]) => ({ date, ...vals })),
+      expenses_by_category: [...catMap.entries()]
+        .map(([categoria, valor]) => ({ categoria, valor }))
+        .sort((a, b) => b.valor - a.valor),
+    }
+  }
+
+  const qs = new URLSearchParams({
+    competencia_mes: String(competencia.mes),
+    competencia_ano: String(competencia.ano),
+  })
+  return apiRequest(`/finance/competencia-report?${qs}`, { auth: true })
 }
 
 /** Gera receitas (fretes) e despesas (abastecimentos/custos) no financeiro. */
@@ -142,6 +208,8 @@ async function syncMockFinanceFromFreights(): Promise<{ receitas: number; despes
 export function invalidateFinanceCaches(): void {
   void mutate("cash-flow")
   void mutate((key) => Array.isArray(key) && key[0] === "finance-entries")
+  void mutate((key) => Array.isArray(key) && key[0] === "competencia-report")
+  void mutate((key) => Array.isArray(key) && key[0] === "fixed-launch-status")
   void mutate("reports-kpis")
   void mutate(
     (key) =>

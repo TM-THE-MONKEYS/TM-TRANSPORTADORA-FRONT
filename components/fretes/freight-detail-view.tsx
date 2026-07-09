@@ -3,14 +3,23 @@
 import useSWR, { mutate } from "swr"
 import { toast } from "sonner"
 import Link from "next/link"
-import { ArrowRight, MapPin, Upload } from "lucide-react"
-import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { ArrowRight, MapPin, Trash2, Upload } from "lucide-react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -27,24 +36,31 @@ import { FreightExpensesList } from "@/components/shared/freight-expenses-list"
 import {
   addOccurrence,
   advanceFreightStatus,
+  deleteFreight,
   getFreight,
   getFreightEvents,
   getFreightOccurrences,
   updateFreight,
+  updateFreightStatus,
 } from "@/lib/api/services/freight"
 import { getTrackingTimeline } from "@/lib/api/services/tracking"
 import { trackingUpdatesWithoutOccurrences } from "@/lib/freight/occurrences"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateTimeBR } from "@/lib/format/dates"
-import { FREIGHT_STATUS_FLOW } from "@/lib/freight/status"
+import { FREIGHT_STATUS_FLOW, FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
+import {
+  ADMIN_FREIGHT_STATUS_OPTIONS,
+  canAdminManageClosedFreight,
+  isFreightClosed,
+} from "@/lib/freight/closed-freight"
 import { formatFreightRouteShort, formatFreightRouteStops } from "@/lib/freight/route-label"
 import { isFreightInTransit } from "@/lib/freight/active-trip"
-import { canAdminManageClosedFreight, isFreightClosed } from "@/lib/freight/closed-freight"
 import { useAuth } from "@/components/providers/auth-provider"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { cn } from "@/lib/utils"
+import type { FreightStatus } from "@/types"
 
 const NONE = "__none__"
 
@@ -67,6 +83,7 @@ const TRACKING_STATUS_STYLES: Record<string, string> = {
 }
 
 export function FreightDetailView({ id }: { id: string }) {
+  const router = useRouter()
   const { user } = useAuth()
   const canStatus = usePermission(PERMISSIONS.freightStatus)
   const canWrite = usePermission(PERMISSIONS.freightWrite)
@@ -86,8 +103,26 @@ export function FreightDetailView({ id }: { id: string }) {
   const [occType, setOccType] = useState("atraso")
   const [occDesc, setOccDesc] = useState("")
   const [savingAssign, setSavingAssign] = useState(false)
+  const [statusDraft, setStatusDraft] = useState<FreightStatus>("orcamento")
+  const [statusSaving, setStatusSaving] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => {
+    if (freight?.status) setStatusDraft(freight.status)
+  }, [freight?.status])
 
   if (!freight) return <Skeleton className="h-96 w-full" />
+
+  const flowIdx = FREIGHT_STATUS_FLOW.indexOf(freight.status)
+  const closed = isFreightClosed(freight.status)
+  const canEditClosed = closed && isAdmin
+  const canAssign = canWrite && (!closed || isAdmin)
+  const canAddOccurrence = !closed || isAdmin
+  const canDelete = canWrite && (isAdmin || freight.status === "orcamento" || freight.status === "cancelado")
+  const driverName = drivers.find((d) => d.id === freight.driver_id)?.name
+  const truck = trucks.find((t) => t.id === freight.truck_id)
+  const routeStops = formatFreightRouteStops(freight)
 
   async function handleAdvance() {
     try {
@@ -114,6 +149,35 @@ export function FreightDetailView({ id }: { id: string }) {
     }
   }
 
+  async function handleStatusApply() {
+    if (statusDraft === freight!.status) return
+    setStatusSaving(true)
+    try {
+      await updateFreightStatus(id, statusDraft)
+      toast.success(`Status alterado para ${FREIGHT_STATUS_LABELS[statusDraft]}`)
+      await mutateFreight()
+      mutateEvents()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao alterar status")
+    } finally {
+      setStatusSaving(false)
+    }
+  }
+
+  async function handleDeleteFreight() {
+    setDeleting(true)
+    try {
+      await deleteFreight(id)
+      toast.success("Frete excluído")
+      router.push("/dashboard/fretes")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao excluir frete")
+    } finally {
+      setDeleting(false)
+      setDeleteOpen(false)
+    }
+  }
+
   async function handleAssign(driverId: string, truckId: string) {
     setSavingAssign(true)
     try {
@@ -130,15 +194,7 @@ export function FreightDetailView({ id }: { id: string }) {
     }
   }
 
-  const flowIdx = FREIGHT_STATUS_FLOW.indexOf(freight.status)
-  const closed = isFreightClosed(freight.status)
-  const canEditClosed = closed && isAdmin
-  const canAssign = canWrite && (!closed || isAdmin)
-  const canAddOccurrence = !closed || isAdmin
-  const driverName = drivers.find((d) => d.id === freight.driver_id)?.name
-  const truck = trucks.find((t) => t.id === freight.truck_id)
-
-  const routeStops = formatFreightRouteStops(freight)
+  const statusSelectValue = statusDraft
 
   return (
     <div>
@@ -146,12 +202,47 @@ export function FreightDetailView({ id }: { id: string }) {
         title={freight.code}
         description={formatFreightRouteShort(freight)}
         actions={
-          canStatus && flowIdx < FREIGHT_STATUS_FLOW.length - 1 ? (
-            <Button onClick={handleAdvance}>
-              Avançar status
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            {canStatus && flowIdx < FREIGHT_STATUS_FLOW.length - 1 && (
+              <Button onClick={handleAdvance}>
+                Avançar status
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
+            {canStatus && (
+              <>
+                <Select
+                  value={statusSelectValue}
+                  onValueChange={(v) => setStatusDraft(v as FreightStatus)}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ADMIN_FREIGHT_STATUS_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={statusDraft === freight.status || statusSaving}
+                  onClick={handleStatusApply}
+                >
+                  {statusSaving ? "Salvando..." : "Alterar status"}
+                </Button>
+              </>
+            )}
+            {canDelete && (
+              <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="mr-1.5 h-4 w-4" />
+                Excluir
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -450,6 +541,26 @@ export function FreightDetailView({ id }: { id: string }) {
           <DeliveryChecklist freightId={id} />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir frete</DialogTitle>
+            <DialogDescription>
+              O frete <strong>{freight.code}</strong> será removido (exclusão lógica). Abastecimentos,
+              custos e lançamentos financeiros vinculados permanecem no histórico. Deseja continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteFreight} disabled={deleting}>
+              {deleting ? "Excluindo..." : "Excluir frete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
