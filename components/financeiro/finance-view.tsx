@@ -55,6 +55,7 @@ import {
   updateFixedExpense,
 } from "@/lib/api/services/fixed-expenses"
 import { formatBRL } from "@/lib/format/currency"
+import { competenciaDefaultDate, formatCompetenciaLabel } from "@/lib/format/dates"
 import { isAdminRole } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
 import type { FinanceEntry, FinanceEntryStatus, FinanceEntryType, FixedExpense } from "@/types"
@@ -78,6 +79,7 @@ export function FinanceView() {
   const { data: cashFlow, isLoading: loadingCash, mutate: refreshCash } = useSWR(
     ["cash-flow", competencia.mes, competencia.ano],
     () => getCashFlow(competencia),
+    { keepPreviousData: false },
   )
 
   const { data: fixedExpenses, mutate: refreshFixed } = useSWR("fixed-expenses", listFixedExpenses)
@@ -144,6 +146,9 @@ export function FinanceView() {
     }
   }
 
+  const monthLabel = formatCompetenciaLabel(competencia.mes, competencia.ano)
+  const defaultLaunchDate = competenciaDefaultDate(competencia.mes, competencia.ano)
+
   const margin = (cashFlow?.total_receitas ?? 0) - (cashFlow?.total_despesas ?? 0)
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -179,7 +184,7 @@ export function FinanceView() {
           icon={TrendingUp}
           tone="success"
           loading={loadingCash}
-          hint={`${formatBRL(cashFlow?.receitas_pagas ?? 0)} já recebido`}
+          hint={`${formatBRL(cashFlow?.receitas_pagas ?? 0)} já recebido · ${monthLabel}`}
         />
         <FinKpiCard
           label="Despesas totais"
@@ -187,7 +192,7 @@ export function FinanceView() {
           icon={TrendingDown}
           tone="danger"
           loading={loadingCash}
-          hint={`${formatBRL(cashFlow?.despesas_pagas ?? 0)} já pago`}
+          hint={`${formatBRL(cashFlow?.despesas_pagas ?? 0)} já pago · ${monthLabel}`}
         />
         <FinKpiCard
           label="Saldo líquido"
@@ -195,7 +200,7 @@ export function FinanceView() {
           icon={CircleDollarSign}
           tone={margin >= 0 ? "success" : "danger"}
           loading={loadingCash}
-          hint="Receita − despesas"
+          hint={`Competência: ${monthLabel}`}
         />
         <FinKpiCard
           label="Gastos fixos/mês"
@@ -207,6 +212,7 @@ export function FinanceView() {
       </div>
 
       <FinanceMonthHub
+        key={`${competencia.ano}-${competencia.mes}`}
         competencia={competencia}
         onShift={shift}
         canAdmin={canAdmin}
@@ -233,7 +239,7 @@ export function FinanceView() {
             setLaunchDialog({
               open: true,
               item,
-              date: new Date().toISOString().slice(0, 10),
+              date: defaultLaunchDate,
             })
           }
         />
@@ -244,6 +250,7 @@ export function FinanceView() {
       <EntryDialog
         open={entryDialog.open}
         entry={entryDialog.entry}
+        competencia={competencia}
         onOpenChange={(open) => setEntryDialog({ open })}
         onSave={async () => {
           invalidateFinanceCaches()
@@ -435,17 +442,20 @@ const ENTRY_DEFAULTS: EntryForm = {
 function EntryDialog({
   open,
   entry,
+  competencia,
   onOpenChange,
   onSave,
 }: {
   open: boolean
   entry?: FinanceEntry
+  competencia: { mes: number; ano: number }
   onOpenChange: (o: boolean) => void
   onSave: () => Promise<void>
 }) {
   const isEdit = Boolean(entry)
   const [form, setForm] = useState<EntryForm>(ENTRY_DEFAULTS)
   const [saving, setSaving] = useState(false)
+  const defaultVencimento = competenciaDefaultDate(competencia.mes, competencia.ano)
 
   function handleOpen(o: boolean) {
     if (o) {
@@ -459,7 +469,10 @@ function EntryDialog({
               status: entry.status,
               data_vencimento: entry.data_vencimento ?? "",
             }
-          : ENTRY_DEFAULTS,
+          : {
+              ...ENTRY_DEFAULTS,
+              data_vencimento: defaultVencimento,
+            },
       )
     }
     onOpenChange(o)
@@ -476,13 +489,14 @@ function EntryDialog({
 
     setSaving(true)
     try {
+      const vencimento = form.data_vencimento || (!isEdit ? defaultVencimento : undefined)
       const payload = {
         tipo: form.tipo,
         categoria: form.categoria.trim(),
         descricao: form.descricao.trim() || undefined,
         valor,
         status: form.status,
-        data_vencimento: form.data_vencimento || undefined,
+        data_vencimento: vencimento,
       }
       if (isEdit && entry) {
         await updateFinanceEntry(entry.id, payload)
@@ -506,7 +520,9 @@ function EntryDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar lançamento" : "Novo lançamento"}</DialogTitle>
           <DialogDescription>
-            {isEdit ? "Altere os dados do lançamento financeiro." : "Registre uma receita ou despesa manualmente."}
+            {isEdit
+              ? "Altere os dados do lançamento financeiro."
+              : `Registre na competência ${formatCompetenciaLabel(competencia.mes, competencia.ano)}. O vencimento define o mês do lançamento.`}
           </DialogDescription>
         </DialogHeader>
 

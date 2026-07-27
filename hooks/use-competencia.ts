@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { currentCompetencia, shiftCompetencia } from "@/lib/format/dates"
 
@@ -46,6 +46,12 @@ export function useCompetencia() {
     },
     [competencia.ano, competencia.mes, setCompetencia],
   )
+
+  useEffect(() => {
+    if (!searchParams.get(PARAM)) {
+      setCompetencia(currentCompetencia())
+    }
+  }, [searchParams, setCompetencia])
 
   return { competencia, setCompetencia, shift }
 }

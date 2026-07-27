@@ -19,6 +19,11 @@ import { getSafeRedirectPath } from "@/lib/security/safe-redirect"
 import { getDefaultHomeRoute } from "@/lib/rbac/permissions"
 import { isValidCpfLength } from "@/lib/format/cpf"
 
+type LoginFormProps = {
+  /** "card" (padrão) = com Card wrapper. "inline" = sem wrapper, integra ao layout pai. */
+  variant?: "card" | "inline"
+}
+
 const schema = z.object({
   identifier: z
     .string()
@@ -36,7 +41,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-export function LoginForm() {
+export function LoginForm({ variant = "card" }: LoginFormProps) {
   const { login } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -74,6 +79,55 @@ export function LoginForm() {
     }
   }
 
+  const labelClass = variant === "inline" ? "text-slate-700" : undefined
+  const linkClass =
+    variant === "inline"
+      ? "text-slate-500 hover:text-slate-700 hover:underline"
+      : "text-primary hover:underline"
+
+  const formContent = (
+    <>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
+        <div className="space-y-2">
+          <Label htmlFor="login-identifier" className={labelClass}>E-mail ou CPF</Label>
+          <AutofillGuardInput
+            id="login-identifier"
+            type="text"
+            autoComplete="username"
+            {...register("identifier")}
+          />
+          {errors.identifier && (
+            <p className="text-sm text-destructive">{errors.identifier.message}</p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="login-password" className={labelClass}>Senha</Label>
+          <AutofillGuardInput
+            id="login-password"
+            type="password"
+            autoComplete="new-password"
+            {...register("password")}
+          />
+          {errors.password && (
+            <p className="text-sm text-destructive">{errors.password.message}</p>
+          )}
+        </div>
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? "Entrando..." : "Entrar"}
+        </Button>
+      </form>
+      <p className="mt-4 text-center text-sm">
+        <Link href="/esqueci-senha" className={linkClass}>
+          Esqueci minha senha
+        </Link>
+      </p>
+    </>
+  )
+
+  if (variant === "inline") {
+    return <div className="w-full">{formContent}</div>
+  }
+
   return (
     <Card className="w-full max-w-md border-border/60 shadow-lg">
       <CardHeader className="text-center sm:text-left">
@@ -83,43 +137,7 @@ export function LoginForm() {
           senha provisória repassada pelo administrador.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
-          <div className="space-y-2">
-            <Label htmlFor="login-identifier">E-mail ou CPF</Label>
-            <AutofillGuardInput
-              id="login-identifier"
-              type="text"
-              placeholder="admin@empresa.com ou 000.000.000-00"
-              autoComplete="username"
-              {...register("identifier")}
-            />
-            {errors.identifier && (
-              <p className="text-sm text-destructive">{errors.identifier.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="login-password">Senha</Label>
-            <AutofillGuardInput
-              id="login-password"
-              type="password"
-              autoComplete="new-password"
-              {...register("password")}
-            />
-            {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
-            )}
-          </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Entrando..." : "Entrar"}
-          </Button>
-        </form>
-        <p className="mt-4 text-center text-sm">
-          <Link href="/esqueci-senha" className="text-primary hover:underline">
-            Esqueci minha senha
-          </Link>
-        </p>
-      </CardContent>
+      <CardContent>{formContent}</CardContent>
     </Card>
   )
 }
