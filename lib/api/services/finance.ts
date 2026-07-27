@@ -1,6 +1,7 @@
 import { mutate } from "swr"
 import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
+import { entryInCompetencia } from "@/lib/format/dates"
 import { mockFinanceEntries } from "@/lib/mocks/finance-sync"
 import type {
   CashFlowSummary,
@@ -11,7 +12,7 @@ import type {
   Paginated,
 } from "@/types"
 
-function computeMockCashFlow(): CashFlowSummary {
+function computeCashFlowFromEntries(items: FinanceEntry[]): CashFlowSummary {
   let total_receitas = 0
   let total_despesas = 0
   let receitas_pendentes = 0
@@ -19,7 +20,8 @@ function computeMockCashFlow(): CashFlowSummary {
   let receitas_pagas = 0
   let despesas_pagas = 0
 
-  for (const e of mockFinanceEntries) {
+  for (const e of items) {
+    if (e.status === "cancelado") continue
     if (e.tipo === "receita") {
       total_receitas += e.valor
       if (e.status === "pendente") receitas_pendentes += e.valor
@@ -42,6 +44,14 @@ function computeMockCashFlow(): CashFlowSummary {
   }
 }
 
+function computeMockCashFlow(competencia?: { mes: number; ano: number }): CashFlowSummary {
+  let items = [...mockFinanceEntries]
+  if (competencia) {
+    items = items.filter((e) => entryInCompetencia(e, competencia))
+  }
+  return computeCashFlowFromEntries(items)
+}
+
 // ── Service functions ─────────────────────────────────────────────────────────
 export async function listFinanceEntries(
   page = 1,
@@ -57,11 +67,7 @@ export async function listFinanceEntries(
     if (status) items = items.filter((e) => e.status === status)
     if (freightId) items = items.filter((e) => e.freight_id === freightId)
     if (competencia) {
-      items = items.filter((e) => {
-        const ref = e.data_vencimento ?? e.data_pagamento ?? e.created_at
-        const d = new Date(ref)
-        return d.getMonth() + 1 === competencia.mes && d.getFullYear() === competencia.ano
-      })
+      items = items.filter((e) => entryInCompetencia(e, competencia))
     }
     const start = (page - 1) * pageSize
     return {
@@ -80,7 +86,12 @@ export async function listFinanceEntries(
     qs.set("competencia_mes", String(competencia.mes))
     qs.set("competencia_ano", String(competencia.ano))
   }
-  return apiRequest(`/finance?${qs}`, { auth: true })
+  const res = await apiRequest<Paginated<FinanceEntry>>(`/finance?${qs}`, { auth: true })
+  if (competencia) {
+    const items = res.items.filter((e) => entryInCompetencia(e, competencia))
+    return { ...res, items, total: items.length }
+  }
+  return res
 }
 
 export async function listFinanceByFreight(
@@ -92,14 +103,14 @@ export async function listFinanceByFreight(
 }
 
 export async function getCashFlow(competencia?: { mes: number; ano: number }): Promise<CashFlowSummary> {
-  if (shouldUseMocks()) return computeMockCashFlow()
-  const qs = new URLSearchParams()
+  if (shouldUseMocks()) return computeMockCashFlow(competencia)
+
   if (competencia) {
-    qs.set("competencia_mes", String(competencia.mes))
-    qs.set("competencia_ano", String(competencia.ano))
+    const page = await listFinanceEntries(1, 500, undefined, undefined, undefined, competencia)
+    return computeCashFlowFromEntries(page.items)
   }
-  const suffix = qs.toString() ? `?${qs}` : ""
-  return apiRequest(`/finance/cash-flow${suffix}`, { auth: true })
+
+  return apiRequest(`/finance/cash-flow`, { auth: true })
 }
 
 export async function getCompetenciaReport(
@@ -206,7 +217,7 @@ async function syncMockFinanceFromFreights(): Promise<{ receitas: number; despes
 }
 
 export function invalidateFinanceCaches(): void {
-  void mutate("cash-flow")
+  void mutate((key) => Array.isArray(key) && key[0] === "cash-flow")
   void mutate((key) => Array.isArray(key) && key[0] === "finance-entries")
   void mutate((key) => Array.isArray(key) && key[0] === "competencia-report")
   void mutate((key) => Array.isArray(key) && key[0] === "fixed-launch-status")

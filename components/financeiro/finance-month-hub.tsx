@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { toast } from "sonner"
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
@@ -58,9 +58,17 @@ export function FinanceMonthHub({
   const [filterStatus, setFilterStatus] = useState<FinanceEntryStatus | "all">("all")
   const [launchingAll, setLaunchingAll] = useState(false)
 
+  useEffect(() => {
+    setFilterType("all")
+    setFilterStatus("all")
+  }, [competencia.mes, competencia.ano])
+
+  const competenciaKey = `${competencia.ano}-${competencia.mes}`
+
   const { data: cashFlow, isLoading: loadingCash, mutate: refreshCash } = useSWR(
     ["cash-flow", competencia.mes, competencia.ano],
     () => getCashFlow(competencia),
+    { keepPreviousData: false },
   )
 
   const swrEntriesKey = [
@@ -81,8 +89,10 @@ export function FinanceMonthHub({
         undefined,
         competencia,
       ),
+    { keepPreviousData: false },
   )
   const entries = entriesPage?.items ?? []
+  const showHubLoading = loadingCash || loadingEntries
 
   const { data: launchStatus, isLoading: loadingLaunch, mutate: refreshLaunch } = useSWR(
     canAdmin ? ["fixed-launch-status", competencia.mes, competencia.ano] : null,
@@ -186,9 +196,9 @@ export function FinanceMonthHub({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <MiniStat label="Receitas" value={formatBRL(cashFlow?.total_receitas ?? 0)} loading={loadingCash} tone="success" />
-        <MiniStat label="Despesas" value={formatBRL(cashFlow?.total_despesas ?? 0)} loading={loadingCash} tone="danger" />
-        <MiniStat label="Saldo" value={formatBRL(cashFlow?.saldo ?? 0)} loading={loadingCash} />
+        <MiniStat label="Receitas" value={formatBRL(cashFlow?.total_receitas ?? 0)} loading={showHubLoading} tone="success" />
+        <MiniStat label="Despesas" value={formatBRL(cashFlow?.total_despesas ?? 0)} loading={showHubLoading} tone="danger" />
+        <MiniStat label="Saldo" value={formatBRL(cashFlow?.saldo ?? 0)} loading={showHubLoading} />
       </div>
 
       {canAdmin && (
@@ -210,6 +220,7 @@ export function FinanceMonthHub({
         </CardHeader>
         <CardContent>
           <FinanceEntriesTable
+            key={competenciaKey}
             entries={entries}
             loading={loadingEntries}
             canAdmin={canAdmin}
