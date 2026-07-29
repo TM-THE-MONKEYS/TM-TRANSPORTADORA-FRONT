@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -13,10 +12,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/components/providers/auth-provider"
 import { siteConfig } from "@/lib/site-config"
-import { syncServerSession } from "@/lib/auth/sync-server-session"
-import { getStoredAccessToken } from "@/lib/api/storage"
-import { getSafeRedirectPath } from "@/lib/security/safe-redirect"
-import { getDefaultHomeRoute } from "@/lib/rbac/permissions"
 import { isValidCpfLength } from "@/lib/format/cpf"
 
 type LoginFormProps = {
@@ -43,8 +38,6 @@ type FormData = z.infer<typeof schema>
 
 export function LoginForm({ variant = "card" }: LoginFormProps) {
   const { login } = useAuth()
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
   const {
     register,
@@ -55,26 +48,12 @@ export function LoginForm({ variant = "card" }: LoginFormProps) {
   async function onSubmit(data: FormData) {
     setLoading(true)
     try {
-      const loggedInUser = await login(data)
-      const token = getStoredAccessToken()
-      if (!token) throw new Error("Sessão não foi gravada no navegador")
-      await syncServerSession(token)
+      await login(data)
       toast.success("Login realizado")
-
-      if (loggedInUser.must_change_password) {
-        router.push("/dashboard/conta/alterar-senha")
-        return
-      }
-
-      router.push(
-        getSafeRedirectPath(
-          searchParams.get("from"),
-          getDefaultHomeRoute(loggedInUser.role, loggedInUser.permissions),
-        ),
-      )
+      // Navigation is handled by <RedirectIfAuthenticated /> — keep loading=true
+      // so the button stays disabled until the page transitions away.
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha no login")
-    } finally {
       setLoading(false)
     }
   }

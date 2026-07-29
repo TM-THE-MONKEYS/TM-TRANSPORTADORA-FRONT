@@ -71,6 +71,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { tokens, user: u } = await apiLogin(input)
     const user = normalizeAuthUser(u)
     setStoredSession(tokens.access_token, tokens.refresh_token, user.tenant_id, user.branch_id)
+    // Sync the httpOnly session cookie BEFORE setting user state so that
+    // RedirectIfAuthenticated (which fires on isAuthenticated) never navigates
+    // to the dashboard before the cookie exists.
+    await syncServerSession(tokens.access_token)
     setUser(user)
     return user
   }, [])
