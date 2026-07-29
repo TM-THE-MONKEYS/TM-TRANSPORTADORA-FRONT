@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { getFreightCosts } from "@/lib/api/services/freight"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateTimeBR } from "@/lib/format/dates"
+import { freightCostTypeLabel } from "@/lib/freight/costs"
 
 type FreightExpensesListProps = {
   freightId: string
@@ -34,13 +35,7 @@ export function FreightExpensesList({
           className="flex items-start justify-between gap-2 rounded-md border px-3 py-2"
         >
           <div>
-            <p className="font-medium capitalize">
-              {c.tipo === "combustivel" || c.tipo === "COMBUSTIVEL"
-                ? "Abastecimento"
-                : c.tipo === "PEDAGIO" || c.tipo === "pedagio"
-                  ? "Pedágio"
-                  : c.tipo}
-            </p>
+            <p className="font-medium capitalize">{freightCostTypeLabel(c.tipo)}</p>
             {c.descricao && <p className="text-muted-foreground">{c.descricao}</p>}
             {c.litros != null && (
               <p className="text-xs text-muted-foreground">

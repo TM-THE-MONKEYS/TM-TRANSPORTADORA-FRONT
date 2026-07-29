@@ -16,14 +16,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { addFreightCost } from "@/lib/api/services/freight"
 import { formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
-
-const COST_TYPES = [
-  { value: "combustivel", label: "Combustível" },
-  { value: "pedagio", label: "Pedágio" },
-  { value: "manutencao", label: "Manutenção" },
-  { value: "alimentacao", label: "Alimentação" },
-  { value: "outro", label: "Outro" },
-] as const
+import { FREIGHT_COST_TYPES } from "@/lib/freight/costs"
 
 type FreightAddCostFormProps = {
   freightId: string
@@ -88,7 +81,7 @@ export function FreightAddCostForm({ freightId, onAdded, compact }: FreightAddCo
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {COST_TYPES.map((t) => (
+              {FREIGHT_COST_TYPES.map((t) => (
                 <SelectItem key={t.value} value={t.value}>
                   {t.label}
                 </SelectItem>

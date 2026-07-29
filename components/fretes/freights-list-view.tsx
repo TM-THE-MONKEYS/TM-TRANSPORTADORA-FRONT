@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState } from "@/components/shared/empty-state"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
-import { advanceFreightStatus, listFreights } from "@/lib/api/services/freight"
+import { advanceFreightStatus, getFreightCosts, listFreights } from "@/lib/api/services/freight"
 import { formatFreightRouteShort } from "@/lib/freight/route-label"
 import { formatBRL } from "@/lib/format/currency"
 import { formatWeightKg } from "@/lib/format/numbers"
@@ -36,6 +36,32 @@ import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
 import type { FreightOrder, FreightStatus } from "@/types"
+
+// ── FreightCostSummary ────────────────────────────────────────────────────────
+
+function FreightCostSummary({ freightId, valueBrl }: { freightId: string; valueBrl: number }) {
+  const { data: costs } = useSWR(
+    ["freight-breakdown-costs", freightId],
+    () => getFreightCosts(freightId),
+    { revalidateOnFocus: false },
+  )
+  if (!costs?.length) return null
+
+  const totalCosts = costs.reduce((s, c) => s + c.valor, 0)
+  const margin = valueBrl - totalCosts
+
+  return (
+    <div className="mt-1 space-y-0.5 text-right text-xs">
+      <p className="text-muted-foreground">
+        Despesas:{" "}
+        <span className="font-medium text-destructive">{formatBRL(totalCosts)}</span>
+      </p>
+      <p className={cn("font-semibold", margin >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive")}>
+        Margem: {formatBRL(margin)}
+      </p>
+    </div>
+  )
+}
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -390,9 +416,15 @@ export function FreightsListView() {
 
                     {/* Right side */}
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      <p className="text-base font-bold tabular-nums leading-none">
-                        {formatBRL(f.value_brl)}
-                      </p>
+                      <div className="text-right">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Valor
+                        </p>
+                        <p className="text-base font-bold tabular-nums leading-none">
+                          {formatBRL(f.value_brl)}
+                        </p>
+                        <FreightCostSummary freightId={f.id} valueBrl={f.value_brl} />
+                      </div>
                       {f.weight_kg != null && f.weight_kg > 0 && (
                         <p className="text-xs text-muted-foreground">
                           {formatWeightKg(f.weight_kg)}

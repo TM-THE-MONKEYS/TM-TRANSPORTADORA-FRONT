@@ -8,6 +8,7 @@ import { ArrowRight, MapPin, Trash2, Upload } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -31,9 +32,11 @@ import { PageHeader } from "@/components/shared/page-header"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { DeliveryChecklist } from "@/components/fretes/delivery-checklist"
 import { FreightClosedAdminPanel } from "@/components/fretes/freight-closed-admin-panel"
+import { FreightAddCostForm } from "@/components/fretes/freight-add-cost-form"
 import { FreightFinancialBreakdown } from "@/components/fretes/freight-financial-breakdown"
 import { FreightExpensesList } from "@/components/shared/freight-expenses-list"
 import {
+  addFreightCost,
   addOccurrence,
   advanceFreightStatus,
   deleteFreight,
@@ -47,6 +50,8 @@ import { getTrackingTimeline } from "@/lib/api/services/tracking"
 import { trackingUpdatesWithoutOccurrences } from "@/lib/freight/occurrences"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateTimeBR } from "@/lib/format/dates"
+import { formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
+import { FREIGHT_COST_TYPES } from "@/lib/freight/costs"
 import { FREIGHT_STATUS_FLOW, FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
 import {
   ADMIN_FREIGHT_STATUS_OPTIONS,
@@ -102,6 +107,9 @@ export function FreightDetailView({ id }: { id: string }) {
   const trackingUpdates = trackingUpdatesWithoutOccurrences(trackingTimeline?.updates ?? [])
   const [occType, setOccType] = useState("atraso")
   const [occDesc, setOccDesc] = useState("")
+  const [occCostEnabled, setOccCostEnabled] = useState(false)
+  const [occCostTipo, setOccCostTipo] = useState("outro")
+  const [occCostValorDisplay, setOccCostValorDisplay] = useState("")
   const [savingAssign, setSavingAssign] = useState(false)
   const [statusDraft, setStatusDraft] = useState<FreightStatus>("orcamento")
   const [statusSaving, setStatusSaving] = useState(false)
@@ -137,13 +145,39 @@ export function FreightDetailView({ id }: { id: string }) {
 
   async function handleOccurrence() {
     if (!occDesc.trim()) return
+
+    const costValor = occCostEnabled ? parseMoneyInput(occCostValorDisplay) : null
+    if (occCostEnabled && (costValor == null || costValor <= 0)) {
+      toast.error("Informe um valor válido para o custo da ocorrência")
+      return
+    }
+
     try {
       await addOccurrence(id, occType, occDesc)
+
+      if (occCostEnabled && costValor != null && costValor > 0) {
+        await addFreightCost(id, {
+          tipo: occCostTipo,
+          valor: costValor,
+          descricao: `Ocorrência (${occType}): ${occDesc.trim()}`,
+        })
+        void mutate(["freight-expenses", id])
+        void mutate(["freight-breakdown-costs", id])
+        void mutate(["freight-breakdown-finance", id])
+        void mutate(["freight-breakdown", id])
+      }
+
       setOccDesc("")
+      setOccCostValorDisplay("")
+      setOccCostEnabled(false)
       await mutateOcc()
       await mutate(["tracking-timeline", id])
       mutateEvents()
-      toast.success("Ocorrência registrada e visível no rastreamento")
+      toast.success(
+        occCostEnabled && costValor
+          ? `Ocorrência registrada com custo de ${formatBRL(costValor)}`
+          : "Ocorrência registrada e visível no rastreamento",
+      )
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro")
     }
@@ -384,6 +418,8 @@ export function FreightDetailView({ id }: { id: string }) {
         ))}
       </div>
 
+      <FreightFinancialBreakdown freightId={id} className="mb-6" />
+
       <Tabs defaultValue="timeline">
         <TabsList>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
@@ -418,21 +454,100 @@ export function FreightDetailView({ id }: { id: string }) {
         <TabsContent value="ocorrencias" className="mt-4 space-y-4">
           {canAddOccurrence ? (
             <Card>
-              <CardContent className="space-y-3 pt-6">
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <select
-                    className="flex h-9 w-full rounded-md border px-3 text-sm"
-                    value={occType}
-                    onChange={(e) => setOccType(e.target.value)}
-                  >
-                    <option value="atraso">Atraso</option>
-                    <option value="avaria">Avaria</option>
-                    <option value="documentacao">Documentação</option>
-                  </select>
+              <CardContent className="space-y-4 pt-6">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Tipo de ocorrência</Label>
+                    <select
+                      className="flex h-9 w-full rounded-md border px-3 text-sm bg-background"
+                      value={occType}
+                      onChange={(e) => setOccType(e.target.value)}
+                    >
+                      <option value="atraso">Atraso</option>
+                      <option value="avaria">Avaria</option>
+                      <option value="documentacao">Documentação</option>
+                      <option value="outro">Outro</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      O tipo de ocorrência será usado para categorizar a ocorrência e facilitar a busca.
+                      <br />
+                      <br />
+                      <br />
+                      <br />
+                      <br />
+                      <br />
+                      <br />
+                      <br />
+                    </p>
+                  </div>
                 </div>
-                <Textarea value={occDesc} onChange={(e) => setOccDesc(e.target.value)} placeholder="Descrição" />
-                <Button onClick={handleOccurrence}>Registrar ocorrência</Button>
+
+                <div className="space-y-2">
+                  <Label>Descrição</Label>
+                  <Textarea
+                    value={occDesc}
+                    onChange={(e) => setOccDesc(e.target.value)}
+                    placeholder="Descreva o que ocorreu..."
+                    rows={2}
+                  />
+                </div>
+
+                {/* Optional cost link */}
+                <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border"
+                      checked={occCostEnabled}
+                      onChange={(e) => {
+                        setOccCostEnabled(e.target.checked)
+                        if (!e.target.checked) setOccCostValorDisplay("")
+                      }}
+                    />
+                    Vincular custo a esta ocorrência
+                  </label>
+
+                  {occCostEnabled && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Tipo de custo</Label>
+                        <select
+                          className="flex h-9 w-full rounded-md border px-3 text-sm bg-background"
+                          value={occCostTipo}
+                          onChange={(e) => setOccCostTipo(e.target.value)}
+                        >
+                          {FREIGHT_COST_TYPES.map((t) => (
+                            <option key={t.value} value={t.value}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Valor (R$)</Label>
+                        <Input
+                          inputMode="decimal"
+                          placeholder="0,00"
+                          value={occCostValorDisplay}
+                          onChange={(e) =>
+                            setOccCostValorDisplay(formatMoneyInput(e.target.value))
+                          }
+                        />
+                      </div>
+                      <p className="col-span-full text-xs text-muted-foreground">
+                        O valor será lançado como custo real e descontará da margem do frete.
+                        A descrição da ocorrência será usada como referência.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Button onClick={handleOccurrence} disabled={!occDesc.trim()}>
+                    Registrar ocorrência{occCostEnabled ? " + custo" : ""}
+                  </Button>
+                </div>
+
                 <p className="text-xs text-muted-foreground">
                   Vinculada ao frete {freight.code}. Aparece aqui e na aba Rastreamento.
                   {closed && isAdmin ? " Registro retroativo permitido (admin)." : ""}
@@ -470,24 +585,37 @@ export function FreightDetailView({ id }: { id: string }) {
           </Card>
         </TabsContent>
         <TabsContent value="custos" className="mt-4 space-y-4">
-          <FreightFinancialBreakdown freightId={id} />
+          {!closed && (canWrite || isAdmin) && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Lançar gasto da viagem</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FreightAddCostForm
+                  freightId={id}
+                  onAdded={() => {}}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Para abastecimento com controle de litros e km, use{" "}
+                  <Link
+                    href="/dashboard/abastecimento"
+                    className="text-primary hover:underline"
+                  >
+                    Abastecimento →
+                  </Link>
+                </p>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
-              <CardTitle>Custos e abastecimentos</CardTitle>
+              <CardTitle className="text-base">Histórico de custos</CardTitle>
             </CardHeader>
             <CardContent>
               <FreightExpensesList freightId={id} />
-              {!closed && (
-                <Link
-                  href="/dashboard/abastecimento"
-                  className="mt-4 inline-block text-sm text-primary hover:underline"
-                >
-                  Registrar abastecimento →
-                </Link>
-              )}
               {canEditClosed && (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Use o painel administrativo acima para gastos retroativos ou abastecimento.
+                  Para gastos retroativos adicionais, use o painel administrativo acima.
                 </p>
               )}
             </CardContent>
