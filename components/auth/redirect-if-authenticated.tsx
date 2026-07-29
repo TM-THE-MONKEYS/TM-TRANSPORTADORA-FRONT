@@ -12,7 +12,10 @@ export function RedirectIfAuthenticated() {
 
   useEffect(() => {
     if (isReady && isAuthenticated && user) {
-      router.replace(getDefaultHomeRoute(user.role, user.permissions))
+      const target = user.must_change_password
+        ? "/dashboard/conta/alterar-senha"
+        : getDefaultHomeRoute(user.role, user.permissions)
+      router.replace(target)
     }
   }, [isReady, isAuthenticated, user, router])
 
