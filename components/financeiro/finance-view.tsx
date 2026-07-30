@@ -157,7 +157,7 @@ export function FinanceView() {
     <div className="space-y-6">
       <PageHeader
         title="Controle financeiro"
-        description="Hub mensal por competência — receitas, despesas e gastos fixos"
+        description="Resumo financeiro mensal com foco em fluxo de caixa e lançamentos."
         actions={
           <div className="flex gap-2">
             {canAdmin && (
