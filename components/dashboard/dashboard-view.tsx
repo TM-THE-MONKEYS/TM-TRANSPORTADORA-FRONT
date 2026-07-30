@@ -132,21 +132,11 @@ export function DashboardView() {
         title="Dashboard operacional"
         description="Visão da operação, finanças e pendências em um só lugar"
         actions={
-          <>
-            {canFreightWrite && (
-              <Button size="sm" asChild>
-                <Link href="/dashboard/fretes/novo">Novo frete</Link>
-              </Button>
-            )}
-            {canFinance && (
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard/relatorios">
-                  Relatórios
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            )}
-          </>
+          canFreightWrite ? (
+            <Button size="sm" asChild>
+              <Link href="/dashboard/fretes/novo">Novo frete</Link>
+            </Button>
+          ) : undefined
         }
       />
 
