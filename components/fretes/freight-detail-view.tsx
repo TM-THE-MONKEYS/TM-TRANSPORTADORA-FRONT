@@ -38,7 +38,6 @@ import { FreightExpensesList } from "@/components/shared/freight-expenses-list"
 import {
   addFreightCost,
   addOccurrence,
-  advanceFreightStatus,
   deleteFreight,
   getFreight,
   getFreightEvents,
@@ -111,7 +110,7 @@ export function FreightDetailView({ id }: { id: string }) {
   const [occCostTipo, setOccCostTipo] = useState("outro")
   const [occCostValorDisplay, setOccCostValorDisplay] = useState("")
   const [savingAssign, setSavingAssign] = useState(false)
-  const [statusDraft, setStatusDraft] = useState<FreightStatus>("orcamento")
+  const [statusDraft, setStatusDraft] = useState<FreightStatus>("em_transporte")
   const [statusSaving, setStatusSaving] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -128,20 +127,10 @@ export function FreightDetailView({ id }: { id: string }) {
   const canAssign = canWrite && (!closed || isAdmin)
   const canAddOccurrence = !closed || isAdmin
   const canDelete = canWrite && (isAdmin || freight.status === "orcamento" || freight.status === "cancelado")
+  const isLegacyStatus = !ADMIN_FREIGHT_STATUS_OPTIONS.some((opt) => opt.value === freight.status)
   const driverName = drivers.find((d) => d.id === freight.driver_id)?.name
   const truck = trucks.find((t) => t.id === freight.truck_id)
   const routeStops = formatFreightRouteStops(freight)
-
-  async function handleAdvance() {
-    try {
-      await advanceFreightStatus(id)
-      toast.success("Status atualizado")
-      await mutateFreight()
-      mutateEvents()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro")
-    }
-  }
 
   async function handleOccurrence() {
     if (!occDesc.trim()) return
@@ -237,12 +226,6 @@ export function FreightDetailView({ id }: { id: string }) {
         description={formatFreightRouteShort(freight)}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {canStatus && flowIdx < FREIGHT_STATUS_FLOW.length - 1 && (
-              <Button onClick={handleAdvance}>
-                Avançar status
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
             {canStatus && (
               <>
                 <Select
@@ -253,6 +236,11 @@ export function FreightDetailView({ id }: { id: string }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    {isLegacyStatus && (
+                      <SelectItem value={freight.status} disabled>
+                        {FREIGHT_STATUS_LABELS[freight.status]} (legado)
+                      </SelectItem>
+                    )}
                     {ADMIN_FREIGHT_STATUS_OPTIONS.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
@@ -261,7 +249,6 @@ export function FreightDetailView({ id }: { id: string }) {
                   </SelectContent>
                 </Select>
                 <Button
-                  variant="outline"
                   size="sm"
                   disabled={statusDraft === freight.status || statusSaving}
                   onClick={handleStatusApply}
@@ -412,7 +399,7 @@ export function FreightDetailView({ id }: { id: string }) {
               i <= flowIdx ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
             }`}
           >
-            {s}
+            {FREIGHT_STATUS_LABELS[s]}
             {i < FREIGHT_STATUS_FLOW.length - 1 && <ArrowRight className="h-3 w-3" />}
           </div>
         ))}
@@ -470,14 +457,6 @@ export function FreightDetailView({ id }: { id: string }) {
                     </select>
                     <p className="text-xs text-muted-foreground">
                       O tipo de ocorrência será usado para categorizar a ocorrência e facilitar a busca.
-                      <br />
-                      <br />
-                      <br />
-                      <br />
-                      <br />
-                      <br />
-                      <br />
-                      <br />
                     </p>
                   </div>
                 </div>

@@ -59,7 +59,7 @@ export function toFreightCreatePayload(
       estado: data.destination_state,
     },
     valor_frete: Number(data.value_brl),
-    status: data.status ?? "orcamento",
+    status: data.status ?? "em_transporte",
     data_entrega_prevista: data.deadline_at ? data.deadline_at.slice(0, 10) : null,
     observacoes: data.cargo_description,
     costs: [],
