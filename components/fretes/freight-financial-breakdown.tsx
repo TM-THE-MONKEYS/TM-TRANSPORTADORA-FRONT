@@ -70,13 +70,6 @@ export function FreightFinancialBreakdown({ freightId, className }: FreightFinan
             negative
           />
         )}
-        {metrics.otherExpenses > 0 && (
-          <BreakdownRow
-            label="Outras despesas"
-            value={`−${formatBRL(metrics.otherExpenses)}`}
-            negative
-          />
-        )}
         <div className="border-t pt-2">
           <BreakdownRow
             label="Margem estimada"

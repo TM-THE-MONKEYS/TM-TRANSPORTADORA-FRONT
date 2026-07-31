@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import {
-  ArrowUpDown,
   CheckCircle2,
   Pencil,
   Trash2,
@@ -12,14 +11,11 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  financeEntryOriginLabel,
+  resolveFinanceEntryOrigin,
+} from "@/lib/finance/entry-origin"
 import { formatBRL } from "@/lib/format/currency"
-import { formatDateBR, isFixedExpenseEntry, parseLocalDate } from "@/lib/format/dates"
+import { formatDateBR, parseLocalDate } from "@/lib/format/dates"
 import { cn } from "@/lib/utils"
 import type { FinanceEntry, FinanceEntryStatus, FinanceEntryType } from "@/types"
 
@@ -32,6 +28,8 @@ const STATUS_BADGE: Record<
   cancelado: { label: "Cancelado", variant: "destructive" },
   vencido: { label: "Vencido", variant: "destructive" },
 }
+
+type QuickFilter = "all" | "despesa" | "receita" | "pendente" | "pago"
 
 function effectiveStatus(entry: {
   status: FinanceEntryStatus
@@ -58,6 +56,19 @@ interface FinanceEntriesTableProps {
   onMarkPaid?: (entry: FinanceEntry) => void
   onEdit?: (entry: FinanceEntry) => void
   onDelete?: (entry: FinanceEntry) => void
+  onNewEntry?: () => void
+}
+
+function activeQuickFilter(
+  filterType: FinanceEntryType | "all",
+  filterStatus: FinanceEntryStatus | "all",
+): QuickFilter {
+  if (filterType === "despesa" && filterStatus === "all") return "despesa"
+  if (filterType === "receita" && filterStatus === "all") return "receita"
+  if (filterType === "all" && filterStatus === "pendente") return "pendente"
+  if (filterType === "all" && filterStatus === "pago") return "pago"
+  if (filterType === "all" && filterStatus === "all") return "all"
+  return "all"
 }
 
 export function FinanceEntriesTable({
@@ -71,66 +82,92 @@ export function FinanceEntriesTable({
   onMarkPaid,
   onEdit,
   onDelete,
+  onNewEntry,
 }: FinanceEntriesTableProps) {
+  const quick = activeQuickFilter(filterType, filterStatus)
+
+  function setQuick(next: QuickFilter) {
+    switch (next) {
+      case "all":
+        onFilterTypeChange("all")
+        onFilterStatusChange("all")
+        break
+      case "despesa":
+        onFilterTypeChange("despesa")
+        onFilterStatusChange("all")
+        break
+      case "receita":
+        onFilterTypeChange("receita")
+        onFilterStatusChange("all")
+        break
+      case "pendente":
+        onFilterTypeChange("all")
+        onFilterStatusChange("pendente")
+        break
+      case "pago":
+        onFilterTypeChange("all")
+        onFilterStatusChange("pago")
+        break
+    }
+  }
+
+  const chips: { id: QuickFilter; label: string }[] = [
+    { id: "all", label: "Todos" },
+    { id: "despesa", label: "Despesas" },
+    { id: "receita", label: "Receitas" },
+    { id: "pendente", label: "Pendentes" },
+    { id: "pago", label: "Pagos" },
+  ]
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={filterType}
-          onValueChange={(v) => onFilterTypeChange(v as FinanceEntryType | "all")}
-        >
-          <SelectTrigger className="h-8 w-[130px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos tipos</SelectItem>
-            <SelectItem value="receita">Receitas</SelectItem>
-            <SelectItem value="despesa">Despesas</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={filterStatus}
-          onValueChange={(v) => onFilterStatusChange(v as FinanceEntryStatus | "all")}
-        >
-          <SelectTrigger className="h-8 w-[130px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos status</SelectItem>
-            <SelectItem value="pendente">Pendente</SelectItem>
-            <SelectItem value="pago">Pago</SelectItem>
-            <SelectItem value="vencido">Vencido</SelectItem>
-            <SelectItem value="cancelado">Cancelado</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {chips.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => setQuick(chip.id)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                quick === chip.id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+              )}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+        {canAdmin && onNewEntry && (
+          <Button size="sm" onClick={onNewEntry}>
+            + Lançamento
+          </Button>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/40">
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tipo</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Categoria</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Descrição</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Frete</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                <span className="flex items-center justify-end gap-1">
-                  Valor <ArrowUpDown className="h-3 w-3" />
-                </span>
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Vencimento</th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Status</th>
+              <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Data</th>
+              <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Descrição</th>
+              <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Categoria</th>
+              <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Origem</th>
+              <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Frete</th>
+              <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Valor</th>
+              <th className="px-3 py-2.5 text-left font-medium text-muted-foreground">Status</th>
               {canAdmin && (
-                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Ações</th>
+                <th className="px-3 py-2.5 text-right font-medium text-muted-foreground">Ações</th>
               )}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
+              Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} className="border-b">
                   {Array.from({ length: canAdmin ? 8 : 7 }).map((_, j) => (
-                    <td key={j} className="px-4 py-3">
+                    <td key={j} className="px-3 py-3">
                       <div className="h-4 animate-pulse rounded bg-muted" />
                     </td>
                   ))}
@@ -143,52 +180,40 @@ export function FinanceEntriesTable({
                   className="px-4 py-10 text-center text-muted-foreground"
                 >
                   Nenhum lançamento nesta competência.
+                  {canAdmin && onNewEntry ? " Use “+ Lançamento” ou registre gastos no frete." : ""}
                 </td>
               </tr>
             ) : (
               entries.map((entry) => {
                 const effStatus = effectiveStatus(entry)
                 const statusInfo = STATUS_BADGE[effStatus]
+                const origin = resolveFinanceEntryOrigin(entry.observacoes)
+                const dateLabel = formatDateBR(entry.data_vencimento || entry.data_pagamento)
                 return (
                   <tr
                     key={entry.id}
                     className="border-b transition-colors last:border-0 hover:bg-muted/30"
                   >
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1 text-xs font-semibold",
-                          entry.tipo === "receita"
-                            ? "text-green-700 dark:text-green-400"
-                            : "text-destructive",
-                        )}
-                      >
+                    <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground">
+                      {dateLabel}
+                    </td>
+                    <td className="max-w-[220px] px-3 py-2.5">
+                      <div className="flex items-center gap-1.5">
                         {entry.tipo === "receita" ? (
-                          <TrendingUp className="h-3 w-3" />
+                          <TrendingUp className="h-3.5 w-3.5 shrink-0 text-green-600" />
                         ) : (
-                          <TrendingDown className="h-3 w-3" />
+                          <TrendingDown className="h-3.5 w-3.5 shrink-0 text-destructive" />
                         )}
-                        {entry.tipo === "receita" ? "Receita" : "Despesa"}
-                      </span>
+                        <span className="truncate font-medium">{entry.descricao || "—"}</span>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-xs font-medium">
-                      <span className="inline-flex items-center gap-1.5">
-                        {entry.categoria}
-                        {isFixedExpenseEntry(entry.observacoes) && (
-                          <Badge
-                            variant="outline"
-                            className="h-4 border-amber-400/60 bg-amber-50 px-1 text-[9px] font-normal text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                            title="Despesa fixa"
-                          >
-                            Fixo
-                          </Badge>
-                        )}
-                      </span>
+                    <td className="px-3 py-2.5 text-xs">{entry.categoria}</td>
+                    <td className="px-3 py-2.5">
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        {financeEntryOriginLabel(origin)}
+                      </Badge>
                     </td>
-                    <td className="max-w-[200px] truncate px-4 py-3 text-muted-foreground">
-                      {entry.descricao ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2.5">
                       {entry.freight_id ? (
                         <Link
                           href={`/dashboard/fretes/${entry.freight_id}`}
@@ -200,19 +225,24 @@ export function FinanceEntriesTable({
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                    <td
+                      className={cn(
+                        "px-3 py-2.5 text-right font-semibold tabular-nums",
+                        entry.tipo === "receita"
+                          ? "text-green-700 dark:text-green-400"
+                          : "text-destructive",
+                      )}
+                    >
+                      {entry.tipo === "receita" ? "+" : "−"}
                       {formatBRL(entry.valor)}
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {formatDateBR(entry.data_vencimento)}
-                    </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2.5">
                       <Badge variant={statusInfo.variant} className="text-[10px]">
                         {statusInfo.label}
                       </Badge>
                     </td>
                     {canAdmin && (
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2.5">
                         <div className="flex items-center justify-end gap-0.5">
                           {entry.status === "pendente" && onMarkPaid && (
                             <Button

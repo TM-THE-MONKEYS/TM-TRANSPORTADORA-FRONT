@@ -6,6 +6,11 @@ export const FREIGHT_COST_TYPES = [
   { value: "outro",       label: "Outro" },
 ] as const
 
+/** Tipos selecionáveis no form de gasto do frete (combustível vai pela tela Abastecimento). */
+export const MANUAL_FREIGHT_COST_TYPES = FREIGHT_COST_TYPES.filter(
+  (t) => t.value !== "combustivel",
+)
+
 export type FreightCostType = (typeof FREIGHT_COST_TYPES)[number]["value"]
 
 const COST_TYPE_LABEL_MAP: Record<string, string> = Object.fromEntries(

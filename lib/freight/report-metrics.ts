@@ -1,8 +1,5 @@
 import { differenceInMinutes, parseISO } from "date-fns"
-import {
-  DRIVER_COMMISSION_CATEGORY,
-  resolveFreightDriverCommission,
-} from "@/lib/freight/driver-commission"
+import { resolveFreightDriverCommission } from "@/lib/freight/driver-commission"
 import type { Driver, FinanceEntry, FreightCost, FreightEvent, FreightOrder } from "@/types"
 
 export interface FreightReportMetrics {
@@ -71,9 +68,10 @@ export function buildFreightReportMetrics(
 ): FreightReportMetrics {
   const { label, inProgress } = computeTripDuration(freight, events)
 
+  // Fonte canônica de gastos da viagem = FreightCost (já inclui fuel/toll).
+  // Finance entries só entram para receita e comissão — nunca somar espelhos.
   const totalCosts = costs.reduce((s, c) => s + c.valor, 0)
   const receitas = financeEntries.filter((e) => e.tipo === "receita")
-  const despesas = financeEntries.filter((e) => e.tipo === "despesa")
 
   const receivedPaid = receitas
     .filter((e) => e.status === "pago")
@@ -85,11 +83,9 @@ export function buildFreightReportMetrics(
   const commission = resolveFreightDriverCommission(freight, financeEntries, driver)
   const driverCommission = commission?.amount ?? 0
   const driverCommissionEstimated = commission?.estimated ?? false
-  const otherExpenses = despesas
-    .filter((e) => e.categoria !== DRIVER_COMMISSION_CATEGORY)
-    .reduce((s, e) => s + e.valor, 0)
-  const totalExpenses = otherExpenses + driverCommission
-  const totalSpent = totalCosts + totalExpenses
+  const otherExpenses = 0
+  const totalExpenses = driverCommission
+  const totalSpent = totalCosts + driverCommission
 
   const revenueBase = receivedPaid > 0 ? receivedPaid : freight.value_brl
 

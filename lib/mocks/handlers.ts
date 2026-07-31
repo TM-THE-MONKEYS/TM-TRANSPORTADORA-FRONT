@@ -430,11 +430,6 @@ export async function mockCreateClient(data: {
   return customer
 }
 
-export async function mockListFreightCosts(tipo = "combustivel") {
-  await delay(100)
-  return mockStore.freightCosts.filter((c) => c.tipo === tipo)
-}
-
 export async function mockGetFreightCosts(freightId: string) {
   await delay(100)
   return mockStore.freightCosts.filter((c) => c.freight_id === freightId)
