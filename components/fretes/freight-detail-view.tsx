@@ -654,8 +654,9 @@ export function FreightDetailView({ id }: { id: string }) {
           <DialogHeader>
             <DialogTitle>Excluir frete</DialogTitle>
             <DialogDescription>
-              O frete <strong>{freight.code}</strong> será removido (exclusão lógica). Abastecimentos,
-              custos e lançamentos financeiros vinculados permanecem no histórico. Deseja continuar?
+              O frete <strong>{freight.code}</strong> será removido (exclusão lógica). Custos,
+              abastecimentos, pedágios e lançamentos financeiros vinculados também serão excluídos.
+              Deseja continuar?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
