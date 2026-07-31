@@ -1,16 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import useSWR, { mutate as globalMutate } from "swr"
 import { toast } from "sonner"
-import {
-  Building2,
-  CircleDollarSign,
-  Plus,
-  RefreshCcw,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react"
+import { MoreHorizontal, Plus, RefreshCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -20,6 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -38,7 +37,6 @@ import { useCompetencia } from "@/hooks/use-competencia"
 import {
   createFinanceEntry,
   deleteFinanceEntry,
-  getCashFlow,
   invalidateFinanceCaches,
   syncFinanceFromFreights,
   updateFinanceEntry,
@@ -48,10 +46,8 @@ import {
   FREQUENCY_LABELS,
   createFixedExpense,
   deleteFixedExpense,
-  isFixedExpenseActive,
   launchFixedExpense,
   listFixedExpenses,
-  monthlyEquivalent,
   updateFixedExpense,
 } from "@/lib/api/services/fixed-expenses"
 import { formatBRL } from "@/lib/format/currency"
@@ -76,30 +72,16 @@ export function FinanceView() {
   const [deleteFixedId, setDeleteFixedId] = useState<string | null>(null)
   const [deleteEntry, setDeleteEntry] = useState<FinanceEntry | null>(null)
 
-  const { data: cashFlow, isLoading: loadingCash, mutate: refreshCash } = useSWR(
-    ["cash-flow", competencia.mes, competencia.ano],
-    () => getCashFlow(competencia),
-    { keepPreviousData: false },
-  )
-
   const { data: fixedExpenses, mutate: refreshFixed } = useSWR("fixed-expenses", listFixedExpenses)
-
-  const activeFixed = useMemo(
-    () => (fixedExpenses ?? []).filter((f) => isFixedExpenseActive(f)),
-    [fixedExpenses],
-  )
-  const fixedMonthlyTotal = useMemo(
-    () => activeFixed.reduce((s, f) => s + monthlyEquivalent(f), 0),
-    [activeFixed],
-  )
 
   async function handleSync() {
     setSyncing(true)
     try {
       const stats = await syncFinanceFromFreights()
       invalidateFinanceCaches()
-      await refreshCash()
-      toast.success(`Sincronizado: ${stats.receitas} receita(s) e ${stats.despesas} despesa(s).`)
+      toast.success(
+        `Reparação: ${stats.receitas} receita(s) e ${stats.despesas} despesa(s) verificada(s).`,
+      )
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao sincronizar")
     } finally {
@@ -112,7 +94,6 @@ export function FinanceView() {
     try {
       await launchFixedExpense(launchDialog.item.id, launchDialog.date || undefined)
       invalidateFinanceCaches()
-      await refreshCash()
       await refreshFixed()
       setLaunchDialog({ open: false, date: new Date().toISOString().slice(0, 10) })
       toast.success(`"${launchDialog.item.nome}" lançado como despesa pendente`)
@@ -138,7 +119,6 @@ export function FinanceView() {
     try {
       await deleteFinanceEntry(deleteEntry.id)
       invalidateFinanceCaches()
-      await refreshCash()
       setDeleteEntry(null)
       toast.success("Lançamento removido")
     } catch (e) {
@@ -146,18 +126,13 @@ export function FinanceView() {
     }
   }
 
-  const monthLabel = formatCompetenciaLabel(competencia.mes, competencia.ano)
   const defaultLaunchDate = competenciaDefaultDate(competencia.mes, competencia.ano)
-
-  const margin = (cashFlow?.total_receitas ?? 0) - (cashFlow?.total_despesas ?? 0)
-
-  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Controle financeiro"
-        description="Resumo financeiro mensal com foco em fluxo de caixa e lançamentos."
+        description="Ledger mensal: despesas, receitas e gastos fixos em um só lugar."
         actions={
           <div className="flex gap-2">
             {canAdmin && (
@@ -166,50 +141,25 @@ export function FinanceView() {
                   <Plus className="mr-1.5 h-4 w-4" />
                   Novo lançamento
                 </Button>
-                <Button variant="outline" size="sm" disabled={syncing} onClick={handleSync}>
-                  <RefreshCcw className={cn("mr-1.5 h-4 w-4", syncing && "animate-spin")} />
-                  {syncing ? "Atualizando..." : "Atualizar valores"}
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={syncing}>
+                      <MoreHorizontal className="h-4 w-4" />
+                      <span className="sr-only">Mais ações</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleSync} disabled={syncing}>
+                      <RefreshCcw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
+                      {syncing ? "Reparando..." : "Reparar inconsistências"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </div>
         }
       />
-
-      {/* ── KPIs ── */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <FinKpiCard
-          label="Receita total"
-          value={formatBRL(cashFlow?.total_receitas ?? 0)}
-          icon={TrendingUp}
-          tone="success"
-          loading={loadingCash}
-          hint={`${formatBRL(cashFlow?.receitas_pagas ?? 0)} já recebido · ${monthLabel}`}
-        />
-        <FinKpiCard
-          label="Despesas totais"
-          value={formatBRL(cashFlow?.total_despesas ?? 0)}
-          icon={TrendingDown}
-          tone="danger"
-          loading={loadingCash}
-          hint={`${formatBRL(cashFlow?.despesas_pagas ?? 0)} já pago · ${monthLabel}`}
-        />
-        <FinKpiCard
-          label="Saldo líquido"
-          value={formatBRL(cashFlow?.saldo ?? 0)}
-          icon={CircleDollarSign}
-          tone={margin >= 0 ? "success" : "danger"}
-          loading={loadingCash}
-          hint={`Competência: ${monthLabel}`}
-        />
-        <FinKpiCard
-          label="Gastos fixos/mês"
-          value={formatBRL(fixedMonthlyTotal)}
-          icon={Building2}
-          tone="warning"
-          hint={`${activeFixed.length} item(s) ativo(s)`}
-        />
-      </div>
 
       <FinanceMonthHub
         key={`${competencia.ano}-${competencia.mes}`}
@@ -219,6 +169,7 @@ export function FinanceView() {
         onEditEntry={(entry) => setEntryDialog({ open: true, entry })}
         onDeleteEntry={setDeleteEntry}
         onOpenFixedManager={() => setFixedManagerOpen(true)}
+        onNewEntry={() => setEntryDialog({ open: true })}
       />
 
       {canAdmin && (
@@ -254,7 +205,6 @@ export function FinanceView() {
         onOpenChange={(open) => setEntryDialog({ open })}
         onSave={async () => {
           invalidateFinanceCaches()
-          await refreshCash()
         }}
       />
 
@@ -350,71 +300,6 @@ export function FinanceView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function FinKpiCard({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  tone = "default",
-  loading,
-}: {
-  label: string
-  value: string
-  hint?: string
-  icon: React.ElementType
-  tone?: "default" | "success" | "danger" | "warning"
-  loading?: boolean
-}) {
-  const accent = {
-    default: "before:bg-border",
-    success: "before:bg-green-500",
-    danger:  "before:bg-destructive",
-    warning: "before:bg-amber-500",
-  }[tone]
-
-  const iconCn = {
-    default: "text-muted-foreground",
-    success: "text-green-500",
-    danger:  "text-destructive",
-    warning: "text-amber-500",
-  }[tone]
-
-  const valueCn = {
-    default: "",
-    success: "text-green-700 dark:text-green-400",
-    danger:  "text-destructive",
-    warning: "text-amber-700 dark:text-amber-400",
-  }[tone]
-
-  return (
-    <div
-      className={cn(
-        "relative overflow-hidden rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5",
-        "before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:rounded-l-xl",
-        accent,
-      )}
-    >
-      <Icon
-        className={cn("absolute right-4 top-4 h-14 w-14 opacity-[0.06]", iconCn)}
-        aria-hidden
-      />
-      <div className="relative space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          {label}
-        </p>
-        {loading ? (
-          <div className="h-9 w-32 animate-pulse rounded-md bg-muted" />
-        ) : (
-          <p className={cn("text-3xl font-bold tracking-tight tabular-nums", valueCn)}>{value}</p>
-        )}
-        {hint && !loading && <p className="text-xs text-muted-foreground">{hint}</p>}
-      </div>
     </div>
   )
 }

@@ -143,11 +143,6 @@ export async function addOccurrence(
 
 export { listClients as listCustomers, findOrCreateClientByName } from "@/lib/api/services/clients"
 
-export async function listFreightCosts(tipo = "combustivel"): Promise<FreightCost[]> {
-  if (shouldUseMocks()) return mock.mockListFreightCosts(tipo)
-  return []
-}
-
 async function listFreightCostsFromApi(freightId: string): Promise<FreightCost[]> {
   const rows = await apiRequest<Record<string, unknown>[]>(`/freights/${freightId}/costs`, {
     auth: true,

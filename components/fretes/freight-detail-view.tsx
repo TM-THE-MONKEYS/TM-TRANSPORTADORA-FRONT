@@ -50,7 +50,7 @@ import { trackingUpdatesWithoutOccurrences } from "@/lib/freight/occurrences"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateTimeBR } from "@/lib/format/dates"
 import { formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
-import { FREIGHT_COST_TYPES } from "@/lib/freight/costs"
+import { MANUAL_FREIGHT_COST_TYPES } from "@/lib/freight/costs"
 import { FREIGHT_STATUS_FLOW, FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
 import {
   ADMIN_FREIGHT_STATUS_OPTIONS,
@@ -495,7 +495,7 @@ export function FreightDetailView({ id }: { id: string }) {
                           value={occCostTipo}
                           onChange={(e) => setOccCostTipo(e.target.value)}
                         >
-                          {FREIGHT_COST_TYPES.map((t) => (
+                          {MANUAL_FREIGHT_COST_TYPES.map((t) => (
                             <option key={t.value} value={t.value}>
                               {t.label}
                             </option>

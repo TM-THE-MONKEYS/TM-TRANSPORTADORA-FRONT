@@ -5,7 +5,6 @@ import { entryInCompetencia } from "@/lib/format/dates"
 import { mockFinanceEntries } from "@/lib/mocks/finance-sync"
 import type {
   CashFlowSummary,
-  CompetenciaReport,
   FinanceEntry,
   FinanceEntryStatus,
   FinanceEntryType,
@@ -113,48 +112,7 @@ export async function getCashFlow(competencia?: { mes: number; ano: number }): P
   return apiRequest(`/finance/cash-flow`, { auth: true })
 }
 
-export async function getCompetenciaReport(
-  competencia: { mes: number; ano: number },
-): Promise<CompetenciaReport> {
-  if (shouldUseMocks()) {
-    const cash_flow = await getCashFlow(competencia)
-    const page = await listFinanceEntries(1, 500, undefined, undefined, undefined, competencia)
-    const dailyMap = new Map<string, { receitas: number; despesas: number }>()
-    const catMap = new Map<string, number>()
-
-    for (const e of page.items) {
-      const ref = e.data_vencimento ?? e.data_pagamento ?? e.created_at
-      const day = ref.slice(0, 10)
-      const row = dailyMap.get(day) ?? { receitas: 0, despesas: 0 }
-      if (e.tipo === "receita") row.receitas += e.valor
-      else if (e.tipo === "despesa") {
-        row.despesas += e.valor
-        catMap.set(e.categoria, (catMap.get(e.categoria) ?? 0) + e.valor)
-      }
-      dailyMap.set(day, row)
-    }
-
-    return {
-      competencia_mes: competencia.mes,
-      competencia_ano: competencia.ano,
-      cash_flow,
-      daily_series: [...dailyMap.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, vals]) => ({ date, ...vals })),
-      expenses_by_category: [...catMap.entries()]
-        .map(([categoria, valor]) => ({ categoria, valor }))
-        .sort((a, b) => b.valor - a.valor),
-    }
-  }
-
-  const qs = new URLSearchParams({
-    competencia_mes: String(competencia.mes),
-    competencia_ano: String(competencia.ano),
-  })
-  return apiRequest(`/finance/competencia-report?${qs}`, { auth: true })
-}
-
-/** Gera receitas (fretes) e despesas (abastecimentos/custos) no financeiro. */
+/** Repara inconsistências: gera espelhos faltantes (receitas/despesas de fretes). */
 export async function syncFinanceFromFreights(): Promise<{ receitas: number; despesas: number }> {
   if (shouldUseMocks()) return syncMockFinanceFromFreights()
   return apiRequest("/finance/sync-from-freights", { method: "POST", auth: true })
@@ -219,13 +177,12 @@ async function syncMockFinanceFromFreights(): Promise<{ receitas: number; despes
 export function invalidateFinanceCaches(): void {
   void mutate((key) => Array.isArray(key) && key[0] === "cash-flow")
   void mutate((key) => Array.isArray(key) && key[0] === "finance-entries")
-  void mutate((key) => Array.isArray(key) && key[0] === "competencia-report")
   void mutate((key) => Array.isArray(key) && key[0] === "fixed-launch-status")
   void mutate("reports-kpis")
   void mutate(
     (key) =>
       Array.isArray(key) &&
-      (key[0] === "report-freight-finance" || key[0] === "report-freight-costs"),
+      (key[0] === "freight-breakdown-finance" || key[0] === "freight-breakdown-costs"),
   )
 }
 

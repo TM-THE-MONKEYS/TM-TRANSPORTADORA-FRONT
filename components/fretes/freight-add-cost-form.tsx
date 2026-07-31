@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { mutate } from "swr"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -16,7 +17,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { addFreightCost } from "@/lib/api/services/freight"
 import { formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
-import { FREIGHT_COST_TYPES } from "@/lib/freight/costs"
+import { MANUAL_FREIGHT_COST_TYPES } from "@/lib/freight/costs"
 
 type FreightAddCostFormProps = {
   freightId: string
@@ -28,7 +29,6 @@ export function FreightAddCostForm({ freightId, onAdded, compact }: FreightAddCo
   const [tipo, setTipo] = useState<string>("pedagio")
   const [valorDisplay, setValorDisplay] = useState("")
   const [descricao, setDescricao] = useState("")
-  const [litrosDisplay, setLitrosDisplay] = useState("")
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -41,28 +41,30 @@ export function FreightAddCostForm({ freightId, onAdded, compact }: FreightAddCo
 
     setSaving(true)
     try {
-      const litros =
-        tipo === "combustivel" && litrosDisplay.trim()
-          ? Number(litrosDisplay.replace(",", "."))
-          : undefined
-
       await addFreightCost(freightId, {
         tipo,
         valor,
         descricao: descricao.trim() || undefined,
-        litros: litros != null && Number.isFinite(litros) ? litros : undefined,
       })
 
       void mutate(["freight-expenses", freightId])
       void mutate(["freight-breakdown-costs", freightId])
       void mutate(["freight-breakdown-finance", freightId])
       void mutate(["freight-breakdown", freightId])
-      void mutate(["report-freight-costs", freightId])
+      void mutate(
+        (key) => Array.isArray(key) && key[0] === "cash-flow",
+        undefined,
+        { revalidate: true },
+      )
+      void mutate(
+        (key) => Array.isArray(key) && key[0] === "finance-entries",
+        undefined,
+        { revalidate: true },
+      )
 
       setValorDisplay("")
       setDescricao("")
-      setLitrosDisplay("")
-      toast.success("Gasto registrado no frete")
+      toast.success("Gasto registrado no frete e no financeiro")
       onAdded?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao registrar gasto")
@@ -73,6 +75,17 @@ export function FreightAddCostForm({ freightId, onAdded, compact }: FreightAddCo
 
   return (
     <form onSubmit={handleSubmit} className={compact ? "space-y-3" : "space-y-4"}>
+      <p className="text-xs text-muted-foreground">
+        Combustível: use{" "}
+        <Link
+          href={`/dashboard/abastecimento?freightId=${freightId}`}
+          className="text-primary underline"
+        >
+          Abastecimento
+        </Link>{" "}
+        (evita duplicar no financeiro).
+      </p>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Tipo de gasto</Label>
@@ -81,7 +94,7 @@ export function FreightAddCostForm({ freightId, onAdded, compact }: FreightAddCo
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {FREIGHT_COST_TYPES.map((t) => (
+              {MANUAL_FREIGHT_COST_TYPES.map((t) => (
                 <SelectItem key={t.value} value={t.value}>
                   {t.label}
                 </SelectItem>
@@ -100,18 +113,6 @@ export function FreightAddCostForm({ freightId, onAdded, compact }: FreightAddCo
           />
         </div>
       </div>
-
-      {tipo === "combustivel" && (
-        <div className="space-y-2">
-          <Label>Litros (opcional)</Label>
-          <Input
-            inputMode="decimal"
-            placeholder="Ex.: 150"
-            value={litrosDisplay}
-            onChange={(e) => setLitrosDisplay(e.target.value.replace(/[^\d,.]/g, ""))}
-          />
-        </div>
-      )}
 
       <div className="space-y-2">
         <Label>Descrição (opcional)</Label>
