@@ -236,7 +236,7 @@ export const mockFreights: FreightOrder[] = [
     weight_kg: 12000,
     value_brl: 9200,
     freight_type: "carga_geral",
-    status: "orcamento",
+    status: "em_transporte",
     created_at: "2026-05-19T10:00:00Z",
     updated_at: "2026-05-19T10:00:00Z",
   },
@@ -246,7 +246,7 @@ export const mockFreightEvents: FreightEvent[] = [
   {
     id: "evt-1",
     freight_id: "frt-1",
-    status: "orcamento",
+    status: "em_transporte",
     title: "Ordem criada",
     created_at: "2026-05-10T08:00:00Z",
   },

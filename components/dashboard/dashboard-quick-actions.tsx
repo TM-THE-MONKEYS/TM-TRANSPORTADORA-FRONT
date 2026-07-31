@@ -2,10 +2,8 @@
 
 import Link from "next/link"
 import {
-  BarChart3,
   DollarSign,
   Fuel,
-  MapPin,
   Package,
   PackagePlus,
   Truck,
@@ -42,13 +40,6 @@ const actions: QuickAction[] = [
     permission: PERMISSIONS.freightRead,
   },
   {
-    href: "/dashboard/rastreamento",
-    label: "Rastreamento",
-    description: "Timeline em trânsito",
-    icon: MapPin,
-    permission: PERMISSIONS.freightRead,
-  },
-  {
     href: "/dashboard/frota",
     label: "Frota",
     description: "Caminhões e status",
@@ -81,13 +72,6 @@ const actions: QuickAction[] = [
     label: "Financeiro",
     description: "Receitas e despesas",
     icon: DollarSign,
-    permission: PERMISSIONS.financeRead,
-  },
-  {
-    href: "/dashboard/relatorios",
-    label: "Relatórios",
-    description: "KPIs e análises",
-    icon: BarChart3,
     permission: PERMISSIONS.financeRead,
   },
 ]

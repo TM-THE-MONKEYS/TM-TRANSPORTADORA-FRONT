@@ -3,11 +3,9 @@
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import { toast } from "sonner"
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts"
 import { Building2, Settings2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { CompetenciaNavigator } from "@/components/shared/competencia-navigator"
 import { FinanceEntriesTable } from "@/components/financeiro/finance-entries-table"
 import { FinancePendingFixedList } from "@/components/financeiro/finance-pending-fixed-list"
@@ -27,15 +25,6 @@ import {
 import { formatBRL } from "@/lib/format/currency"
 import { formatCompetenciaLabel } from "@/lib/format/dates"
 import type { FinanceEntry, FinanceEntryStatus, FinanceEntryType } from "@/types"
-
-const PIE_COLORS = [
-  "var(--color-chart-1)",
-  "var(--color-chart-2)",
-  "var(--color-chart-3)",
-  "var(--color-chart-4)",
-  "var(--color-chart-5)",
-  "oklch(0.65 0.15 145)",
-]
 
 interface FinanceMonthHubProps {
   competencia: { mes: number; ano: number }
@@ -100,18 +89,6 @@ export function FinanceMonthHub({
   )
 
   const { data: fixedExpenses } = useSWR("fixed-expenses", listFixedExpenses)
-
-  const expensesByCategory = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const e of entries) {
-      if (e.tipo === "despesa") {
-        map[e.categoria] = (map[e.categoria] ?? 0) + e.valor
-      }
-    }
-    return Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-  }, [entries])
 
   const activeFixed = useMemo(
     () => (fixedExpenses ?? []).filter((f) => isFixedExpenseActive(f)),
@@ -195,7 +172,7 @@ export function FinanceMonthHub({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3">
         <MiniStat label="Receitas" value={formatBRL(cashFlow?.total_receitas ?? 0)} loading={showHubLoading} tone="success" />
         <MiniStat label="Despesas" value={formatBRL(cashFlow?.total_despesas ?? 0)} loading={showHubLoading} tone="danger" />
         <MiniStat label="Saldo" value={formatBRL(cashFlow?.saldo ?? 0)} loading={showHubLoading} />
@@ -235,133 +212,35 @@ export function FinanceMonthHub({
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Resumo da competência</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <OverviewRow label="Receitas pagas" value={formatBRL(cashFlow?.receitas_pagas ?? 0)} />
-            <OverviewRow label="Receitas pendentes" value={formatBRL(cashFlow?.receitas_pendentes ?? 0)} />
-            <Separator />
-            <OverviewRow label="Despesas pagas" value={formatBRL(cashFlow?.despesas_pagas ?? 0)} />
-            <OverviewRow label="Despesas pendentes" value={formatBRL(cashFlow?.despesas_pendentes ?? 0)} />
-            <Separator />
-            <OverviewRow label="Saldo líquido" value={formatBRL(cashFlow?.saldo ?? 0)} bold />
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Resumo mensal</CardTitle>
+              <CardDescription>Foco nos números que importam para a competência atual.</CardDescription>
+            </div>
             {canAdmin && (
-              <OverviewRow
-                label="Custo fixo mensal estimado"
-                value={formatBRL(fixedMonthlyTotal)}
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Despesas por categoria</CardTitle>
-            <CardDescription>Competência atual</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {expensesByCategory.length === 0 ? (
-              <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-                Sem despesas registradas
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="h-[180px] w-full shrink-0 sm:w-[180px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={expensesByCategory}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius="55%"
-                        outerRadius="80%"
-                        paddingAngle={2}
-                      >
-                        {expensesByCategory.map((_, i) => (
-                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(v: number) => [formatBRL(v), "Total"]}
-                        contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex-1 space-y-2">
-                  {expensesByCategory.slice(0, 6).map((cat, i) => {
-                    const total = expensesByCategory.reduce((s, c) => s + c.value, 0)
-                    const pct = total > 0 ? Math.round((cat.value / total) * 100) : 0
-                    return (
-                      <div key={cat.name}>
-                        <div className="mb-0.5 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className="h-2 w-2 shrink-0 rounded-full"
-                              style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
-                            />
-                            <span className="truncate text-xs">{cat.name}</span>
-                          </div>
-                          <span className="shrink-0 text-xs font-semibold tabular-nums">{pct}%</span>
-                        </div>
-                        <div className="h-1 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${pct}%`,
-                              backgroundColor: PIE_COLORS[i % PIE_COLORS.length],
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {canAdmin && activeFixed.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Gastos fixos ativos</CardTitle>
-                <CardDescription>
-                  Total estimado: {formatBRL(fixedMonthlyTotal)}/mês
-                </CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" onClick={onOpenFixedManager}>
-                <Building2 className="mr-1.5 h-4 w-4" />
-                Gerenciar
+              <Button variant="outline" size="sm" onClick={onOpenFixedManager}>
+                <Settings2 className="mr-1.5 h-4 w-4" />
+                Gastos fixos
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {activeFixed.map((fx) => (
-                <div
-                  key={fx.id}
-                  className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5"
-                >
-                  <Building2 className="h-4 w-4 shrink-0 text-amber-500" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{fx.nome}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatBRL(monthlyEquivalent(fx))}/mês
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <OverviewRow label="Receitas pagas" value={formatBRL(cashFlow?.receitas_pagas ?? 0)} />
+          <OverviewRow label="Receitas pendentes" value={formatBRL(cashFlow?.receitas_pendentes ?? 0)} />
+          <OverviewRow label="Despesas pagas" value={formatBRL(cashFlow?.despesas_pagas ?? 0)} />
+          <OverviewRow label="Despesas pendentes" value={formatBRL(cashFlow?.despesas_pendentes ?? 0)} />
+          <OverviewRow label="Saldo líquido" value={formatBRL(cashFlow?.saldo ?? 0)} bold />
+          {canAdmin && (
+            <OverviewRow
+              label="Gastos fixos/mês"
+              value={formatBRL(fixedMonthlyTotal)}
+            />
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

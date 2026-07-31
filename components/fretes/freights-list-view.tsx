@@ -65,11 +65,9 @@ function FreightCostSummary({ freightId, valueBrl }: { freightId: string; valueB
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
+// Fluxo simplificado: 3 status. Cores legadas mantidas abaixo para dados antigos.
 const STATUS_ORDER: Array<FreightStatus | "all"> = [
   "all",
-  "orcamento",
-  "confirmado",
-  "em_coleta",
   "em_transporte",
   "entregue",
   "cancelado",

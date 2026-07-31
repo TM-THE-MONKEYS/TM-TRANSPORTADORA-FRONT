@@ -154,7 +154,7 @@ export function FreightForm() {
         branch_id: branchId ?? undefined,
         driver_id: driverId !== NONE ? driverId : undefined,
         truck_id: truckId !== NONE ? truckId : undefined,
-        status: "orcamento",
+        status: "em_transporte",
       })
       toast.success("Ordem de frete criada")
       router.push(`/dashboard/fretes/${freight.id}`)

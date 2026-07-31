@@ -87,13 +87,11 @@ export const HOME_NAV_ROUTE: NavRoute = {
 export const DASHBOARD_MODULE_ROUTES: NavRoute[] = [
   { href: "/dashboard", label: "Dashboard", permission: PERMISSIONS.dashboard },
   { href: "/dashboard/fretes", label: "Fretes", permission: PERMISSIONS.freightRead },
-  { href: "/dashboard/rastreamento", label: "Rastreamento", permission: PERMISSIONS.freightRead },
   { href: "/dashboard/frota", label: "Frota", permission: PERMISSIONS.fleetRead },
   { href: "/dashboard/motoristas", label: "Motoristas", permission: PERMISSIONS.driversRead },
   { href: "/dashboard/abastecimento", label: "Abastecimento", permission: PERMISSIONS.freightRead },
   { href: "/dashboard/manutencao", label: "Manutenção", permission: PERMISSIONS.fleetRead },
   { href: "/dashboard/financeiro", label: "Financeiro", permission: PERMISSIONS.financeRead },
-  { href: "/dashboard/relatorios", label: "Relatórios", permission: PERMISSIONS.financeRead },
 ]
 
 export const ROUTE_PERMISSIONS: Record<string, Permission> = {

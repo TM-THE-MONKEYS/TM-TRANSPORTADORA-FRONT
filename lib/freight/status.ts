@@ -1,5 +1,7 @@
 import type { FreightStatus } from "@/types"
 
+// Labels cobrem também status legados (orcamento/confirmado/em_coleta) que
+// ainda podem existir em dados antigos, mas não são mais selecionáveis.
 export const FREIGHT_STATUS_LABELS: Record<FreightStatus, string> = {
   orcamento: "Orçamento",
   confirmado: "Confirmado",
@@ -9,12 +11,13 @@ export const FREIGHT_STATUS_LABELS: Record<FreightStatus, string> = {
   cancelado: "Cancelado",
 }
 
-export const FREIGHT_STATUS_FLOW: FreightStatus[] = [
-  "orcamento",
-  "confirmado",
-  "em_coleta",
+export const FREIGHT_STATUS_FLOW: FreightStatus[] = ["em_transporte", "entregue"]
+
+/** Status selecionáveis no fluxo atual da aplicação. */
+export const FREIGHT_STATUS_OPTIONS: FreightStatus[] = [
   "em_transporte",
   "entregue",
+  "cancelado",
 ]
 
 export function nextFreightStatus(current: FreightStatus): FreightStatus | null {

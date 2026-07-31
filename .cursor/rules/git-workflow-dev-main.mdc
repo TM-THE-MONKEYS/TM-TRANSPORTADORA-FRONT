@@ -1,32 +1,34 @@
 ---
-description: Desenvolver na branch dev; produção só via merge/PR em main
+description: Desenvolver na branch devl; produção só via merge/PR em main
 alwaysApply: true
 ---
 
-# Git — dev → PR → main
+# Git — devl → PR → main
 
 ## Branches
 
 | Branch | Uso |
 |--------|-----|
-| **`dev`** | Desenvolvimento diário (front e back) |
+| **`devl`** | Desenvolvimento diário (front e back) |
 | **`main`** | Produção — merge só após revisão/testes locais |
 
-Trabalhar sempre a partir de `dev`. **Não** commitar features direto em `main`.
+Trabalhar sempre a partir de `devl`. **Não** commitar features direto em `main`.
+Branches antigas (`dev`, `develop`, `master`) foram removidas — não recriar.
 
 ## Fluxo
 
-1. `git checkout dev` e `git pull`
+1. `git checkout devl` e `git pull`
 2. Implementar e testar em **localhost**
-3. Commit + push em **`dev`**
-4. Abrir **PR `dev` → `main`** quando estiver ok
+3. Commit + push em **`devl`**
+4. Abrir **PR `devl` → `main`** quando estiver ok
 5. Merge em `main` dispara deploy de produção (quando Git/auto-deploy estiver ativo)
 
 ## Produção (Vercel + Railway)
 
 - **Somente `main`** publica em prod.
-- Push em `dev` **não** deve gerar deploy de produção.
+- Push em `devl` **não** deve gerar deploy de produção.
 - Deploy manual (`vercel deploy --prod`, Railway redeploy) **só quando o usuário pedir**, sempre a partir de `main` mergeada.
+- Hotfix direto na `main`? Trazer de volta com `git merge origin/main` na `devl` logo em seguida (evita divergência/conflito).
 
 ## Repositórios
 
