@@ -1,0 +1,24 @@
+---
+description: Cuidado máximo com o banco de produção (Supabase) — alertar antes de qualquer escrita
+alwaysApply: true
+---
+
+# Banco de produção — alertar antes de mexer
+
+O banco de prod é o **Postgres do Supabase** (projeto `jkdkspbcqnfrweanmhpp`), não o Railway.
+Railway hospeda só `api`, `worker` e `Redis`; o `DATABASE_URL` de prod aponta pro Supabase.
+O mesmo banco é **compartilhado** com outros projetos (`bc_*`, `pub_pulse_*`, `pedidos` etc.).
+
+## Regras obrigatórias
+
+1. **Alertar explicitamente ANTES de qualquer operação que toque o banco de prod** — MCP
+   Supabase (`execute_sql`, `apply_migration`), scripts apontando pra URL de prod, endpoints
+   admin de backfill. Dizer claramente: "isso vai executar no banco de PROD".
+2. **NUNCA apagar ou alterar dados de prod sem confirmação explícita do usuário na mesma
+   conversa.** Vale para `DELETE`, `UPDATE`, `TRUNCATE`, `DROP`, migrations destrutivas e
+   soft-deletes em massa. Destacar o alerta quando for exclusão de dados.
+3. Leitura (`SELECT`, `list_tables`, advisors) é permitida, mas identificar que é prod.
+4. Testes e desenvolvimento usam banco **local** (docker compose `postgres`,
+   `localhost:5433`) ou SQLite em memória (pytest). O `.env` local do backend **não deve
+   apontar para prod** — a URL real de prod vive apenas nas variáveis do Railway.
+5. Antes de rodar o backend local, conferir para onde o `DATABASE_URL` aponta.
