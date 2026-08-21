@@ -5,6 +5,7 @@
   "git": {
     "deploymentEnabled": {
       "main": true,
+      "devl": true,
       "dev": false,
       "develop": false,
       "master": false,
