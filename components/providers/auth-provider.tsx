@@ -8,16 +8,9 @@ import {
   useMemo,
   useState,
 } from "react"
-import { normalizeAuthUser } from "@/lib/api/adapters/auth"
-import { syncServerSession } from "@/lib/auth/sync-server-session"
 import { getMe, login as apiLogin, logout as apiLogout, registerTenant, type LoginInput, type RegisterTenantInput } from "@/lib/api/services/auth"
 import { shouldUseMocks } from "@/lib/api/config"
-import {
-  clearStoredSession,
-  getStoredAccessToken,
-  getStoredRefreshToken,
-  setStoredSession,
-} from "@/lib/api/storage"
+import { clearStoredSession, setStoredSession } from "@/lib/api/storage"
 import type { AuthUser } from "@/types"
 
 type AuthContextValue = {
@@ -37,24 +30,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false)
 
   const hydrate = useCallback(async () => {
-    const token = getStoredAccessToken()
-    if (!token) {
-      try {
-        await fetch("/api/auth/session", { method: "DELETE" })
-      } catch {
-        /* ignore */
-      }
+    if (shouldUseMocks()) {
       setIsReady(true)
       return
     }
     try {
-      const me = await getMe(token)
+      const me = await getMe()
       setUser(me)
-      try {
-        await syncServerSession(token)
-      } catch {
-        /* proxy gate; ignore on hydrate */
-      }
+      setStoredSession("", null, me.tenant_id, me.branch_id)
     } catch {
       clearStoredSession()
       setUser(null)
@@ -68,46 +51,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [hydrate])
 
   const login = useCallback(async (input: LoginInput) => {
-    const { tokens, user: u } = await apiLogin(input)
-    const user = normalizeAuthUser(u)
-    setStoredSession(tokens.access_token, tokens.refresh_token, user.tenant_id, user.branch_id)
-    // Sync the httpOnly session cookie BEFORE setting user state so that
-    // RedirectIfAuthenticated (which fires on isAuthenticated) never navigates
-    // to the dashboard before the cookie exists.
-    await syncServerSession(tokens.access_token)
-    setUser(user)
-    return user
+    const { user: u } = await apiLogin(input)
+    setStoredSession("", null, u.tenant_id, u.branch_id)
+    setUser(u)
+    return u
   }, [])
 
   const register = useCallback(async (input: RegisterTenantInput) => {
-    const { tokens, user: u } = await registerTenant(input)
-    const user = normalizeAuthUser(u)
-    setStoredSession(tokens.access_token, tokens.refresh_token, user.tenant_id, user.branch_id)
-    setUser(user)
+    const { user: u } = await registerTenant(input)
+    setStoredSession("", null, u.tenant_id, u.branch_id)
+    setUser(u)
   }, [])
 
   const refreshUser = useCallback(async () => {
-    const token = getStoredAccessToken()
-    if (!token) return
-    const me = await getMe(token)
+    const me = await getMe()
     setUser(me)
   }, [])
 
   const logout = useCallback(async () => {
-    const refresh = getStoredRefreshToken()
-    if (refresh && !shouldUseMocks()) {
-      try {
-        await apiLogout(refresh)
-      } catch {
-        /* ignore */
-      }
-    }
-    clearStoredSession()
     try {
-      await fetch("/api/auth/session", { method: "DELETE" })
+      await apiLogout()
     } catch {
       /* ignore */
     }
+    clearStoredSession()
     setUser(null)
   }, [])
 

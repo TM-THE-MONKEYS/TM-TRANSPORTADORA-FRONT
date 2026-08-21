@@ -16,12 +16,21 @@ export function FreightExpensesList({
   freightId,
   emptyMessage = "Nenhum custo ou abastecimento registrado.",
 }: FreightExpensesListProps) {
-  const { data: costs, isLoading } = useSWR(
+  const { data: costs, error: costsError, isLoading } = useSWR(
     freightId ? ["freight-expenses", freightId] : null,
     () => getFreightCosts(freightId),
   )
 
   if (isLoading) return <Skeleton className="h-24 w-full" />
+
+  if (costsError) {
+    return (
+      <p className="text-sm text-destructive">
+        Não foi possível carregar custos/abastecimentos.
+        {costsError instanceof Error ? ` ${costsError.message}` : ""}
+      </p>
+    )
+  }
 
   if (!costs?.length) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>

@@ -93,7 +93,8 @@ export function FreightDetailView({ id }: { id: string }) {
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const isAdmin = canAdminManageClosedFreight(user?.role)
   const { drivers, trucks } = useOperationContext()
-  const { data: freight, mutate: mutateFreight } = useSWR(["freight", id], () => getFreight(id))
+  const { data: freight, error: freightError, isLoading: freightLoading, mutate: mutateFreight } =
+    useSWR(["freight", id], () => getFreight(id))
   const { data: events, mutate: mutateEvents } = useSWR(["freight-events", id], () =>
     getFreightEvents(id),
   )
@@ -119,7 +120,27 @@ export function FreightDetailView({ id }: { id: string }) {
     if (freight?.status) setStatusDraft(freight.status)
   }, [freight?.status])
 
-  if (!freight) return <Skeleton className="h-96 w-full" />
+  if (freightError) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Frete" description="Não foi possível carregar o frete." />
+        <Card>
+          <CardContent className="space-y-3 pt-6">
+            <p className="text-sm text-destructive">
+              {freightError instanceof Error
+                ? freightError.message
+                : "Erro ao carregar dados do frete."}
+            </p>
+            <Button variant="outline" onClick={() => void mutateFreight()}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (freightLoading || !freight) return <Skeleton className="h-96 w-full" />
 
   const flowIdx = FREIGHT_STATUS_FLOW.indexOf(freight.status)
   const closed = isFreightClosed(freight.status)

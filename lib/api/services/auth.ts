@@ -2,13 +2,6 @@ import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
 import { ApiError } from "@/lib/api/errors"
 import { normalizeAuthUser } from "@/lib/api/adapters/auth"
-import {
-  isEmailLoginIdentifier,
-  normalizeDriverLoginCpf,
-  normalizeStaffLoginEmail,
-} from "@/lib/auth/login-identifier"
-import { isValidCpfLength } from "@/lib/format/cpf"
-import { getStoredAccessToken } from "@/lib/api/storage"
 import * as mock from "@/lib/mocks/handlers"
 import type { AuthTokens, AuthUser } from "@/types"
 
@@ -24,103 +17,101 @@ export type RegisterTenantInput = {
 
 export type LoginResponse = { tokens: AuthTokens; user: AuthUser }
 
-async function normalizeSession(session: LoginResponse): Promise<LoginResponse> {
-  return { ...session, user: normalizeAuthUser(session.user) }
-}
-
-/** Backend rejeita motorista em /auth/login e exige /auth/driver/login. */
-function isDriverLoginRequiredError(error: unknown): boolean {
-  if (!(error instanceof ApiError)) return false
-  const msg = error.message.toLowerCase()
-  return msg.includes("driver/login") || msg.includes("motoristas devem")
-}
-
-async function postLogin(path: string, body: Record<string, string>): Promise<LoginResponse> {
-  const session = await apiRequest<LoginResponse>(path, { method: "POST", body })
-  return normalizeSession(session)
-}
-
-async function staffLogin(email: string, password: string): Promise<LoginResponse> {
-  return postLogin("/auth/login", {
-    email: normalizeStaffLoginEmail(email),
-    password,
-  })
-}
-
-async function driverLogin(cpf: string, password: string): Promise<LoginResponse> {
-  return postLogin("/auth/driver/login", {
-    cpf: normalizeDriverLoginCpf(cpf),
-    password,
-  })
-}
-
+/** Login via BFF: cookies httpOnly; retorna só user (tokens fictícios p/ tipagem). */
 export async function login(input: LoginInput): Promise<LoginResponse> {
-  const identifier = input.identifier.trim()
-  if (shouldUseMocks()) return mock.mockLogin(identifier, input.password)
+  if (shouldUseMocks()) return mock.mockLogin(input.identifier, input.password)
 
-  if (isEmailLoginIdentifier(identifier)) {
-    try {
-      return await staffLogin(identifier, input.password)
-    } catch (error) {
-      if (isDriverLoginRequiredError(error)) {
-        throw new ApiError(
-          400,
-          "Contas de motorista entram com o CPF cadastrado (11 dígitos), não com e-mail.",
-        )
-      }
-      throw error
-    }
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(input),
+    credentials: "include",
+    cache: "no-store",
+  })
+  const json = (await res.json().catch(() => ({}))) as { user?: AuthUser; error?: string }
+  if (!res.ok || !json.user) {
+    throw new ApiError(res.status || 400, json.error ?? "Falha no login")
   }
-
-  if (!isValidCpfLength(identifier)) {
-    throw new ApiError(400, "Informe um e-mail válido ou CPF com 11 dígitos.")
+  const user = normalizeAuthUser(json.user)
+  return {
+    user,
+    tokens: {
+      access_token: "",
+      refresh_token: "",
+      token_type: "bearer",
+    },
   }
-
-  return driverLogin(identifier, input.password)
 }
 
 export async function registerTenant(input: RegisterTenantInput): Promise<LoginResponse> {
   if (shouldUseMocks()) return mock.mockRegisterTenant(input)
-  const session = await apiRequest<LoginResponse>("/auth/register-tenant", {
+
+  const res = await fetch("/api/auth/register", {
     method: "POST",
-    body: input,
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(input),
+    credentials: "include",
+    cache: "no-store",
   })
-  return normalizeSession(session)
+  const json = (await res.json().catch(() => ({}))) as { user?: AuthUser; error?: string }
+  if (!res.ok || !json.user) {
+    throw new ApiError(res.status || 400, json.error ?? "Falha no cadastro")
+  }
+  const user = normalizeAuthUser(json.user)
+  return {
+    user,
+    tokens: { access_token: "", refresh_token: "", token_type: "bearer" },
+  }
 }
 
-export async function getMe(accessToken?: string): Promise<AuthUser> {
+export async function getMe(_accessToken?: string): Promise<AuthUser> {
   if (shouldUseMocks()) {
-    const token = accessToken ?? ""
-    return mock.mockMe(token)
+    return mock.mockMe(_accessToken ?? "")
   }
-  const user = await apiRequest<AuthUser>("/auth/me", { auth: true, accessToken })
+  const res = await fetch("/api/auth/me", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  })
+  if (!res.ok) {
+    throw new ApiError(res.status, "Sessão inválida")
+  }
+  const user = (await res.json()) as AuthUser
   return normalizeAuthUser(user)
 }
 
-export async function refreshToken(refresh: string): Promise<LoginResponse> {
+export async function refreshToken(_refresh: string): Promise<LoginResponse> {
   if (shouldUseMocks()) {
-    const userId = refresh.replace("mock-refresh-", "")
     return {
       tokens: {
-        access_token: `mock-access-${userId}`,
-        refresh_token: refresh,
+        access_token: "mock-access",
+        refresh_token: _refresh,
         token_type: "bearer",
       },
-      user: await mock.mockMe(`mock-access-${userId}`),
+      user: await mock.mockMe("mock-access"),
     }
   }
-  const session = await apiRequest<LoginResponse>("/auth/refresh", {
+  const res = await fetch("/api/auth/me", {
     method: "POST",
-    body: { refresh_token: refresh },
+    credentials: "include",
+    cache: "no-store",
   })
-  return normalizeSession(session)
+  if (!res.ok) {
+    throw new ApiError(401, "Sessão expirada")
+  }
+  const json = (await res.json()) as { user: AuthUser }
+  return {
+    user: normalizeAuthUser(json.user),
+    tokens: { access_token: "", refresh_token: "", token_type: "bearer" },
+  }
 }
 
-export async function logout(refreshToken: string): Promise<void> {
+export async function logout(_refreshToken?: string): Promise<void> {
   if (shouldUseMocks()) return
-  await apiRequest("/auth/logout", {
+  await fetch("/api/auth/logout", {
     method: "POST",
-    body: { refresh_token: refreshToken },
+    credentials: "include",
+    cache: "no-store",
   })
 }
 
@@ -150,7 +141,7 @@ export async function changePassword(
   newPassword: string,
 ): Promise<void> {
   if (shouldUseMocks()) {
-    return mock.mockChangePassword(currentPassword, newPassword, getStoredAccessToken() ?? undefined)
+    return mock.mockChangePassword(currentPassword, newPassword, undefined)
   }
   await apiRequest("/auth/change-password", {
     method: "POST",

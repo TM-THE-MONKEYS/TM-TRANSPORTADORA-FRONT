@@ -1,6 +1,5 @@
-import { getPublicApiUrl, requirePublicApiUrl, shouldUseMocks } from "@/lib/api/config"
+import { requirePublicApiUrl, shouldUseMocks } from "@/lib/api/config"
 import { ApiError, formatFastApiDetail } from "@/lib/api/errors"
-import { getStoredAccessToken } from "@/lib/api/storage"
 import type { FastApiErrorBody } from "@/lib/api/types"
 import { normalizeDriverDocumentFile } from "@/lib/motoristas/document-types"
 import type { DriverDocument, DriverDocumentType } from "@/types"
@@ -20,9 +19,7 @@ export async function uploadDriverDocument(
 ): Promise<DriverDocument> {
   if (shouldUseMocks()) return mock.mockUploadDriverDocument(driverId, file, documentType, label)
 
-  const base = requirePublicApiUrl()
-  const token = getStoredAccessToken()
-  if (!token) throw new ApiError(401, "Sessão expirada. Faça login novamente.")
+  requirePublicApiUrl()
 
   const form = new FormData()
   const normalized = normalizeDriverDocumentFile(file)
@@ -30,11 +27,13 @@ export async function uploadDriverDocument(
   form.append("document_type", documentType)
   if (label?.trim()) form.append("label", label.trim())
 
-  const res = await fetch(`${base}/api/v1/drivers/${driverId}/documents`, {
+  // BFF same-origin — cookie httpOnly injeta Authorization.
+  const res = await fetch(`/api/v1/drivers/${driverId}/documents`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    headers: { Accept: "application/json" },
     body: form,
     cache: "no-store",
+    credentials: "include",
   })
 
   const text = await res.text()
@@ -72,14 +71,11 @@ export async function fetchDriverDocumentBlobUrl(
     return mock.mockDriverDocumentBlobUrl(driverId, downloadPath)
   }
 
-  const base = getPublicApiUrl().replace(/\/$/, "")
-  const token = getStoredAccessToken()
-  if (!token) throw new ApiError(401, "Sessão expirada.")
-
+  requirePublicApiUrl()
   const path = downloadPath.startsWith("/") ? downloadPath : `/${downloadPath}`
-  const res = await fetch(`${base}/api/v1${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const res = await fetch(`/api/v1${path}`, {
     cache: "no-store",
+    credentials: "include",
   })
 
   if (!res.ok) {

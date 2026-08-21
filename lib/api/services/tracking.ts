@@ -78,9 +78,16 @@ export async function addTrackingUpdate(data: {
     return update
   }
   const { observacao, ...rest } = data
-  return apiRequest("/tracking", {
+  const update = await apiRequest("/tracking", {
     method: "POST",
     body: { ...rest, descricao: observacao },
     auth: true,
   }).then((raw) => mapTrackingUpdate(raw as TrackingUpdate & { descricao?: string }))
+
+  // Tracking "entregue" conclui o frete no backend — invalida caches.
+  if (data.status === "entregue") {
+    const { revalidateFleetAndFreightCaches } = await import("@/lib/freight/sync-fleet-status")
+    revalidateFleetAndFreightCaches()
+  }
+  return update
 }

@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server"
+import { clearAuthCookies, setAuthCookies } from "@/lib/auth/session-cookies"
 import { isAccessTokenValid } from "@/lib/security/validate-session-token"
 
-const COOKIE = "tmt_session"
-const MAX_AGE = 60 * 60 * 24 * 7
-
+/**
+ * Compat: ainda aceita POST com access_token (ex.: fluxos legados).
+ * Preferir /api/auth/login e /api/auth/register que já setam cookies.
+ */
 export async function POST(request: Request) {
-  const body = (await request.json()) as { access_token?: string }
+  const body = (await request.json()) as {
+    access_token?: string
+    refresh_token?: string | null
+  }
   if (!body.access_token) {
     return NextResponse.json({ error: "Token obrigatório" }, { status: 400 })
   }
@@ -15,24 +20,12 @@ export async function POST(request: Request) {
   }
 
   const res = NextResponse.json({ ok: true })
-  res.cookies.set(COOKIE, body.access_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: MAX_AGE,
-  })
+  setAuthCookies(res, body.access_token, body.refresh_token ?? null)
   return res
 }
 
 export async function DELETE() {
   const res = NextResponse.json({ ok: true })
-  res.cookies.set(COOKIE, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  })
+  clearAuthCookies(res)
   return res
 }
