@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState } from "@/components/shared/empty-state"
+import { QueryErrorState } from "@/components/shared/query-error-state"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { listDrivers } from "@/lib/api/services/drivers"
 import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
@@ -112,7 +113,7 @@ export function DriversListView() {
   const canWrite = usePermission(PERMISSIONS.driversWrite)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const { data, isLoading } = useSWR("drivers", () => listDrivers(1, 50))
+  const { data, isLoading, error, mutate: revalidate } = useSWR("drivers", () => listDrivers(1, 50))
 
   async function handleDelete() {
     if (!deleteId) return
@@ -151,6 +152,11 @@ export function DriversListView() {
           <Skeleton className="h-28 rounded-xl" />
           <Skeleton className="h-28 rounded-xl" />
         </div>
+      ) : error ? (
+        <QueryErrorState
+          description={error instanceof Error ? error.message : "Falha ao carregar motoristas."}
+          onRetry={() => void revalidate()}
+        />
       ) : !data?.items.length ? (
         <EmptyState
           title="Sem motoristas"

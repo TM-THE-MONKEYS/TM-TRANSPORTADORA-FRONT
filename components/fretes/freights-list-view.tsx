@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState } from "@/components/shared/empty-state"
+import { QueryErrorState } from "@/components/shared/query-error-state"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { advanceFreightStatus, getFreightCosts, listFreights } from "@/lib/api/services/freight"
 import { formatFreightRouteShort } from "@/lib/freight/route-label"
@@ -149,7 +150,7 @@ export function FreightsListView() {
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const canStatus = usePermission(PERMISSIONS.freightStatus)
   const { drivers, trucks } = useOperationContext()
-  const { data, isLoading, mutate } = useSWR("freights-list", () => listFreights(1, 50))
+  const { data, isLoading, error, mutate } = useSWR("freights-list", () => listFreights(1, 50))
 
   const [statusFilter, setStatusFilter] = useState<FreightStatus | "all">("all")
   const [search, setSearch] = useState("")
@@ -313,6 +314,11 @@ export function FreightsListView() {
             <Skeleton key={i} className="h-24 w-full rounded-xl" />
           ))}
         </div>
+      ) : error ? (
+        <QueryErrorState
+          description={error instanceof Error ? error.message : "Falha ao carregar fretes."}
+          onRetry={() => void mutate()}
+        />
       ) : allFreights.length === 0 ? (
         <EmptyState
           title="Nenhum frete"

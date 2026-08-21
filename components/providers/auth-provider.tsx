@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react"
-import { getMe, login as apiLogin, logout as apiLogout, registerTenant, type LoginInput, type RegisterTenantInput } from "@/lib/api/services/auth"
+import { getMe, login as apiLogin, logout as apiLogout, type LoginInput } from "@/lib/api/services/auth"
 import { shouldUseMocks } from "@/lib/api/config"
 import { clearStoredSession, setStoredSession } from "@/lib/api/storage"
 import type { AuthUser } from "@/types"
@@ -18,7 +18,6 @@ type AuthContextValue = {
   isReady: boolean
   isAuthenticated: boolean
   login: (input: LoginInput) => Promise<AuthUser>
-  register: (input: RegisterTenantInput) => Promise<void>
   logout: () => void
   refreshUser: () => Promise<void>
 }
@@ -57,12 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return u
   }, [])
 
-  const register = useCallback(async (input: RegisterTenantInput) => {
-    const { user: u } = await registerTenant(input)
-    setStoredSession("", null, u.tenant_id, u.branch_id)
-    setUser(u)
-  }, [])
-
   const refreshUser = useCallback(async () => {
     const me = await getMe()
     setUser(me)
@@ -84,11 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isReady,
       isAuthenticated: !!user,
       login,
-      register,
       logout,
       refreshUser,
     }),
-    [user, isReady, login, register, logout, refreshUser],
+    [user, isReady, login, logout, refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

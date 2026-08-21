@@ -381,9 +381,9 @@ export function FuelView() {
                 <form onSubmit={handleSubmit} className="space-y-5">
                   {/* Freight selector */}
                   <div className="space-y-2">
-                    <Label>Ordem de frete</Label>
+                    <Label htmlFor="fuel-freight">Ordem de frete</Label>
                     <Select value={freightId} onValueChange={setFreightId}>
-                      <SelectTrigger>
+                      <SelectTrigger id="fuel-freight">
                         <SelectValue placeholder="Selecione o frete" />
                       </SelectTrigger>
                       <SelectContent>
@@ -433,9 +433,9 @@ export function FuelView() {
                             value={kmDisplay}
                             onChange={(e) => setKmDisplay(formatKmInput(e.target.value))}
                           />
-                          <p className="text-xs text-muted-foreground">
-                            Atualiza o hodômetro do veículo na frota em tempo real.
-                          </p>
+                          <Label htmlFor="fuel-km" className="text-xs font-normal text-muted-foreground">
+                            Informe a quilometragem atual do hodômetro.
+                          </Label>
                         </div>
                       </div>
                     ) : (
@@ -633,24 +633,24 @@ export function FuelView() {
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="grid gap-2">
-              <Label>Valor (R$)</Label>
-              <Input value={editValor} onChange={(e) => setEditValor(e.target.value)} />
+              <Label htmlFor="edit-fuel-valor">Valor (R$)</Label>
+              <Input id="edit-fuel-valor" value={editValor} onChange={(e) => setEditValor(e.target.value)} />
             </div>
             <div className="grid gap-2">
-              <Label>Litros</Label>
-              <Input value={editLitros} onChange={(e) => setEditLitros(e.target.value)} />
+              <Label htmlFor="edit-fuel-litros">Litros</Label>
+              <Input id="edit-fuel-litros" value={editLitros} onChange={(e) => setEditLitros(e.target.value)} />
             </div>
             <div className="grid gap-2">
-              <Label>Posto / observação</Label>
-              <Input value={editPosto} onChange={(e) => setEditPosto(e.target.value)} />
+              <Label htmlFor="edit-fuel-posto">Posto / observação</Label>
+              <Input id="edit-fuel-posto" value={editPosto} onChange={(e) => setEditPosto(e.target.value)} />
             </div>
             <div className="grid gap-2">
-              <Label>Quilometragem</Label>
-              <Input value={editKm} onChange={(e) => setEditKm(e.target.value)} />
+              <Label htmlFor="edit-fuel-km">Quilometragem</Label>
+              <Input id="edit-fuel-km" value={editKm} onChange={(e) => setEditKm(e.target.value)} />
             </div>
             <div className="grid gap-2">
-              <Label>Data</Label>
-              <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+              <Label htmlFor="edit-fuel-date">Data</Label>
+              <Input id="edit-fuel-date" type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
             </div>
           </div>
           <DialogFooter>

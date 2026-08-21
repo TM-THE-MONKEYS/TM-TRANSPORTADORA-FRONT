@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState } from "@/components/shared/empty-state"
+import { QueryErrorState } from "@/components/shared/query-error-state"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { listTrucks, deleteTruck } from "@/lib/api/services/fleet"
 import { formatDateBR } from "@/lib/format/dates"
@@ -33,7 +34,7 @@ export function FleetListView() {
 
   const { freights } = useOperationContext()
   const queryKey = useMemo(() => ["trucks", search] as const, [search])
-  const { data, isLoading } = useSWR(queryKey, () => listTrucks(1, 50, search || undefined))
+  const { data, isLoading, error, mutate: revalidate } = useSWR(queryKey, () => listTrucks(1, 50, search || undefined))
 
   async function handleDelete() {
     if (!deleteId) return
@@ -79,6 +80,11 @@ export function FleetListView() {
 
       {isLoading ? (
         <Skeleton className="h-40 w-full" />
+      ) : error ? (
+        <QueryErrorState
+          description={error instanceof Error ? error.message : "Falha ao carregar a frota."}
+          onRetry={() => void revalidate()}
+        />
       ) : !data?.items.length ? (
         <EmptyState
           title={search ? "Nenhum resultado" : "Frota vazia"}

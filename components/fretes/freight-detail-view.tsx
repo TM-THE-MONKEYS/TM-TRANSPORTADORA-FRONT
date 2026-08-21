@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -465,17 +466,18 @@ export function FreightDetailView({ id }: { id: string }) {
               <CardContent className="space-y-4 pt-6">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Tipo de ocorrência</Label>
-                    <select
-                      className="flex h-9 w-full rounded-md border px-3 text-sm bg-background"
-                      value={occType}
-                      onChange={(e) => setOccType(e.target.value)}
-                    >
-                      <option value="atraso">Atraso</option>
-                      <option value="avaria">Avaria</option>
-                      <option value="documentacao">Documentação</option>
-                      <option value="outro">Outro</option>
-                    </select>
+                    <Label htmlFor="occ-type">Tipo de ocorrência</Label>
+                    <Select value={occType} onValueChange={setOccType}>
+                      <SelectTrigger id="occ-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="atraso">Atraso</SelectItem>
+                        <SelectItem value="avaria">Avaria</SelectItem>
+                        <SelectItem value="documentacao">Documentação</SelectItem>
+                        <SelectItem value="outro">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <p className="text-xs text-muted-foreground">
                       O tipo de ocorrência será usado para categorizar a ocorrência e facilitar a busca.
                     </p>
@@ -483,8 +485,9 @@ export function FreightDetailView({ id }: { id: string }) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Descrição</Label>
+                  <Label htmlFor="occ-desc">Descrição</Label>
                   <Textarea
+                    id="occ-desc"
                     value={occDesc}
                     onChange={(e) => setOccDesc(e.target.value)}
                     placeholder="Descreva o que ocorreu..."
@@ -494,38 +497,42 @@ export function FreightDetailView({ id }: { id: string }) {
 
                 {/* Optional cost link */}
                 <div className="rounded-md border bg-muted/30 p-3 space-y-3">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border"
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="occ-cost-enabled"
                       checked={occCostEnabled}
-                      onChange={(e) => {
-                        setOccCostEnabled(e.target.checked)
-                        if (!e.target.checked) setOccCostValorDisplay("")
+                      onCheckedChange={(checked) => {
+                        const enabled = checked === true
+                        setOccCostEnabled(enabled)
+                        if (!enabled) setOccCostValorDisplay("")
                       }}
                     />
-                    Vincular custo a esta ocorrência
-                  </label>
+                    <Label htmlFor="occ-cost-enabled" className="cursor-pointer font-medium">
+                      Vincular custo a esta ocorrência
+                    </Label>
+                  </div>
 
                   {occCostEnabled && (
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Tipo de custo</Label>
-                        <select
-                          className="flex h-9 w-full rounded-md border px-3 text-sm bg-background"
-                          value={occCostTipo}
-                          onChange={(e) => setOccCostTipo(e.target.value)}
-                        >
-                          {MANUAL_FREIGHT_COST_TYPES.map((t) => (
-                            <option key={t.value} value={t.value}>
-                              {t.label}
-                            </option>
-                          ))}
-                        </select>
+                        <Label htmlFor="occ-cost-tipo">Tipo de custo</Label>
+                        <Select value={occCostTipo} onValueChange={setOccCostTipo}>
+                          <SelectTrigger id="occ-cost-tipo">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {MANUAL_FREIGHT_COST_TYPES.map((t) => (
+                              <SelectItem key={t.value} value={t.value}>
+                                {t.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Valor (R$)</Label>
+                        <Label htmlFor="occ-cost-valor">Valor (R$)</Label>
                         <Input
+                          id="occ-cost-valor"
                           inputMode="decimal"
                           placeholder="0,00"
                           value={occCostValorDisplay}

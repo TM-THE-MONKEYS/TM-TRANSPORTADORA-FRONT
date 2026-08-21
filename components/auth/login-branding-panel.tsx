@@ -44,7 +44,7 @@ export function BrandingBackground({ children, className }: BrandingBackgroundPr
         </>
       ) : (
         <div
-          className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,hsl(var(--primary)/0.18),transparent),linear-gradient(to_bottom,hsl(var(--background)),hsl(var(--background)))]"
+          className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent),linear-gradient(to_bottom,var(--background),var(--background))]"
           aria-hidden
         />
       )}

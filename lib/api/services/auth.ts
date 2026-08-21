@@ -7,14 +7,6 @@ import type { AuthTokens, AuthUser } from "@/types"
 
 export type LoginInput = { identifier: string; password: string }
 
-export type RegisterTenantInput = {
-  tenant_name: string
-  document?: string
-  admin_name: string
-  email: string
-  password: string
-}
-
 export type LoginResponse = { tokens: AuthTokens; user: AuthUser }
 
 /** Login via BFF: cookies httpOnly; retorna só user (tokens fictícios p/ tipagem). */
@@ -40,27 +32,6 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
       refresh_token: "",
       token_type: "bearer",
     },
-  }
-}
-
-export async function registerTenant(input: RegisterTenantInput): Promise<LoginResponse> {
-  if (shouldUseMocks()) return mock.mockRegisterTenant(input)
-
-  const res = await fetch("/api/auth/register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(input),
-    credentials: "include",
-    cache: "no-store",
-  })
-  const json = (await res.json().catch(() => ({}))) as { user?: AuthUser; error?: string }
-  if (!res.ok || !json.user) {
-    throw new ApiError(res.status || 400, json.error ?? "Falha no cadastro")
-  }
-  const user = normalizeAuthUser(json.user)
-  return {
-    user,
-    tokens: { access_token: "", refresh_token: "", token_type: "bearer" },
   }
 }
 
