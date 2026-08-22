@@ -123,7 +123,9 @@ export function DashboardView() {
     [byStatus],
   )
 
-  const margin = (kpis?.monthly_revenue_brl ?? 0) - (kpis?.operational_costs_brl ?? 0)
+  const revenue = kpis?.monthly_revenue_brl ?? 0
+  const margin = revenue - (kpis?.operational_costs_brl ?? 0)
+  const marginPct = revenue > 0 ? (margin / revenue) * 100 : null
 
   return (
     <div className="space-y-6">
@@ -278,15 +280,22 @@ export function DashboardView() {
             />
             <DashboardKpiCard
               label="Margem estimada"
-              value={formatBRL(margin)}
-              hint="Receita − custos"
+              value={
+                marginPct != null
+                  ? `${formatBRL(margin)} (${marginPct.toLocaleString("pt-BR", {
+                      maximumFractionDigits: 1,
+                      minimumFractionDigits: 0,
+                    })}%)`
+                  : formatBRL(margin)
+              }
+              hint="Receita − custos · % sobre a receita"
               icon={CircleDollarSign}
               tone={margin >= 0 ? "success" : "danger"}
               loading={loadingKpis}
             />
             <DashboardKpiCard
               label="Pendências financeiras"
-              value={String(kpis?.financial_pending ?? 0)}
+              value={formatBRL(kpis?.financial_pending ?? 0)}
               hint="Lançamentos em aberto"
               icon={AlertTriangle}
               tone={(kpis?.financial_pending ?? 0) > 0 ? "warning" : "default"}

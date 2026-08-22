@@ -104,12 +104,14 @@ export async function listFinanceByFreight(
 export async function getCashFlow(competencia?: { mes: number; ano: number }): Promise<CashFlowSummary> {
   if (shouldUseMocks()) return computeMockCashFlow(competencia)
 
+  // Usa endpoint agregado do back — listagem pagina no máx. size=100 e size>100 vira 422.
+  const qs = new URLSearchParams()
   if (competencia) {
-    const page = await listFinanceEntries(1, 500, undefined, undefined, undefined, competencia)
-    return computeCashFlowFromEntries(page.items)
+    qs.set("competencia_mes", String(competencia.mes))
+    qs.set("competencia_ano", String(competencia.ano))
   }
-
-  return apiRequest(`/finance/cash-flow`, { auth: true })
+  const q = qs.toString()
+  return apiRequest(`/finance/cash-flow${q ? `?${q}` : ""}`, { auth: true })
 }
 
 /** Repara inconsistências: gera espelhos faltantes (receitas/despesas de fretes). */
