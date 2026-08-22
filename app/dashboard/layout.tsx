@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 async function clearStaleSessionCookie() {
   try {
-    await fetch("/api/auth/session", { method: "DELETE" })
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
   } catch {
     /* ignore */
   }

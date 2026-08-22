@@ -3,16 +3,12 @@ export function getPublicApiUrl(): string {
 }
 
 /**
- * Base da API no browser. Em dev, usa proxy same-origin (/api/v1 → Railway)
- * porque o backend em produção não libera CORS para localhost.
+ * Base da API no browser: sempre same-origin `/api/v1` (BFF Next injeta JWT
+ * do cookie httpOnly). No server (RSC/route), usa a URL pública direta.
  */
 export function getClientApiBaseUrl(): string {
-  const remote = getPublicApiUrl()
-  if (!remote) return ""
-  if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
-    return ""
-  }
-  return remote
+  if (typeof window !== "undefined") return ""
+  return getPublicApiUrl()
 }
 
 export function buildApiV1Url(path: string, base = getClientApiBaseUrl()): string {

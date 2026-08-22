@@ -58,21 +58,16 @@ export function LoginForm({ variant = "card" }: LoginFormProps) {
     }
   }
 
-  const labelClass = variant === "inline" ? "text-slate-700" : undefined
-  const linkClass =
-    variant === "inline"
-      ? "text-slate-500 hover:text-slate-700 hover:underline"
-      : "text-primary hover:underline"
-
   const formContent = (
     <>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
         <div className="space-y-2">
-          <Label htmlFor="login-identifier" className={labelClass}>E-mail ou CPF</Label>
+          <Label htmlFor="login-identifier">E-mail ou CPF</Label>
           <AutofillGuardInput
             id="login-identifier"
             type="text"
             autoComplete="username"
+            className="bg-card"
             {...register("identifier")}
           />
           {errors.identifier && (
@@ -80,11 +75,12 @@ export function LoginForm({ variant = "card" }: LoginFormProps) {
           )}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="login-password" className={labelClass}>Senha</Label>
+          <Label htmlFor="login-password">Senha</Label>
           <AutofillGuardInput
             id="login-password"
             type="password"
             autoComplete="new-password"
+            className="bg-card"
             {...register("password")}
           />
           {errors.password && (
@@ -96,7 +92,7 @@ export function LoginForm({ variant = "card" }: LoginFormProps) {
         </Button>
       </form>
       <p className="mt-4 text-center text-sm">
-        <Link href="/esqueci-senha" className={linkClass}>
+        <Link href="/esqueci-senha" className="text-primary hover:underline">
           Esqueci minha senha
         </Link>
       </p>

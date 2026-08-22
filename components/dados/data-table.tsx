@@ -11,19 +11,13 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ListPagination, DEFAULT_LIST_PAGE_SIZE_OPTIONS } from "@/components/shared/list-pagination"
 import { cn } from "@/lib/utils"
 
-const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+const DEFAULT_PAGE_SIZE_OPTIONS = DEFAULT_LIST_PAGE_SIZE_OPTIONS
 
 type DataTableProps<T> = {
   columns: ColumnDef<T, unknown>[]
@@ -127,14 +121,15 @@ export function DataTable<T>({
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-5 py-10 text-center text-muted-foreground"
-                >
-                  Carregando...
-                </td>
-              </tr>
+              Array.from({ length: 5 }).map((_, rowIdx) => (
+                <tr key={`skeleton-${rowIdx}`} className="border-b">
+                  {columns.map((_, colIdx) => (
+                    <td key={`skeleton-${rowIdx}-${colIdx}`} className="px-5 py-3">
+                      <Skeleton className="h-4 w-full max-w-[12rem]" />
+                    </td>
+                  ))}
+                </tr>
+              ))
             ) : error ? (
               <tr>
                 <td
@@ -160,7 +155,7 @@ export function DataTable<T>({
                   className="border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-5 py-3">
+                    <td key={cell.id} className="px-5 py-3.5">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
@@ -172,58 +167,18 @@ export function DataTable<T>({
       </div>
 
       {clientPaginated && !loading && !error && totalFiltered > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <span className="shrink-0">Linhas por página</span>
-            <Select
-              value={String(pagination.pageSize)}
-              onValueChange={(v) => {
-                setPagination({ pageIndex: 0, pageSize: Number(v) })
-              }}
-            >
-              <SelectTrigger className="h-8 w-20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sizeOptions.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="shrink-0">
-              {pagination.pageIndex * pagination.pageSize + 1}–
-              {Math.min((pagination.pageIndex + 1) * pagination.pageSize, totalFiltered)} de{" "}
-              {totalFiltered}
-            </span>
-            <div className="flex gap-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                disabled={!table.getCanPreviousPage()}
-                onClick={() => table.previousPage()}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                disabled={!table.getCanNextPage()}
-                onClick={() => table.nextPage()}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ListPagination
+          page={pagination.pageIndex + 1}
+          pageSize={pagination.pageSize}
+          total={totalFiltered}
+          pageSizeOptions={sizeOptions}
+          onPageChange={(nextPage) =>
+            setPagination((p) => ({ ...p, pageIndex: nextPage - 1 }))
+          }
+          onPageSizeChange={(nextSize) =>
+            setPagination({ pageIndex: 0, pageSize: nextSize })
+          }
+        />
       )}
     </div>
   )

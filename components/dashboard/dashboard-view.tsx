@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
 import { DashboardKpiCard } from "@/components/dashboard/dashboard-kpi-card"
 import { DashboardRecentFreights } from "@/components/dashboard/dashboard-recent-freights"
@@ -53,18 +54,17 @@ import { listCustomers } from "@/lib/api/services/freight"
 import { listTrucks } from "@/lib/api/services/fleet"
 import { formatBRL } from "@/lib/format/currency"
 import { FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
+import { freightStatusChart, SEMANTIC } from "@/lib/ui/status-colors"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
 import type { DashboardFilters, FreightStatus } from "@/types"
 
-const STATUS_COLORS: Record<string, string> = {
-  orcamento:      "var(--color-chart-5)",
-  confirmado:     "var(--color-chart-1)",
-  em_coleta:      "var(--color-chart-3)",
-  em_transporte:  "var(--color-chart-2)",
-  entregue:       "oklch(0.65 0.15 145)",
-  cancelado:      "var(--color-destructive)",
+function statusFill(status: string): string {
+  if (status in FREIGHT_STATUS_LABELS) {
+    return freightStatusChart(status as FreightStatus)
+  }
+  return "var(--color-chart-1)"
 }
 
 function formatChartDate(iso: string) {
@@ -422,7 +422,7 @@ export function DashboardView() {
                           {statusChartData.map((entry) => (
                             <Cell
                               key={entry.status}
-                              fill={STATUS_COLORS[entry.status] ?? "var(--color-chart-1)"}
+                              fill={statusFill(entry.status)}
                             />
                           ))}
                         </Pie>
@@ -448,7 +448,7 @@ export function DashboardView() {
                                 className="inline-block h-2 w-2 rounded-full"
                                 style={{
                                   backgroundColor:
-                                    STATUS_COLORS[row.status] ?? "var(--color-chart-1)",
+                                    statusFill(row.status),
                                 }}
                               />
                               <span className="text-xs">{row.label}</span>
@@ -463,7 +463,7 @@ export function DashboardView() {
                               style={{
                                 width: `${pct}%`,
                                 backgroundColor:
-                                  STATUS_COLORS[row.status] ?? "var(--color-chart-1)",
+                                  statusFill(row.status),
                               }}
                             />
                           </div>
@@ -494,7 +494,7 @@ export function DashboardView() {
                 {loadingCashFlow ? (
                   <div className="space-y-2">
                     {Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
+                      <Skeleton key={i} className="h-14 rounded-lg" />
                     ))}
                   </div>
                 ) : (
@@ -519,7 +519,7 @@ export function DashboardView() {
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <div className="rounded-lg bg-muted/40 px-3 py-2 text-center">
                         <p className="text-xs text-muted-foreground">A receber</p>
-                        <p className="text-sm font-semibold tabular-nums text-green-700 dark:text-green-400">
+                        <p className={cn("text-sm font-semibold tabular-nums", SEMANTIC.positive)}>
                           {formatBRL(cashFlow?.receitas_pendentes ?? 0)}
                         </p>
                       </div>
@@ -634,7 +634,7 @@ function CashFlowRow({
         className={cn(
           "tabular-nums",
           bold ? "text-base font-bold" : "text-sm font-medium",
-          variant === "positive" && "text-green-700 dark:text-green-400",
+          variant === "positive" && SEMANTIC.positive,
           variant === "negative" && "text-destructive",
         )}
       >

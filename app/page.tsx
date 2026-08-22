@@ -1,5 +1,6 @@
 import { Suspense } from "react"
 import { MapPin, Package, Shield, Truck, Users } from "lucide-react"
+import { ForceLightTheme } from "@/components/auth/force-light-theme"
 import { LoginForm } from "@/components/auth/login-form"
 import { RedirectIfAuthenticated } from "@/components/auth/redirect-if-authenticated"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -16,6 +17,7 @@ const highlights = [
 export default function HomePage() {
   return (
     <div className="flex min-h-screen bg-muted/30">
+      <ForceLightTheme />
       {/* ── Painel esquerdo — branding hero ── */}
       {/* rounded-r-[2.5rem] + z-10 + shadow criam o efeito de sobreposição na divisória */}
       <div className="relative z-10 hidden w-[55%] flex-col overflow-hidden rounded-r-[2.5rem] shadow-[6px_0_40px_rgba(0,0,0,0.35)] lg:flex">
@@ -97,21 +99,21 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── Painel direito — login ── */}
-      <div className="flex flex-1 flex-col items-center justify-center bg-[#EEF4FB] px-6 py-12 lg:px-16">
+      {/* ── Painel direito — login (tokens do tema: evita texto claro em fundo claro) ── */}
+      <div className="flex flex-1 flex-col items-center justify-center bg-background px-6 py-12 lg:px-16">
         {/* Logo mobile (visível só em telas pequenas) */}
         <div className="mb-8 flex items-center gap-3 lg:hidden">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Truck className="h-5 w-5" />
           </div>
-          <p className="text-lg font-semibold">{siteConfig.name}</p>
+          <p className="text-lg font-semibold text-foreground">{siteConfig.name}</p>
         </div>
 
         <div className="w-full max-w-md space-y-6">
           {/* Saudação */}
           <div className="space-y-1">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-800">Bem-vindo de volta</h2>
-            <p className="text-sm text-slate-500">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">Bem-vindo de volta</h2>
+            <p className="text-sm text-muted-foreground">
               Entre com suas credenciais para acessar o painel
             </p>
           </div>
@@ -122,11 +124,11 @@ export default function HomePage() {
             <LoginForm variant="inline" />
           </Suspense>
 
-          <p className="text-center text-xs text-slate-400">
+          <p className="text-center text-xs text-muted-foreground">
             Problemas para acessar?{" "}
             <a
-              href="mailto:juliohegnervieira@hotmail.com"
-              className="font-medium text-slate-600 underline-offset-2 hover:underline"
+              href={`mailto:${siteConfig.supportEmail}`}
+              className="font-medium text-foreground underline-offset-2 hover:underline"
             >
               Contate o suporte
             </a>

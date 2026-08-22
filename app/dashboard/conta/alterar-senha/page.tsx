@@ -4,7 +4,11 @@ import { PageHeader } from "@/components/shared/page-header"
 export default function AlterarSenhaPage() {
   return (
     <div>
-      <PageHeader title="Minha conta" description="Segurança e credenciais de acesso" />
+      <PageHeader
+        title="Minha conta"
+        description="Segurança e credenciais de acesso"
+        density="compact"
+      />
       <ChangePasswordForm />
     </div>
   )

@@ -14,10 +14,7 @@ import {
 } from "@/lib/freight/occurrences"
 import { addTrackingUpdate, getTrackingTimeline } from "@/lib/api/services/tracking"
 import { mergeFreightCostsWithFuel } from "@/lib/freight/freight-expenses"
-import {
-  revalidateFleetAndFreightCaches,
-  syncTruckStatusForFreight,
-} from "@/lib/freight/sync-fleet-status"
+import { revalidateFleetAndFreightCaches } from "@/lib/freight/sync-fleet-status"
 import { listFuelRefillsByFreight } from "@/lib/api/services/fuel"
 import * as mock from "@/lib/mocks/handlers"
 import type {
@@ -47,15 +44,16 @@ export async function createFreight(
   data: Omit<FreightOrder, "id" | "code" | "created_at" | "updated_at" | "tenant_id">,
 ): Promise<FreightOrder> {
   if (shouldUseMocks()) return mock.mockCreateFreight(data)
-  return apiRequest("/freights", {
+  const freight = await apiRequest<FreightOrder>("/freights", {
     method: "POST",
     body: toFreightCreatePayload(data),
     auth: true,
   })
+  return afterFreightMutation(freight)
 }
 
 async function afterFreightMutation(freight: FreightOrder): Promise<FreightOrder> {
-  await syncTruckStatusForFreight(freight)
+  // Status do caminhão sincronizado no backend; aqui só invalida SWR.
   revalidateFleetAndFreightCaches()
   return freight
 }
@@ -154,15 +152,10 @@ async function listFreightCostsFromApi(freightId: string): Promise<FreightCost[]
 export async function getFreightCosts(freightId: string): Promise<FreightCost[]> {
   if (shouldUseMocks()) return mock.mockGetFreightCosts(freightId)
 
+  // Falhas propagam para o SWR (antes viravam [] e a UI parecia “sem custos”).
   const [apiCosts, fuelPage] = await Promise.all([
-    listFreightCostsFromApi(freightId).catch(() => [] as FreightCost[]),
-    listFuelRefillsByFreight(freightId, 1, 100).catch(() => ({
-      items: [],
-      total: 0,
-      page: 1,
-      page_size: 100,
-      pages: 0,
-    })),
+    listFreightCostsFromApi(freightId),
+    listFuelRefillsByFreight(freightId, 1, 100),
   ])
 
   return mergeFreightCostsWithFuel(apiCosts, fuelPage.items)

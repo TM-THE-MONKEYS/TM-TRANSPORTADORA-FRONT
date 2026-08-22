@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,10 @@ import { formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
 import { MANUAL_FREIGHT_COST_TYPES } from "@/lib/freight/costs"
 import { FREIGHT_STATUS_FLOW, FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
 import {
+  statusSoftClass,
+  TRACKING_STATUS_TONE,
+} from "@/lib/ui/status-colors"
+import {
   ADMIN_FREIGHT_STATUS_OPTIONS,
   canAdminManageClosedFreight,
   isFreightClosed,
@@ -77,15 +82,6 @@ const TRACKING_STATUS_LABELS: Record<string, string> = {
   devolvido:         "Devolvido",
 }
 
-const TRACKING_STATUS_STYLES: Record<string, string> = {
-  coletado:          "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  em_transito:       "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-  saiu_para_entrega: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  tentativa_entrega: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
-  entregue:          "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-  devolvido:         "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-}
-
 export function FreightDetailView({ id }: { id: string }) {
   const router = useRouter()
   const { user } = useAuth()
@@ -93,7 +89,8 @@ export function FreightDetailView({ id }: { id: string }) {
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const isAdmin = canAdminManageClosedFreight(user?.role)
   const { drivers, trucks } = useOperationContext()
-  const { data: freight, mutate: mutateFreight } = useSWR(["freight", id], () => getFreight(id))
+  const { data: freight, error: freightError, isLoading: freightLoading, mutate: mutateFreight } =
+    useSWR(["freight", id], () => getFreight(id))
   const { data: events, mutate: mutateEvents } = useSWR(["freight-events", id], () =>
     getFreightEvents(id),
   )
@@ -119,7 +116,27 @@ export function FreightDetailView({ id }: { id: string }) {
     if (freight?.status) setStatusDraft(freight.status)
   }, [freight?.status])
 
-  if (!freight) return <Skeleton className="h-96 w-full" />
+  if (freightError) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Frete" description="Não foi possível carregar o frete." />
+        <Card>
+          <CardContent className="space-y-3 pt-6">
+            <p className="text-sm text-destructive">
+              {freightError instanceof Error
+                ? freightError.message
+                : "Erro ao carregar dados do frete."}
+            </p>
+            <Button variant="outline" onClick={() => void mutateFreight()}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (freightLoading || !freight) return <Skeleton className="h-96 w-full" />
 
   const flowIdx = FREIGHT_STATUS_FLOW.indexOf(freight.status)
   const closed = isFreightClosed(freight.status)
@@ -224,6 +241,7 @@ export function FreightDetailView({ id }: { id: string }) {
       <PageHeader
         title={freight.code}
         description={formatFreightRouteShort(freight)}
+        density="compact"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canStatus && (
@@ -272,7 +290,7 @@ export function FreightDetailView({ id }: { id: string }) {
         <span className="text-sm text-muted-foreground">{freight.cargo_description}</span>
         <span className="font-medium">{formatBRL(freight.value_brl)}</span>
         {isFreightInTransit(freight.status) && (
-          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">
+          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", statusSoftClass("progress"))}>
             Viagem em percurso
           </span>
         )}
@@ -306,7 +324,7 @@ export function FreightDetailView({ id }: { id: string }) {
                       "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
                       point.kind === "origin" && "bg-muted text-muted-foreground",
                       point.kind === "stop" && "bg-primary/15 text-primary",
-                      point.kind === "destination" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+                      point.kind === "destination" && "bg-status-success/15 text-status-success",
                     )}
                   >
                     {point.kind === "origin" ? "O" : point.kind === "destination" ? "F" : point.sequence}
@@ -444,17 +462,18 @@ export function FreightDetailView({ id }: { id: string }) {
               <CardContent className="space-y-4 pt-6">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Tipo de ocorrência</Label>
-                    <select
-                      className="flex h-9 w-full rounded-md border px-3 text-sm bg-background"
-                      value={occType}
-                      onChange={(e) => setOccType(e.target.value)}
-                    >
-                      <option value="atraso">Atraso</option>
-                      <option value="avaria">Avaria</option>
-                      <option value="documentacao">Documentação</option>
-                      <option value="outro">Outro</option>
-                    </select>
+                    <Label htmlFor="occ-type">Tipo de ocorrência</Label>
+                    <Select value={occType} onValueChange={setOccType}>
+                      <SelectTrigger id="occ-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="atraso">Atraso</SelectItem>
+                        <SelectItem value="avaria">Avaria</SelectItem>
+                        <SelectItem value="documentacao">Documentação</SelectItem>
+                        <SelectItem value="outro">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <p className="text-xs text-muted-foreground">
                       O tipo de ocorrência será usado para categorizar a ocorrência e facilitar a busca.
                     </p>
@@ -462,8 +481,9 @@ export function FreightDetailView({ id }: { id: string }) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Descrição</Label>
+                  <Label htmlFor="occ-desc">Descrição</Label>
                   <Textarea
+                    id="occ-desc"
                     value={occDesc}
                     onChange={(e) => setOccDesc(e.target.value)}
                     placeholder="Descreva o que ocorreu..."
@@ -473,38 +493,42 @@ export function FreightDetailView({ id }: { id: string }) {
 
                 {/* Optional cost link */}
                 <div className="rounded-md border bg-muted/30 p-3 space-y-3">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border"
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="occ-cost-enabled"
                       checked={occCostEnabled}
-                      onChange={(e) => {
-                        setOccCostEnabled(e.target.checked)
-                        if (!e.target.checked) setOccCostValorDisplay("")
+                      onCheckedChange={(checked) => {
+                        const enabled = checked === true
+                        setOccCostEnabled(enabled)
+                        if (!enabled) setOccCostValorDisplay("")
                       }}
                     />
-                    Vincular custo a esta ocorrência
-                  </label>
+                    <Label htmlFor="occ-cost-enabled" className="cursor-pointer font-medium">
+                      Vincular custo a esta ocorrência
+                    </Label>
+                  </div>
 
                   {occCostEnabled && (
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Tipo de custo</Label>
-                        <select
-                          className="flex h-9 w-full rounded-md border px-3 text-sm bg-background"
-                          value={occCostTipo}
-                          onChange={(e) => setOccCostTipo(e.target.value)}
-                        >
-                          {MANUAL_FREIGHT_COST_TYPES.map((t) => (
-                            <option key={t.value} value={t.value}>
-                              {t.label}
-                            </option>
-                          ))}
-                        </select>
+                        <Label htmlFor="occ-cost-tipo">Tipo de custo</Label>
+                        <Select value={occCostTipo} onValueChange={setOccCostTipo}>
+                          <SelectTrigger id="occ-cost-tipo">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {MANUAL_FREIGHT_COST_TYPES.map((t) => (
+                              <SelectItem key={t.value} value={t.value}>
+                                {t.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Valor (R$)</Label>
+                        <Label htmlFor="occ-cost-valor">Valor (R$)</Label>
                         <Input
+                          id="occ-cost-valor"
                           inputMode="decimal"
                           placeholder="0,00"
                           value={occCostValorDisplay}
@@ -621,7 +645,9 @@ export function FreightDetailView({ id }: { id: string }) {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={cn(
                           "inline-block rounded-full px-2.5 py-0.5 text-xs font-medium",
-                          TRACKING_STATUS_STYLES[upd.status] ?? "bg-muted text-muted-foreground",
+                          TRACKING_STATUS_TONE[upd.status]
+                            ? statusSoftClass(TRACKING_STATUS_TONE[upd.status])
+                            : "bg-muted text-muted-foreground",
                         )}>
                           {TRACKING_STATUS_LABELS[upd.status] ?? upd.status}
                         </span>

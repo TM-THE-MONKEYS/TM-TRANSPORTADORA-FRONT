@@ -1,11 +1,5 @@
 import { buildApiV1Url, getClientApiBaseUrl, requirePublicApiUrl, shouldUseMocks } from "@/lib/api/config"
 import { ApiError, formatFastApiDetail } from "@/lib/api/errors"
-import {
-  getStoredAccessToken,
-  getStoredRefreshToken,
-  setStoredSession,
-} from "@/lib/api/storage"
-import type { AuthTokens, AuthUser } from "@/types"
 import type { FastApiErrorBody } from "@/lib/api/types"
 
 export type ApiRequestOptions = {
@@ -19,42 +13,15 @@ export type ApiRequestOptions = {
   _retry?: boolean
 }
 
-type LoginResponse = { tokens: AuthTokens; user: AuthUser }
-
-async function refreshAccessToken(): Promise<string> {
-  const refresh = getStoredRefreshToken()
-  if (!refresh) throw new ApiError(401, "Sessão expirada. Faça login novamente.")
-
-  const base = requirePublicApiUrl()
-  const res = await fetch(buildApiV1Url("/auth/refresh", getClientApiBaseUrl() || base), {
+async function refreshSessionViaBff(): Promise<void> {
+  const res = await fetch("/api/auth/me", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ refresh_token: refresh }),
+    credentials: "include",
     cache: "no-store",
   })
-
-  const text = await res.text()
-  let json: unknown = {}
-  if (text) {
-    try {
-      json = JSON.parse(text)
-    } catch {
-      json = { detail: text }
-    }
-  }
-
   if (!res.ok) {
-    throw new ApiError(res.status, formatFastApiDetail(json as FastApiErrorBody))
+    throw new ApiError(401, "Sessão expirada. Faça login novamente.")
   }
-
-  const session = json as LoginResponse
-  setStoredSession(
-    session.tokens.access_token,
-    session.tokens.refresh_token,
-    session.user.tenant_id,
-    session.user.branch_id,
-  )
-  return session.tokens.access_token
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
@@ -81,17 +48,23 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     payload = JSON.stringify(body)
   }
 
-  const bearer = accessToken ?? (auth ? getStoredAccessToken() : null)
-  if (auth) {
-    if (!bearer) throw new ApiError(401, "Sessão expirada. Faça login novamente.")
+  // Browser usa BFF same-origin (cookie httpOnly). accessToken só para mocks/SSR legado.
+  const bearer = accessToken ?? null
+  if (bearer) {
     headers.Authorization = `Bearer ${bearer}`
-    // Tenant/branch come from JWT on the backend. Custom headers trigger CORS preflight
-    // and tm-transportadora-api does not allow X-Tenant-Id / X-Branch-Id in ACAH yet.
+  } else if (auth && typeof window === "undefined") {
+    throw new ApiError(401, "Sessão expirada. Faça login novamente.")
   }
 
   let res: Response
   try {
-    res = await fetch(url, { method, headers, body: payload, cache: "no-store" })
+    res = await fetch(url, {
+      method,
+      headers,
+      body: payload,
+      cache: "no-store",
+      credentials: "include",
+    })
   } catch (err) {
     const remote = requirePublicApiUrl()
     const hint =
@@ -103,10 +76,10 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     throw new ApiError(0, hint)
   }
 
-  if (res.status === 401 && auth && !_retry) {
+  if (res.status === 401 && auth && !_retry && typeof window !== "undefined") {
     try {
-      const newToken = await refreshAccessToken()
-      return apiRequest<T>(path, { ...options, accessToken: newToken, _retry: true })
+      await refreshSessionViaBff()
+      return apiRequest<T>(path, { ...options, _retry: true })
     } catch {
       throw new ApiError(401, "Sessão expirada. Faça login novamente.")
     }
@@ -138,7 +111,7 @@ export async function checkApiHealth(): Promise<{ status: string; version?: stri
   requirePublicApiUrl()
   const base = getClientApiBaseUrl()
   const healthUrl = base ? `${base}/health` : "/api/backend-health"
-  const res = await fetch(healthUrl, { cache: "no-store" })
+  const res = await fetch(healthUrl, { cache: "no-store", credentials: "include" })
   if (!res.ok) throw new ApiError(res.status, "API indisponível")
   return res.json()
 }

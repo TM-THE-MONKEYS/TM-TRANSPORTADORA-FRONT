@@ -8,6 +8,7 @@ export default async function EditarMotoristaPage({ params }: { params: Promise<
       <PageHeader
         title="Editar motorista"
         description="Atualize dados operacionais, comissão e status"
+        density="compact"
       />
       <DriverForm driverId={id} />
     </div>

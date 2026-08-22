@@ -53,11 +53,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   async rewrites() {
+    // /api/v1 é servido pelo BFF em app/api/v1/[...path] (injeta cookie httpOnly).
     if (process.env.NODE_ENV === "production" || !publicApiUrl) return []
-    return [
-      { source: "/api/v1/:path*", destination: `${publicApiUrl}/api/v1/:path*` },
-      { source: "/api/backend-health", destination: `${publicApiUrl}/health` },
-    ]
+    return [{ source: "/api/backend-health", destination: `${publicApiUrl}/health` }]
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }]

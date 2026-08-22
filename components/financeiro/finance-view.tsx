@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -233,8 +234,9 @@ export function FinanceView() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label>Data de vencimento</Label>
+            <Label htmlFor="launch-due-date">Data de vencimento</Label>
             <Input
+              id="launch-due-date"
               type="date"
               value={launchDialog.date}
               onChange={(e) => setLaunchDialog((s) => ({ ...s, date: e.target.value }))}
@@ -414,9 +416,9 @@ function EntryDialog({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Tipo</Label>
+              <Label htmlFor="fin-tipo">Tipo</Label>
               <Select value={form.tipo} onValueChange={(v) => set("tipo", v as FinanceEntryType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="fin-tipo"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="receita">Receita</SelectItem>
                   <SelectItem value="despesa">Despesa</SelectItem>
@@ -424,9 +426,9 @@ function EntryDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Status</Label>
+              <Label htmlFor="fin-status">Status</Label>
               <Select value={form.status} onValueChange={(v) => set("status", v as FinanceEntryStatus)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="fin-status"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pendente">Pendente</SelectItem>
                   <SelectItem value="pago">Pago</SelectItem>
@@ -438,8 +440,9 @@ function EntryDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Categoria *</Label>
+            <Label htmlFor="fin-categoria">Categoria *</Label>
             <Input
+              id="fin-categoria"
               placeholder="Ex: Combustível, Manutenção, Frete..."
               value={form.categoria}
               onChange={(e) => set("categoria", e.target.value)}
@@ -447,8 +450,9 @@ function EntryDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Descrição</Label>
+            <Label htmlFor="fin-descricao">Descrição</Label>
             <Input
+              id="fin-descricao"
               placeholder="Descrição opcional"
               value={form.descricao}
               onChange={(e) => set("descricao", e.target.value)}
@@ -457,8 +461,9 @@ function EntryDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Valor (R$) *</Label>
+              <Label htmlFor="fin-valor">Valor (R$) *</Label>
               <Input
+                id="fin-valor"
                 type="number"
                 min={0}
                 step={0.01}
@@ -468,8 +473,9 @@ function EntryDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Vencimento</Label>
+              <Label htmlFor="fin-vencimento">Vencimento</Label>
               <Input
+                id="fin-vencimento"
                 type="date"
                 value={form.data_vencimento}
                 onChange={(e) => set("data_vencimento", e.target.value)}
@@ -620,8 +626,9 @@ function FixedExpenseDialog({
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Nome *</Label>
+            <Label htmlFor="fx-nome">Nome *</Label>
             <Input
+              id="fx-nome"
               placeholder="Ex: Aluguel do galpão"
               value={form.nome}
               onChange={(e) => set("nome", e.target.value)}
@@ -630,9 +637,9 @@ function FixedExpenseDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Categoria</Label>
+              <Label htmlFor="fx-categoria">Categoria</Label>
               <Select value={form.categoria} onValueChange={(v) => set("categoria", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="fx-categoria"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {FIXED_EXPENSE_CATEGORIES.map((c) => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
@@ -641,9 +648,9 @@ function FixedExpenseDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Recorrência</Label>
+              <Label htmlFor="fx-frequencia">Recorrência</Label>
               <Select value={form.frequencia} onValueChange={(v) => set("frequencia", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="fx-frequencia"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(FREQUENCY_LABELS).map(([v, l]) => (
                     <SelectItem key={v} value={v}>{l}</SelectItem>
@@ -655,8 +662,9 @@ function FixedExpenseDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Valor (R$) *</Label>
+              <Label htmlFor="fx-valor">Valor (R$) *</Label>
               <Input
+                id="fx-valor"
                 type="number"
                 min={0}
                 step={0.01}
@@ -666,8 +674,9 @@ function FixedExpenseDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Dia de vencimento</Label>
+              <Label htmlFor="fx-dia">Dia de vencimento</Label>
               <Input
+                id="fx-dia"
                 type="number"
                 min={1}
                 max={31}
@@ -680,12 +689,10 @@ function FixedExpenseDialog({
 
           <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
             <div className="flex items-center gap-3">
-              <input
+              <Checkbox
                 id="fx-duracao"
-                type="checkbox"
-                className="h-4 w-4 accent-primary"
                 checked={form.duracao_limitada}
-                onChange={(e) => set("duracao_limitada", e.target.checked)}
+                onCheckedChange={(checked) => set("duracao_limitada", checked === true)}
               />
               <Label htmlFor="fx-duracao" className="cursor-pointer font-normal">
                 Duração limitada (parcelas/meses)
@@ -695,8 +702,9 @@ function FixedExpenseDialog({
             {form.duracao_limitada && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Nº de parcelas *</Label>
+                  <Label htmlFor="fx-parcelas">Nº de parcelas *</Label>
                   <Input
+                    id="fx-parcelas"
                     type="number"
                     min={1}
                     max={360}
@@ -706,8 +714,9 @@ function FixedExpenseDialog({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Início da vigência</Label>
+                  <Label htmlFor="fx-inicio">Início da vigência</Label>
                   <Input
+                    id="fx-inicio"
                     type="date"
                     value={form.data_inicio}
                     onChange={(e) => set("data_inicio", e.target.value)}
@@ -727,8 +736,9 @@ function FixedExpenseDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Observação</Label>
+            <Label htmlFor="fx-obs">Observação</Label>
             <Textarea
+              id="fx-obs"
               placeholder="Notas adicionais (opcional)"
               value={form.observacao}
               onChange={(e) => set("observacao", e.target.value)}
@@ -737,12 +747,10 @@ function FixedExpenseDialog({
           </div>
 
           <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2.5">
-            <input
+            <Checkbox
               id="fx-ativo"
-              type="checkbox"
-              className="h-4 w-4 accent-primary"
               checked={form.ativo}
-              onChange={(e) => set("ativo", e.target.checked)}
+              onCheckedChange={(checked) => set("ativo", checked === true)}
             />
             <Label htmlFor="fx-ativo" className="cursor-pointer font-normal">
               Gasto ativo (aparece nos totais e pode ser lançado)

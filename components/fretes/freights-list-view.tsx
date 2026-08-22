@@ -9,20 +9,23 @@ import {
   ArrowRight,
   ChevronRight,
   Clock,
-  Package,
   Plus,
-  Search,
   TrendingUp,
   Truck,
-  X,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState } from "@/components/shared/empty-state"
+import { QueryErrorState } from "@/components/shared/query-error-state"
+import { ListPage } from "@/components/shared/list-page"
+import { ListSearchField } from "@/components/shared/list-search-field"
+import { ListStatTile } from "@/components/shared/list-stat-tile"
+import { ListPagination } from "@/components/shared/list-pagination"
+import { StatusFilterChips } from "@/components/shared/status-filter-chips"
+import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { advanceFreightStatus, getFreightCosts, listFreights } from "@/lib/api/services/freight"
 import { formatFreightRouteShort } from "@/lib/freight/route-label"
@@ -31,13 +34,17 @@ import { formatWeightKg } from "@/lib/format/numbers"
 import { formatDateBR } from "@/lib/format/dates"
 import { getDriverName, getTruckLabel, isFreightInTransit } from "@/lib/freight/active-trip"
 import { FREIGHT_STATUS_LABELS, nextFreightStatus } from "@/lib/freight/status"
+import {
+  freightStatusAccent,
+  freightStatusDot,
+  SEMANTIC,
+  STATUS_TONE,
+} from "@/lib/ui/status-colors"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
 import type { FreightOrder, FreightStatus } from "@/types"
-
-// ── FreightCostSummary ────────────────────────────────────────────────────────
 
 function FreightCostSummary({ freightId, valueBrl }: { freightId: string; valueBrl: number }) {
   const { data: costs } = useSWR(
@@ -56,16 +63,13 @@ function FreightCostSummary({ freightId, valueBrl }: { freightId: string; valueB
         Despesas:{" "}
         <span className="font-medium text-destructive">{formatBRL(totalCosts)}</span>
       </p>
-      <p className={cn("font-semibold", margin >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive")}>
+      <p className={cn("font-semibold", margin >= 0 ? SEMANTIC.positive : SEMANTIC.negative)}>
         Margem: {formatBRL(margin)}
       </p>
     </div>
   )
 }
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
-// Fluxo simplificado: 3 status. Cores legadas mantidas abaixo para dados antigos.
 const STATUS_ORDER: Array<FreightStatus | "all"> = [
   "all",
   "em_transporte",
@@ -78,82 +82,27 @@ const STATUS_TAB_LABELS: Record<string, string> = {
   ...FREIGHT_STATUS_LABELS,
 }
 
-const STATUS_DOT: Record<string, string> = {
-  orcamento:     "bg-slate-400",
-  confirmado:    "bg-blue-500",
-  em_coleta:     "bg-amber-500",
-  em_transporte: "bg-violet-500",
-  entregue:      "bg-emerald-500",
-  cancelado:     "bg-rose-500",
-}
-
-const STATUS_ACCENT: Record<string, string> = {
-  orcamento:     "bg-slate-200 dark:bg-slate-700",
-  confirmado:    "bg-blue-400",
-  em_coleta:     "bg-amber-400",
-  em_transporte: "bg-violet-500",
-  entregue:      "bg-emerald-500",
-  cancelado:     "bg-rose-500",
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 function isOverdue(f: FreightOrder): boolean {
   if (!f.deadline_at) return false
   if (f.status === "entregue" || f.status === "cancelado") return false
   return new Date(f.deadline_at) < new Date()
 }
 
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function StatTile({
-  icon: Icon,
-  label,
-  value,
-  accent,
-  onClick,
-}: {
-  icon: React.ElementType
-  label: string
-  value: string | number
-  accent: string
-  onClick?: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
-      className={cn(
-        "flex items-center gap-3 rounded-xl border bg-card p-4 text-left transition-all",
-        onClick ? "cursor-pointer hover:shadow-sm hover:-translate-y-0.5" : "cursor-default",
-      )}
-    >
-      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", accent)}>
-        <Icon className="h-4 w-4 text-white" />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-        <p className="text-lg font-bold tabular-nums leading-tight">{value}</p>
-      </div>
-    </button>
-  )
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
-
 export function FreightsListView() {
   const router = useRouter()
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const canStatus = usePermission(PERMISSIONS.freightStatus)
   const { drivers, trucks } = useOperationContext()
-  const { data, isLoading, mutate } = useSWR("freights-list", () => listFreights(1, 50))
-
   const [statusFilter, setStatusFilter] = useState<FreightStatus | "all">("all")
   const [search, setSearch] = useState("")
   const [advancing, setAdvancing] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+
+  const { data, isLoading, error, mutate } = useSWR(
+    ["freights-list", page, pageSize],
+    () => listFreights(page, pageSize),
+  )
 
   const allFreights = data?.items ?? []
 
@@ -191,11 +140,10 @@ export function FreightsListView() {
     e.stopPropagation()
     setAdvancing(freight.id)
     try {
-      const updated = await advanceFreightStatus(freight.id)
+      await advanceFreightStatus(freight.id)
       await mutate()
       const next = nextFreightStatus(freight.status)
       if (next) toast.success(`${freight.code} → ${FREIGHT_STATUS_LABELS[next]}`)
-      return updated
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao avançar status")
     } finally {
@@ -204,115 +152,86 @@ export function FreightsListView() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Gestão de fretes"
-        description="Ordens de frete e fluxo operacional"
-        actions={
-          canWrite && (
-            <Button asChild>
-              <Link href="/dashboard/fretes/novo">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova ordem
-              </Link>
-            </Button>
-          )
-        }
-      />
-
-      {/* Stats strip */}
-      {!isLoading && allFreights.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          <StatTile
-            icon={Truck}
-            label="Em trânsito"
-            value={inTransitCount}
-            accent="bg-violet-500"
-            onClick={() => setStatusFilter("em_transporte")}
-          />
-          <StatTile
-            icon={TrendingUp}
-            label="Volume total"
-            value={formatBRL(totalValue)}
-            accent="bg-emerald-500"
-          />
-          <StatTile
-            icon={Clock}
-            label="Com atraso"
-            value={overdueCount}
-            accent={overdueCount > 0 ? "bg-rose-500" : "bg-slate-400"}
-          />
-        </div>
-      )}
-
-      {/* Search + status chips */}
-      <div className="space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <Input
-            className="pl-9 pr-9"
-            placeholder="Buscar por código, cliente, cidade..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {search && (
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              onClick={() => setSearch("")}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Status filter pills */}
-        <div className="flex flex-wrap gap-2">
-          {STATUS_ORDER.map((s) => {
-            const count = countByStatus[s] ?? 0
-            if (s !== "all" && count === 0) return null
-            const active = statusFilter === s
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStatusFilter(s as FreightStatus | "all")}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                    : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {s !== "all" && (
-                  <span
-                    className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_DOT[s] ?? "bg-muted")}
-                  />
-                )}
-                {STATUS_TAB_LABELS[s]}
-                <span
-                  className={cn(
-                    "rounded-full px-1.5 text-[10px] leading-5",
-                    active
-                      ? "bg-white/20 text-primary-foreground"
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {count}
-                </span>
-              </button>
+    <ListPage
+      header={
+        <PageHeader
+          title="Gestão de fretes"
+          description="Ordens de frete e fluxo operacional"
+          actions={
+            canWrite && (
+              <Button asChild>
+                <Link href="/dashboard/fretes/novo">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova ordem
+                </Link>
+              </Button>
             )
-          })}
+          }
+        />
+      }
+      stats={
+        !isLoading && allFreights.length > 0 ? (
+          <div className="grid grid-cols-3 gap-3">
+            <ListStatTile
+              icon={Truck}
+              label="Em trânsito"
+              value={inTransitCount}
+              accent={STATUS_TONE.progress.bg}
+              onClick={() => setStatusFilter("em_transporte")}
+            />
+            <ListStatTile
+              icon={TrendingUp}
+              label="Volume total"
+              value={formatBRL(totalValue)}
+              accent={STATUS_TONE.success.bg}
+            />
+            <ListStatTile
+              icon={Clock}
+              label="Com atraso"
+              value={overdueCount}
+              accent={overdueCount > 0 ? STATUS_TONE.danger.bg : STATUS_TONE.neutral.bg}
+            />
+          </div>
+        ) : null
+      }
+      toolbar={
+        <div className="space-y-3">
+          <ListSearchField
+            value={search}
+            onChange={(value) => {
+              setSearch(value)
+              setPage(1)
+            }}
+            placeholder="Buscar por código, cliente, cidade..."
+          />
+          <StatusFilterChips
+            value={statusFilter}
+            onChange={(value) => {
+              setStatusFilter(value)
+              setPage(1)
+            }}
+            chips={STATUS_ORDER.map((s) => ({
+              value: s,
+              label: STATUS_TAB_LABELS[s],
+              count: countByStatus[s] ?? 0,
+              visible: s === "all" || (countByStatus[s] ?? 0) > 0,
+              dotClassName: s !== "all" ? freightStatusDot(s) : undefined,
+            }))}
+          />
         </div>
-      </div>
-
-      {/* Content */}
+      }
+    >
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-24 w-full rounded-xl" />
           ))}
         </div>
+      ) : error ? (
+        <QueryErrorState
+          description={error instanceof Error ? error.message : "Falha ao carregar fretes."}
+          onRetry={() => void mutate()}
+        />
       ) : allFreights.length === 0 ? (
         <EmptyState
           title="Nenhum frete"
@@ -321,24 +240,19 @@ export function FreightsListView() {
           onAction={canWrite ? () => router.push("/dashboard/fretes/novo") : undefined}
         />
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed py-14 text-center">
-          <Package className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">
-            Nenhum frete encontrado com os filtros aplicados.
-          </p>
-          {hasFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearch("")
-                setStatusFilter("all")
-              }}
-            >
-              Limpar filtros
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          title="Nenhum resultado"
+          description="Nenhum frete encontrado com os filtros aplicados."
+          actionLabel={hasFilters ? "Limpar filtros" : undefined}
+          onAction={
+            hasFilters
+              ? () => {
+                  setSearch("")
+                  setStatusFilter("all")
+                }
+              : undefined
+          }
+        />
       ) : (
         <div className="space-y-2">
           {filtered.map((f) => {
@@ -349,119 +263,109 @@ export function FreightsListView() {
             const isAdvancing = advancing === f.id
 
             return (
-              <div
+              <ClickableListCard
                 key={f.id}
-                role="button"
-                tabIndex={0}
-                className="group cursor-pointer outline-none"
-                onClick={() => router.push(`/dashboard/fretes/${f.id}`)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault()
-                    router.push(`/dashboard/fretes/${f.id}`)
-                  }
-                }}
-              >
-                <Card
-                  className={cn(
-                    "relative overflow-hidden transition-all duration-150 group-hover:shadow-md group-hover:-translate-y-px group-focus-visible:ring-2 group-focus-visible:ring-ring",
-                    overdue && "border-rose-300 dark:border-rose-800",
-                  )}
-                >
-                  {/* Left accent bar */}
+                onActivate={() => router.push(`/dashboard/fretes/${f.id}`)}
+                className={cn(overdue && SEMANTIC.overdueBorder)}
+                accent={
                   <div
                     className={cn(
                       "absolute left-0 top-0 h-full w-1",
-                      STATUS_ACCENT[f.status] ?? "bg-slate-200",
+                      freightStatusAccent(f.status),
                     )}
                   />
+                }
+              >
+                <CardContent className="flex items-center gap-4 py-4 pl-5 pr-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span className="font-bold tracking-tight">{f.code}</span>
+                      <FreightStatusBadge status={f.status} />
+                      {overdue && (
+                        <Badge variant="destructive" className="px-1.5 py-0 text-[10px]">
+                          Atrasado
+                        </Badge>
+                      )}
+                    </div>
 
-                  <CardContent className="flex items-center gap-4 py-4 pl-5 pr-4">
-                    {/* Main info */}
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex flex-wrap items-center gap-2">
-                        <span className="font-bold tracking-tight">{f.code}</span>
-                        <FreightStatusBadge status={f.status} />
-                        {overdue && (
-                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                            Atrasado
-                          </Badge>
-                        )}
-                      </div>
+                    <p className="flex items-center gap-1 text-sm font-medium text-foreground/80">
+                      <span className="truncate">{formatFreightRouteShort(f)}</span>
+                      {(f.stops?.length ?? 0) > 0 && (
+                        <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
+                          {f.stops!.length + 1} entregas
+                        </Badge>
+                      )}
+                    </p>
 
-                      <p className="flex items-center gap-1 text-sm font-medium text-foreground/80">
-                        <span className="truncate">{formatFreightRouteShort(f)}</span>
-                        {(f.stops?.length ?? 0) > 0 && (
-                          <Badge variant="secondary" className="shrink-0 text-[10px] px-1.5 py-0">
-                            {f.stops!.length + 1} entregas
-                          </Badge>
-                        )}
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                      {f.customer_name && (
+                        <span className="font-medium text-foreground/70">{f.customer_name}</span>
+                      )}
+                      {driverName && <span>Mot. {driverName}</span>}
+                      {truckLabel && <span>{truckLabel}</span>}
+                      {f.deadline_at && (
+                        <span className={cn(overdue && cn("font-semibold", SEMANTIC.overdue))}>
+                          Prazo: {formatDateBR(f.deadline_at)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <div className="text-right">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Valor
                       </p>
-
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                        {f.customer_name && (
-                          <span className="font-medium text-foreground/70">{f.customer_name}</span>
-                        )}
-                        {driverName && <span>Mot. {driverName}</span>}
-                        {truckLabel && <span>{truckLabel}</span>}
-                        {f.deadline_at && (
-                          <span className={cn(overdue && "font-semibold text-rose-600 dark:text-rose-400")}>
-                            Prazo: {formatDateBR(f.deadline_at)}
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-base font-bold leading-none tabular-nums">
+                        {formatBRL(f.value_brl)}
+                      </p>
+                      <FreightCostSummary freightId={f.id} valueBrl={f.value_brl} />
                     </div>
+                    {f.weight_kg != null && f.weight_kg > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {formatWeightKg(f.weight_kg)}
+                      </p>
+                    )}
+                    {canStatus && nextStatus && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 px-2 text-[11px] font-medium"
+                        disabled={isAdvancing}
+                        onClick={(e) => handleAdvance(e, f)}
+                      >
+                        {isAdvancing ? (
+                          <span className="text-muted-foreground">Aguarde...</span>
+                        ) : (
+                          <>
+                            <ArrowRight className="h-3 w-3" />
+                            {FREIGHT_STATUS_LABELS[nextStatus]}
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
 
-                    {/* Right side */}
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      <div className="text-right">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          Valor
-                        </p>
-                        <p className="text-base font-bold tabular-nums leading-none">
-                          {formatBRL(f.value_brl)}
-                        </p>
-                        <FreightCostSummary freightId={f.id} valueBrl={f.value_brl} />
-                      </div>
-                      {f.weight_kg != null && f.weight_kg > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          {formatWeightKg(f.weight_kg)}
-                        </p>
-                      )}
-                      {canStatus && nextStatus && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 gap-1 px-2 text-[11px] font-medium"
-                          disabled={isAdvancing}
-                          onClick={(e) => handleAdvance(e, f)}
-                        >
-                          {isAdvancing ? (
-                            <span className="animate-pulse">Aguarde...</span>
-                          ) : (
-                            <>
-                              <ArrowRight className="h-3 w-3" />
-                              {FREIGHT_STATUS_LABELS[nextStatus]}
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
-                  </CardContent>
-                </Card>
-              </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
+                </CardContent>
+              </ClickableListCard>
             )
           })}
 
-          {(data?.total ?? 0) > (data?.items.length ?? 0) && (
-            <p className="pt-1 text-center text-xs text-muted-foreground">
-              Exibindo {data?.items.length} de {data?.total} fretes
-            </p>
-          )}
+          {(data?.total ?? 0) > 0 && !hasFilters ? (
+            <ListPagination
+              page={page}
+              pageSize={pageSize}
+              total={data?.total ?? 0}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setPage(1)
+              }}
+            />
+          ) : null}
         </div>
       )}
-    </div>
+    </ListPage>
   )
 }

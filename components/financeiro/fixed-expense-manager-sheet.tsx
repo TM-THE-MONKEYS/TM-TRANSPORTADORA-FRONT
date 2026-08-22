@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/services/fixed-expenses"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateBR } from "@/lib/format/dates"
+import { SEMANTIC, STATUS_TONE } from "@/lib/ui/status-colors"
 import { cn } from "@/lib/utils"
 import type { FixedExpense } from "@/types"
 
@@ -65,7 +66,7 @@ export function FixedExpenseManagerSheet({
             <div>
               <p className="text-sm font-medium">
                 Total mensal:{" "}
-                <span className="font-bold text-amber-600 dark:text-amber-400">
+                <span className={cn("font-bold", SEMANTIC.cautionText)}>
                   {formatBRL(monthlyTotal)}
                 </span>
               </p>
@@ -125,7 +126,7 @@ function FixedExpenseCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               {active && (
-                <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" title="Ativo" />
+                <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_TONE.caution.bg)} title="Ativo" />
               )}
               <p className="truncate font-semibold">{item.nome}</p>
               {!active && (
@@ -152,7 +153,7 @@ function FixedExpenseCard({
         </div>
 
         <div className="mb-3 space-y-1">
-          <p className="text-2xl font-bold tabular-nums text-amber-600 dark:text-amber-400">
+          <p className={cn("text-2xl font-bold tabular-nums", SEMANTIC.cautionText)}>
             {formatBRL(item.valor)}
           </p>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

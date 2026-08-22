@@ -18,11 +18,11 @@ type FreightFinancialBreakdownProps = {
 export function FreightFinancialBreakdown({ freightId, className }: FreightFinancialBreakdownProps) {
   const { drivers } = useOperationContext()
 
-  const { data: freight, isLoading: loadingFreight } = useSWR(
+  const { data: freight, error: freightError, isLoading: loadingFreight } = useSWR(
     freightId ? ["freight-breakdown", freightId] : null,
     () => getFreight(freightId),
   )
-  const { data: costs, isLoading: loadingCosts } = useSWR(
+  const { data: costs, error: costsError, isLoading: loadingCosts } = useSWR(
     freightId ? ["freight-breakdown-costs", freightId] : null,
     () => getFreightCosts(freightId),
   )
@@ -32,6 +32,16 @@ export function FreightFinancialBreakdown({ freightId, className }: FreightFinan
   )
 
   const loading = loadingFreight || loadingCosts || loadingFinance
+
+  if (freightError || costsError) {
+    return (
+      <div className={cn("rounded-lg border border-destructive/30 bg-destructive/5 p-4", className)}>
+        <p className="text-sm text-destructive">
+          Não foi possível carregar a análise financeira do frete.
+        </p>
+      </div>
+    )
+  }
 
   if (loading || !freight) {
     return <Skeleton className={cn("h-36 w-full", className)} />
@@ -122,7 +132,7 @@ function BreakdownRow({
           "shrink-0 text-right font-medium tabular-nums",
           strong && "text-base font-bold",
           negative && !positive && "text-destructive",
-          positive && "text-green-700 dark:text-green-400",
+          positive && "text-status-success",
           positive === false && strong && "text-destructive",
         )}
       >

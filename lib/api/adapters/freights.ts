@@ -84,10 +84,17 @@ export function toFreightUpdatePayload(data: Partial<FreightOrder>): Record<stri
 }
 
 export function mapTrackingUpdateToFreightEvent(update: TrackingUpdate): FreightEvent {
+  const status =
+    update.status === "entregue"
+      ? "entregue"
+      : update.status === "devolvido"
+        ? "cancelado"
+        : "em_transporte"
+
   return {
     id: update.id,
     freight_id: update.freight_id,
-    status: "em_transporte",
+    status,
     title: update.observacao ?? update.status,
     description: update.latitude
       ? `Lat ${update.latitude}, Lng ${update.longitude ?? "—"}`

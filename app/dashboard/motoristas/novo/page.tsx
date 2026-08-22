@@ -7,6 +7,7 @@ export default function NovoMotoristaPage() {
       <PageHeader
         title="Novo motorista"
         description="Cadastro completo com CNH, comissão e conta de acesso"
+        density="compact"
       />
       <DriverForm />
     </div>

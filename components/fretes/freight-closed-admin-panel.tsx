@@ -5,6 +5,8 @@ import { AlertTriangle, ShieldAlert } from "lucide-react"
 import { FreightAddCostForm } from "@/components/fretes/freight-add-cost-form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
+import { SEMANTIC } from "@/lib/ui/status-colors"
+import { cn } from "@/lib/utils"
 import type { FreightOrder } from "@/types"
 
 type FreightClosedAdminPanelProps = {
@@ -14,10 +16,10 @@ type FreightClosedAdminPanelProps = {
 
 export function FreightClosedAdminPanel({ freight, onUpdated }: FreightClosedAdminPanelProps) {
   return (
-    <Card className="mb-6 border-amber-300/60 bg-amber-50/40 dark:border-amber-800/50 dark:bg-amber-950/20">
+    <Card className={cn("mb-6", SEMANTIC.cautionSurface)}>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <ShieldAlert className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+          <ShieldAlert className={cn("h-4 w-4", SEMANTIC.cautionText)} />
           Administração — frete encerrado
         </CardTitle>
         <CardDescription>
@@ -42,8 +44,13 @@ export function FreightClosedAdminPanel({ freight, onUpdated }: FreightClosedAdm
           </p>
         </section>
 
-        <div className="flex items-start gap-2 rounded-md border border-amber-200/80 bg-background/60 px-3 py-2 text-xs text-muted-foreground dark:border-amber-900/50">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+        <div
+          className={cn(
+            "flex items-start gap-2 rounded-md border bg-background/60 px-3 py-2 text-xs text-muted-foreground",
+            SEMANTIC.cautionBorder,
+          )}
+        >
+          <AlertTriangle className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", SEMANTIC.cautionText)} />
           Ocorrências retroativas: use a aba <strong>Ocorrências</strong> abaixo — permanece
           disponível para admin mesmo com frete encerrado.
         </div>

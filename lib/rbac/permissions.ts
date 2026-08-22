@@ -139,7 +139,7 @@ export function getDefaultHomeRoute(
   _role: UserRole,
   _userPermissions?: string[],
 ): string {
-  return HOME_NAV_ROUTE.href
+  return "/dashboard"
 }
 
 export const NAV_ROUTES: NavRoute[] = [HOME_NAV_ROUTE, ...DASHBOARD_MODULE_ROUTES]

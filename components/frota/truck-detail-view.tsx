@@ -53,6 +53,7 @@ export function TruckDetailView({ id }: { id: string }) {
       <PageHeader
         title={truck.plate}
         description={`${truck.brand} ${truck.model}`}
+        density="compact"
         actions={
           canWrite && (
             <div className="flex gap-2">

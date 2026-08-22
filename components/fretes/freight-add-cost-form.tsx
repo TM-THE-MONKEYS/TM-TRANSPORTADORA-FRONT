@@ -88,9 +88,9 @@ export function FreightAddCostForm({ freightId, onAdded, compact }: FreightAddCo
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>Tipo de gasto</Label>
+          <Label htmlFor="cost-tipo">Tipo de gasto</Label>
           <Select value={tipo} onValueChange={setTipo}>
-            <SelectTrigger>
+            <SelectTrigger id="cost-tipo">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -103,8 +103,9 @@ export function FreightAddCostForm({ freightId, onAdded, compact }: FreightAddCo
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Valor (R$)</Label>
+          <Label htmlFor="cost-valor">Valor (R$)</Label>
           <Input
+            id="cost-valor"
             inputMode="decimal"
             placeholder="0,00"
             value={valorDisplay}
@@ -115,8 +116,9 @@ export function FreightAddCostForm({ freightId, onAdded, compact }: FreightAddCo
       </div>
 
       <div className="space-y-2">
-        <Label>Descrição (opcional)</Label>
+        <Label htmlFor="cost-desc">Descrição (opcional)</Label>
         <Textarea
+          id="cost-desc"
           rows={compact ? 2 : 3}
           placeholder="Ex.: pedágio retorno, nota fiscal..."
           value={descricao}
