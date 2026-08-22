@@ -123,9 +123,9 @@ export function DashboardView() {
     [byStatus],
   )
 
-  const revenue = kpis?.monthly_revenue_brl ?? 0
-  const margin = revenue - (kpis?.operational_costs_brl ?? 0)
-  const marginPct = revenue > 0 ? (margin / revenue) * 100 : null
+  const monthlyRevenue = kpis?.monthly_revenue_brl ?? 0
+  const margin = monthlyRevenue - (kpis?.operational_costs_brl ?? 0)
+  const marginPct = monthlyRevenue > 0 ? (margin / monthlyRevenue) * 100 : null
 
   return (
     <div className="space-y-6">
