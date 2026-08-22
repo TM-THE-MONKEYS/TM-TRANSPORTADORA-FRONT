@@ -9,7 +9,6 @@ import {
   useState,
 } from "react"
 import { getMe, login as apiLogin, logout as apiLogout, type LoginInput } from "@/lib/api/services/auth"
-import { shouldUseMocks } from "@/lib/api/config"
 import { clearStoredSession, setStoredSession } from "@/lib/api/storage"
 import type { AuthUser } from "@/types"
 
@@ -29,10 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false)
 
   const hydrate = useCallback(async () => {
-    if (shouldUseMocks()) {
-      setIsReady(true)
-      return
-    }
     try {
       const me = await getMe()
       setUser(me)
@@ -46,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    hydrate()
+    void hydrate()
   }, [hydrate])
 
   const login = useCallback(async (input: LoginInput) => {

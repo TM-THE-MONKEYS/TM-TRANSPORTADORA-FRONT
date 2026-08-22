@@ -32,8 +32,11 @@ function SidebarLink({
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent",
-        active && "bg-sidebar-accent text-sidebar-accent-foreground",
+        "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+        "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        active
+          ? "bg-sidebar-accent text-sidebar-primary before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-primary"
+          : "text-sidebar-foreground/85",
       )}
     >
       <item.icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -64,8 +67,8 @@ export function AppSidebar({
     : []
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="flex h-14 items-center justify-between gap-2 border-b border-sidebar-border px-4">
+    <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
+      <div className="flex h-[4.75rem] items-center justify-between gap-2 border-b border-sidebar-border px-4">
         <Link href={homeRoute} className="font-semibold tracking-tight" onClick={onNavigate}>
           {siteConfig.shortName}
         </Link>
@@ -74,7 +77,7 @@ export function AppSidebar({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 shrink-0 text-sidebar-foreground md:hidden"
+            className="h-8 w-8 shrink-0 text-sidebar-foreground"
             onClick={onClose}
             aria-label="Fechar menu"
           >

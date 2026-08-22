@@ -27,7 +27,8 @@ Microinteração de card clicável: `LIST_CARD_INTERACTIVE` / `ClickableListCard
 ## Design system
 
 - **Tema:** light/dark via `next-themes` (preferência do usuário; tokens em `:root` e `.dark`).
-- **Tokens:** `app/globals.css` — primary (azul logístico), accent (verde operacional), destructive, chart-1..5.
+- **Tokens:** `app/globals.css` — primary azul logístico The Monkeys, superfícies frias com leve wash azul, accent verde operacional, destructive, chart-1..5.
+- **Atmosfera:** wash radial sutil no `body` (primary ~5–8%); header com borda/sombra em tom primary; item ativo da sidebar com barra primary.
 - **Status semânticos:** `--status-neutral|info|warning|progress|success|danger|caution` (nome por função, não por cor). Classes Tailwind: `bg-status-*`, `text-status-*`.
 - **Mapa único de status:** `lib/ui/status-colors.ts` — tom por frete/caminhão/motorista/financeiro/manutenção/tracking. Badges, dots, barras e gráficos devem reutilizar este módulo (nunca hardcode `violet-*` / `emerald-*` etc.).
 - **Semântica financeira:** `SEMANTIC.positive` / `SEMANTIC.negative` / superfícies `caution*` / `warning*` / `progress*`.
@@ -39,9 +40,9 @@ Microinteração de card clicável: `LIST_CARD_INTERACTIVE` / `ClickableListCard
 
 | Superfície | Componente | Comportamento |
 |------------|------------|---------------|
-| Desktop (`md+`) | `AppSidebar` em `DashboardShell` | Sidebar fixa (~16rem) com módulos RBAC |
-| Mobile (`< md`) | `Sheet` + `AppSidebar` | Botão menu no header abre drawer à esquerda |
-| Header | `AppHeader` | Logo The Monkeys + `navbarBrand`, menu mobile, `CommandPalette`, menu do usuário |
+| Desktop (`md+`) | `AppSidebar` em `DashboardShell` | Sidebar colapsável (hambúrguer no header + fechar na sidebar); preferência em `localStorage` |
+| Mobile (`< md`) | `Sheet` + `AppSidebar` | Hambúrguer no header abre/fecha o drawer |
+| Header | `AppHeader` | Hambúrguer (toggle), logo The Monkeys + `navbarBrand`, `CommandPalette`, menu do usuário |
 | Command palette | `CommandPalette` | Ctrl/Cmd+K e botão “Buscar…” no header |
 | Pós-login | `/dashboard/home` | Redirect permanente para `/dashboard` (não duplica menu) |
 

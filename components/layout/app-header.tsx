@@ -29,10 +29,12 @@ function useIsClient() {
 }
 
 type AppHeaderProps = {
-  onOpenMobileNav?: () => void
+  /** Estado aberto (mobile sheet ou sidebar desktop). */
+  navOpen?: boolean
+  onToggleNav?: () => void
 }
 
-export function AppHeader({ onOpenMobileNav }: AppHeaderProps) {
+export function AppHeader({ navOpen = false, onToggleNav }: AppHeaderProps) {
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { user, logout } = useAuth()
   const mounted = useIsClient()
@@ -48,15 +50,16 @@ export function AppHeader({ onOpenMobileNav }: AppHeaderProps) {
       : siteConfig.branding.navbarLogo
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="sticky top-0 z-30 border-b border-border/80 bg-card/90 shadow-[0_1px_0_0_color-mix(in_oklch,var(--primary)_12%,transparent)] backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="flex min-h-[4.75rem] items-center gap-3 px-4 md:gap-4 md:px-6">
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-9 w-9 shrink-0 md:hidden"
-          onClick={onOpenMobileNav}
-          aria-label="Abrir menu de módulos"
+          className="h-9 w-9 shrink-0"
+          onClick={onToggleNav}
+          aria-label={navOpen ? "Fechar menu de módulos" : "Abrir menu de módulos"}
+          aria-expanded={navOpen}
         >
           <Menu className="h-5 w-5" />
         </Button>

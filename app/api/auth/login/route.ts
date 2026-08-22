@@ -11,6 +11,8 @@ import {
 } from "@/lib/auth/login-identifier"
 import { isValidCpfLength } from "@/lib/format/cpf"
 import { normalizeAuthUser } from "@/lib/api/adapters/auth"
+import { shouldUseMocks } from "@/lib/api/config"
+import { mockLogin } from "@/lib/mocks/auth"
 
 type LoginResponse = {
   tokens: { access_token: string; refresh_token: string }
@@ -26,12 +28,22 @@ async function postBackendLogin(
     return { ok: false, status: 500, detail: "NEXT_PUBLIC_API_URL não configurada" }
   }
 
-  const res = await fetch(`${base}/api/v1${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  })
+  let res: Response
+  try {
+    res = await fetch(`${base}/api/v1${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    })
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      detail:
+        "API local indisponível (porta 8000). Suba o backend ou use NEXT_PUBLIC_USE_MOCKS=true no .env.local.",
+    }
+  }
 
   const json = (await res.json().catch(() => ({}))) as LoginResponse & { detail?: unknown }
   if (!res.ok) {
@@ -54,6 +66,21 @@ export async function POST(request: Request) {
 
   if (!identifier || !password) {
     return NextResponse.json({ error: "Identificador e senha obrigatórios" }, { status: 400 })
+  }
+
+  if (shouldUseMocks()) {
+    try {
+      const data = await mockLogin(identifier, password)
+      const user = normalizeAuthUser(data.user)
+      const res = NextResponse.json({ user })
+      setAuthCookies(res, data.tokens.access_token, data.tokens.refresh_token)
+      return res
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Credenciais inválidas" },
+        { status: 401 },
+      )
+    }
   }
 
   let result: Awaited<ReturnType<typeof postBackendLogin>>
