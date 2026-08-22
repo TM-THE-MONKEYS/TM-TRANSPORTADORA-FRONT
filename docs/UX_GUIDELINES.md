@@ -41,7 +41,7 @@ Microinteração de card clicável: `LIST_CARD_INTERACTIVE` / `ClickableListCard
 |------------|------------|---------------|
 | Desktop (`md+`) | `AppSidebar` em `DashboardShell` | Sidebar fixa (~16rem) com módulos RBAC |
 | Mobile (`< md`) | `Sheet` + `AppSidebar` | Botão menu no header abre drawer à esquerda |
-| Header | `AppHeader` | Menu mobile, logo (só mobile), `CommandPalette`, menu do usuário |
+| Header | `AppHeader` | Logo The Monkeys + `navbarBrand`, menu mobile, `CommandPalette`, menu do usuário |
 | Command palette | `CommandPalette` | Ctrl/Cmd+K e botão “Buscar…” no header |
 | Pós-login | `/dashboard/home` | Redirect permanente para `/dashboard` (não duplica menu) |
 

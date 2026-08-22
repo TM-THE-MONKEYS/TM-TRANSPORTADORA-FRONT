@@ -49,7 +49,7 @@ export function AppHeader({ onOpenMobileNav }: AppHeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="flex h-14 items-center gap-3 px-4 md:px-6">
+      <div className="flex min-h-[4.75rem] items-center gap-3 px-4 md:gap-4 md:px-6">
         <Button
           type="button"
           variant="ghost"
@@ -63,18 +63,20 @@ export function AppHeader({ onOpenMobileNav }: AppHeaderProps) {
 
         <Link
           href={homeRoute}
-          className="flex shrink-0 items-center gap-2.5 md:hidden"
+          className="flex shrink-0 items-center gap-2.5"
           aria-label={siteConfig.branding.navbarLogoAlt}
         >
           <Image
             src={logoSrc}
             alt=""
-            width={36}
-            height={36}
-            className="h-8 w-8 object-contain"
+            width={40}
+            height={40}
+            className="h-9 w-9 object-contain"
             priority
           />
-          <span className="text-sm font-semibold tracking-tight">{siteConfig.navbarBrand}</span>
+          <span className="hidden text-sm font-semibold tracking-tight sm:inline sm:text-base">
+            {siteConfig.navbarBrand}
+          </span>
         </Link>
 
         <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
@@ -85,7 +87,7 @@ export function AppHeader({ onOpenMobileNav }: AppHeaderProps) {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-9 shrink-0 gap-2 px-2.5 sm:px-3"
+                  className="h-10 shrink-0 gap-2 px-3"
                   aria-label="Menu do usuário"
                 >
                   <UserRound className="h-4 w-4 text-muted-foreground" />
