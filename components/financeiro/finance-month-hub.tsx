@@ -20,8 +20,10 @@ import {
 } from "@/lib/api/services/finance"
 import { formatBRL } from "@/lib/format/currency"
 import { formatCompetenciaLabel } from "@/lib/format/dates"
+import { SEMANTIC } from "@/lib/ui/status-colors"
 import { cn } from "@/lib/utils"
 import type { FinanceEntry, FinanceEntryStatus, FinanceEntryType } from "@/types"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface FinanceMonthHubProps {
   competencia: { mes: number; ano: number }
@@ -155,19 +157,19 @@ export function FinanceMonthHub({
       {/* Barra de saldo compacta — sem cards KPI */}
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 rounded-lg border bg-muted/20 px-4 py-3 text-sm">
         {loadingCash ? (
-          <div className="h-5 w-64 animate-pulse rounded bg-muted" />
+          <Skeleton className="h-5 w-64" />
         ) : (
           <>
             <span>
               Receitas{" "}
-              <strong className="tabular-nums text-green-700 dark:text-green-400">
+              <strong className={cn("tabular-nums", SEMANTIC.positive)}>
                 {formatBRL(receitas)}
               </strong>
             </span>
             <span className="text-muted-foreground">·</span>
             <span>
               Despesas{" "}
-              <strong className="tabular-nums text-destructive">{formatBRL(despesas)}</strong>
+              <strong className={cn("tabular-nums", SEMANTIC.negative)}>{formatBRL(despesas)}</strong>
             </span>
             <span className="text-muted-foreground">·</span>
             <span>
@@ -175,9 +177,7 @@ export function FinanceMonthHub({
               <strong
                 className={cn(
                   "tabular-nums",
-                  saldo >= 0
-                    ? "text-green-700 dark:text-green-400"
-                    : "text-destructive",
+                  saldo >= 0 ? SEMANTIC.positive : SEMANTIC.negative,
                 )}
               >
                 {formatBRL(saldo)}

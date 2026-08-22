@@ -16,8 +16,10 @@ import {
 } from "@/lib/finance/entry-origin"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateBR, parseLocalDate } from "@/lib/format/dates"
+import { SEMANTIC } from "@/lib/ui/status-colors"
 import { cn } from "@/lib/utils"
 import type { FinanceEntry, FinanceEntryStatus, FinanceEntryType } from "@/types"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const STATUS_BADGE: Record<
   FinanceEntryStatus,
@@ -168,7 +170,9 @@ export function FinanceEntriesTable({
                 <tr key={i} className="border-b">
                   {Array.from({ length: canAdmin ? 8 : 7 }).map((_, j) => (
                     <td key={j} className="px-3 py-3">
-                      <div className="h-4 animate-pulse rounded bg-muted" />
+                      <div className="h-4">
+                        <Skeleton className="h-4 w-full" />
+                      </div>
                     </td>
                   ))}
                 </tr>
@@ -200,7 +204,7 @@ export function FinanceEntriesTable({
                     <td className="max-w-[220px] px-3 py-2.5">
                       <div className="flex items-center gap-1.5">
                         {entry.tipo === "receita" ? (
-                          <TrendingUp className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                          <TrendingUp className={cn("h-3.5 w-3.5 shrink-0", SEMANTIC.positiveIcon)} />
                         ) : (
                           <TrendingDown className="h-3.5 w-3.5 shrink-0 text-destructive" />
                         )}
@@ -229,8 +233,8 @@ export function FinanceEntriesTable({
                       className={cn(
                         "px-3 py-2.5 text-right font-semibold tabular-nums",
                         entry.tipo === "receita"
-                          ? "text-green-700 dark:text-green-400"
-                          : "text-destructive",
+                          ? SEMANTIC.positive
+                          : SEMANTIC.negative,
                       )}
                     >
                       {entry.tipo === "receita" ? "+" : "−"}
@@ -248,7 +252,7 @@ export function FinanceEntriesTable({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-green-600 hover:text-green-700"
+                              className={cn("h-7 w-7 hover:opacity-80", SEMANTIC.positiveIcon)}
                               onClick={() => onMarkPaid(entry)}
                               title="Marcar como pago"
                             >

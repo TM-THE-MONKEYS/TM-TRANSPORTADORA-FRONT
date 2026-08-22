@@ -49,6 +49,8 @@ import {
 } from "@/lib/format/numbers"
 import { usePermission } from "@/hooks/use-permission"
 import { isAdminRole, PERMISSIONS } from "@/lib/rbac/permissions"
+import { SEMANTIC } from "@/lib/ui/status-colors"
+import { cn } from "@/lib/utils"
 import type { MaintenanceStatus, MaintenanceType } from "@/types"
 
 const STATUS_LABELS: Record<MaintenanceStatus, string> = {
@@ -243,14 +245,14 @@ export function MaintenanceView() {
       />
 
       {!loadingAlerts && alerts.length > 0 && (
-        <div className="rounded-xl border border-amber-400/40 bg-amber-500/5 px-4 py-3">
+        <div className={cn("rounded-xl border px-4 py-3", SEMANTIC.warningSurface)}>
           <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <AlertTriangle className={cn("mt-0.5 h-5 w-5 shrink-0", SEMANTIC.warningText)} />
             <div>
-              <p className="font-medium text-amber-800 dark:text-amber-300">
+              <p className={cn("font-medium", SEMANTIC.warningText)}>
                 {alerts.length} manutenção(ões) agendada(s) nos próximos 30 dias
               </p>
-              <ul className="mt-2 space-y-1 text-sm text-amber-700 dark:text-amber-400">
+              <ul className={cn("mt-2 space-y-1 text-sm", SEMANTIC.warningText)}>
                 {alerts.map((alert) => (
                   <li key={alert.id}>
                     {getTruckLabel(trucks, alert.truck_id) ?? alert.truck_id.slice(0, 8)} —{" "}
@@ -572,7 +574,7 @@ export function MaintenanceView() {
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 gap-1 text-green-700 hover:text-green-700"
+                                className={cn("h-8 gap-1", SEMANTIC.positive)}
                                 disabled={actionLoading === item.id}
                                 onClick={() =>
                                   openConfirm(item.id, "concluida", "Manutenção concluída")

@@ -8,7 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateBR } from "@/lib/format/dates"
+import { SEMANTIC } from "@/lib/ui/status-colors"
+import { cn } from "@/lib/utils"
 import type { FixedExpenseLaunchStatus } from "@/types"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface FinancePendingFixedListProps {
   items: FixedExpenseLaunchStatus[]
@@ -50,7 +53,7 @@ export function FinancePendingFixedList({
           <CardTitle className="text-base">A lançar neste mês</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-20 animate-pulse rounded-lg bg-muted" />
+          <Skeleton className="h-20 w-full rounded-lg" />
         </CardContent>
       </Card>
     )
@@ -61,12 +64,12 @@ export function FinancePendingFixedList({
   }
 
   return (
-    <Card className="border-amber-200/60 dark:border-amber-900/40">
+    <Card className={SEMANTIC.cautionBorder}>
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <CalendarClock className="h-4 w-4 text-amber-600" />
+              <CalendarClock className={cn("h-4 w-4", SEMANTIC.cautionText)} />
               A lançar neste mês
             </CardTitle>
             <CardDescription>
@@ -137,7 +140,7 @@ export function FinancePendingFixedList({
             <div className="flex flex-wrap gap-2">
               {launched.map((item) => (
                 <Badge key={item.id} variant="secondary" className="gap-1 font-normal">
-                  <CheckCircle2 className="h-3 w-3 text-green-600" />
+                  <CheckCircle2 className={cn("h-3 w-3", SEMANTIC.positiveIcon)} />
                   {item.nome}
                   {item.suggested_vencimento && (
                     <span className="text-muted-foreground">

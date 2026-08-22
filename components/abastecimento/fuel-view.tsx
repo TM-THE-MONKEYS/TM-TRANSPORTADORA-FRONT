@@ -56,6 +56,8 @@ import { formatDateBR, isoToDateInput } from "@/lib/format/dates"
 import { usePermission } from "@/hooks/use-permission"
 import { isAdminRole, PERMISSIONS } from "@/lib/rbac/permissions"
 import { FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
+import { SEMANTIC } from "@/lib/ui/status-colors"
+import { cn } from "@/lib/utils"
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return "—"
@@ -359,7 +361,7 @@ export function FuelView() {
 
             <CardContent className="pt-6">
               {allowClosedFuel && (
-                <p className="mb-4 rounded-md border border-amber-200/80 bg-amber-50/50 px-3 py-2 text-xs text-muted-foreground dark:border-amber-900/50 dark:bg-amber-950/20">
+                <p className={cn("mb-4 rounded-md border px-3 py-2 text-xs text-muted-foreground", SEMANTIC.cautionSurface)}>
                   Modo administrativo: permite lançar abastecimento em frete já encerrado.
                   {presetFreightId && (
                     <>
@@ -439,7 +441,7 @@ export function FuelView() {
                         </div>
                       </div>
                     ) : (
-                      <p className="rounded-xl border border-amber-400/40 bg-amber-500/5 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+                      <p className={cn("rounded-xl border px-4 py-3 text-sm", SEMANTIC.warningSurface, SEMANTIC.warningText)}>
                         Este frete não tem caminhão vinculado. Peça ao operador para atribuir um
                         veículo antes do abastecimento.
                       </p>

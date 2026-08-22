@@ -1,6 +1,8 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { SEMANTIC } from "@/lib/ui/status-colors"
+import { cn } from "@/lib/utils"
 
 /**
  * Checklist de entrega ainda sem API de persistência.
@@ -17,7 +19,7 @@ export function DeliveryChecklist({ freightId: _freightId }: { freightId: string
         <p className="text-sm text-muted-foreground">
           Em breve: carga conferida, lacre/documentação, fotos e assinatura do recebedor.
         </p>
-        <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+        <p className={cn("text-xs font-medium", SEMANTIC.cautionText)}>
           Ainda não é salvo no servidor — use ocorrências/anexos do frete para registrar a entrega
           por enquanto.
         </p>

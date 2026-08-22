@@ -5,7 +5,7 @@ export default async function EditarCaminhaoPage({ params }: { params: Promise<{
   const { id } = await params
   return (
     <div>
-      <PageHeader title="Editar caminhão" />
+      <PageHeader title="Editar caminhão" density="compact" />
       <TruckForm truckId={id} />
     </div>
   )

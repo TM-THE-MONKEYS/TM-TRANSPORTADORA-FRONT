@@ -2,12 +2,17 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, PanelLeftClose, type LucideIcon } from "lucide-react"
+import { PanelLeftClose, type LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { siteConfig } from "@/lib/site-config"
 import { useAuth } from "@/components/providers/auth-provider"
-import { getAllowedNavRoutes, getDefaultHomeRoute, type NavRoute } from "@/lib/rbac/permissions"
+import {
+  getAllowedNavRoutes,
+  getDefaultHomeRoute,
+  HOME_NAV_ROUTE,
+  type NavRoute,
+} from "@/lib/rbac/permissions"
 import { getNavIcon } from "@/lib/navigation/nav-icons"
 
 function SidebarLink({
@@ -31,7 +36,7 @@ function SidebarLink({
         active && "bg-sidebar-accent text-sidebar-accent-foreground",
       )}
     >
-      <item.icon className="h-4 w-4" />
+      <item.icon className="h-4 w-4 shrink-0" aria-hidden />
       {item.label}
     </Link>
   )
@@ -49,10 +54,13 @@ export function AppSidebar({
     ? getDefaultHomeRoute(user.role, user.permissions)
     : "/dashboard"
   const allowedRoutes = user
-    ? getAllowedNavRoutes(user.role, user.permissions).map((route) => ({
-        ...route,
-        icon: getNavIcon(route.href),
-      }))
+    ? getAllowedNavRoutes(user.role, user.permissions)
+        // Home só redireciona para o Dashboard — não duplicar no menu.
+        .filter((route) => route.href !== HOME_NAV_ROUTE.href)
+        .map((route) => ({
+          ...route,
+          icon: getNavIcon(route.href),
+        }))
     : []
 
   return (
@@ -66,7 +74,7 @@ export function AppSidebar({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 shrink-0 text-sidebar-foreground"
+            className="h-8 w-8 shrink-0 text-sidebar-foreground md:hidden"
             onClick={onClose}
             aria-label="Fechar menu"
           >
@@ -74,7 +82,7 @@ export function AppSidebar({
           </Button>
         )}
       </div>
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Módulos">
         {allowedRoutes.map((item) => (
           <SidebarLink key={item.href} item={item} onNavigate={onNavigate} />
         ))}

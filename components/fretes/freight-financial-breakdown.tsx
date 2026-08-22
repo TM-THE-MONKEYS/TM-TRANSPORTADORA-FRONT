@@ -132,7 +132,7 @@ function BreakdownRow({
           "shrink-0 text-right font-medium tabular-nums",
           strong && "text-base font-bold",
           negative && !positive && "text-destructive",
-          positive && "text-green-700 dark:text-green-400",
+          positive && "text-status-success",
           positive === false && strong && "text-destructive",
         )}
       >

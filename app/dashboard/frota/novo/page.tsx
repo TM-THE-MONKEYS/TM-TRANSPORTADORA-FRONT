@@ -4,7 +4,7 @@ import { TruckForm } from "@/components/frota/truck-form"
 export default function NovoCaminhaoPage() {
   return (
     <div>
-      <PageHeader title="Novo caminhão" />
+      <PageHeader title="Novo caminhão" density="compact" />
       <TruckForm />
     </div>
   )

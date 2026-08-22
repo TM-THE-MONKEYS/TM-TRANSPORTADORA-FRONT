@@ -54,6 +54,10 @@ import { formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
 import { MANUAL_FREIGHT_COST_TYPES } from "@/lib/freight/costs"
 import { FREIGHT_STATUS_FLOW, FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
 import {
+  statusSoftClass,
+  TRACKING_STATUS_TONE,
+} from "@/lib/ui/status-colors"
+import {
   ADMIN_FREIGHT_STATUS_OPTIONS,
   canAdminManageClosedFreight,
   isFreightClosed,
@@ -76,15 +80,6 @@ const TRACKING_STATUS_LABELS: Record<string, string> = {
   tentativa_entrega: "Tentativa de entrega",
   entregue:          "Entregue",
   devolvido:         "Devolvido",
-}
-
-const TRACKING_STATUS_STYLES: Record<string, string> = {
-  coletado:          "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  em_transito:       "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-  saiu_para_entrega: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  tentativa_entrega: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300",
-  entregue:          "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-  devolvido:         "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
 }
 
 export function FreightDetailView({ id }: { id: string }) {
@@ -246,6 +241,7 @@ export function FreightDetailView({ id }: { id: string }) {
       <PageHeader
         title={freight.code}
         description={formatFreightRouteShort(freight)}
+        density="compact"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canStatus && (
@@ -294,7 +290,7 @@ export function FreightDetailView({ id }: { id: string }) {
         <span className="text-sm text-muted-foreground">{freight.cargo_description}</span>
         <span className="font-medium">{formatBRL(freight.value_brl)}</span>
         {isFreightInTransit(freight.status) && (
-          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">
+          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", statusSoftClass("progress"))}>
             Viagem em percurso
           </span>
         )}
@@ -328,7 +324,7 @@ export function FreightDetailView({ id }: { id: string }) {
                       "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
                       point.kind === "origin" && "bg-muted text-muted-foreground",
                       point.kind === "stop" && "bg-primary/15 text-primary",
-                      point.kind === "destination" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+                      point.kind === "destination" && "bg-status-success/15 text-status-success",
                     )}
                   >
                     {point.kind === "origin" ? "O" : point.kind === "destination" ? "F" : point.sequence}
@@ -649,7 +645,9 @@ export function FreightDetailView({ id }: { id: string }) {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={cn(
                           "inline-block rounded-full px-2.5 py-0.5 text-xs font-medium",
-                          TRACKING_STATUS_STYLES[upd.status] ?? "bg-muted text-muted-foreground",
+                          TRACKING_STATUS_TONE[upd.status]
+                            ? statusSoftClass(TRACKING_STATUS_TONE[upd.status])
+                            : "bg-muted text-muted-foreground",
                         )}>
                           {TRACKING_STATUS_LABELS[upd.status] ?? upd.status}
                         </span>

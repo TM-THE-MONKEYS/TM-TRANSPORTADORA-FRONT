@@ -1,20 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import useSWR from "swr"
-import { mutate } from "swr"
+import useSWR, { mutate } from "swr"
 import { BadgePercent, Calendar, IdCard, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState } from "@/components/shared/empty-state"
 import { QueryErrorState } from "@/components/shared/query-error-state"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { ListPage } from "@/components/shared/list-page"
+import { ListSearchField } from "@/components/shared/list-search-field"
+import { ListPagination } from "@/components/shared/list-pagination"
+import { StatusFilterChips } from "@/components/shared/status-filter-chips"
+import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { listDrivers } from "@/lib/api/services/drivers"
 import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
 import {
@@ -26,10 +30,19 @@ import {
 import { formatDateBR } from "@/lib/format/dates"
 import { findActiveFreightByDriver } from "@/lib/freight/active-trip"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
+import { DRIVER_STATUS_TONE, statusDotClass } from "@/lib/ui/status-colors"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import type { Driver, DriverStatus } from "@/types"
+
+const STATUS_ORDER: Array<DriverStatus | "all"> = [
+  "all",
+  "ativo",
+  "ferias",
+  "suspenso",
+  "inativo",
+]
 
 function DriverCard({
   driver,
@@ -40,12 +53,20 @@ function DriverCard({
   canWrite: boolean
   onDelete: (id: string) => void
 }) {
+  const router = useRouter()
   const { freights } = useOperationContext()
   const activeTrip = findActiveFreightByDriver(freights, driver.id)
   const status = driver.status as DriverStatus
 
   return (
-    <Card className="group overflow-hidden border-border/60 transition-shadow hover:shadow-md">
+    <ClickableListCard
+      onActivate={() => router.push(`/dashboard/motoristas/${driver.id}`)}
+      accent={
+        <div
+          className={`absolute left-0 top-0 h-full w-1 ${statusDotClass(DRIVER_STATUS_TONE[status])}`}
+        />
+      }
+    >
       <CardContent className="p-0">
         <div className="flex items-stretch">
           <div className="flex w-16 shrink-0 items-center justify-center bg-primary/10 text-sm font-semibold text-primary">
@@ -55,12 +76,7 @@ function DriverCard({
           <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  href={`/dashboard/motoristas/${driver.id}`}
-                  className="truncate text-base font-semibold hover:text-primary hover:underline"
-                >
-                  {driver.name}
-                </Link>
+                <span className="truncate text-base font-semibold">{driver.name}</span>
                 <Badge variant={DRIVER_STATUS_VARIANT[status]}>{DRIVER_STATUS_LABELS[status]}</Badge>
               </div>
 
@@ -81,11 +97,16 @@ function DriverCard({
                 )}
               </div>
 
-              <ActiveTripLink freight={activeTrip} />
+              <div onClick={(e) => e.stopPropagation()}>
+                <ActiveTripLink freight={activeTrip} />
+              </div>
             </div>
 
             {canWrite && (
-              <div className="flex shrink-0 gap-1 self-start sm:self-center">
+              <div
+                className="flex shrink-0 gap-1 self-start sm:self-center"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Button variant="ghost" size="icon" asChild aria-label="Editar">
                   <Link href={`/dashboard/motoristas/${driver.id}/editar`}>
                     <Pencil className="h-4 w-4" />
@@ -104,16 +125,52 @@ function DriverCard({
           </div>
         </div>
       </CardContent>
-    </Card>
+    </ClickableListCard>
   )
 }
 
 export function DriversListView() {
   const router = useRouter()
   const canWrite = usePermission(PERMISSIONS.driversWrite)
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<DriverStatus | "all">("all")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const { data, isLoading, error, mutate: revalidate } = useSWR("drivers", () => listDrivers(1, 50))
+  const { data, isLoading, error, mutate: revalidate } = useSWR(
+    ["drivers", page, pageSize],
+    () => listDrivers(page, pageSize),
+  )
+
+  const allDrivers = data?.items ?? []
+
+  const countByStatus = useMemo(() => {
+    const counts: Record<string, number> = { all: allDrivers.length }
+    for (const d of allDrivers) {
+      counts[d.status] = (counts[d.status] ?? 0) + 1
+    }
+    return counts
+  }, [allDrivers])
+
+  const filtered = useMemo(() => {
+    let items = allDrivers
+    if (statusFilter !== "all") {
+      items = items.filter((d) => d.status === statusFilter)
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      items = items.filter(
+        (d) =>
+          d.name.toLowerCase().includes(q) ||
+          d.cnh_number.toLowerCase().includes(q) ||
+          (d.cpf ?? "").toLowerCase().includes(q),
+      )
+    }
+    return items
+  }, [allDrivers, statusFilter, search])
+
+  const hasFilters = statusFilter !== "all" || search.trim() !== ""
 
   async function handleDelete() {
     if (!deleteId) return
@@ -121,7 +178,7 @@ export function DriversListView() {
     try {
       await deleteDriverWithAccount(deleteId)
       toast.success("Motorista excluído")
-      await mutate("drivers")
+      await mutate((key) => Array.isArray(key) && key[0] === "drivers")
       setDeleteId(null)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao excluir")
@@ -131,22 +188,53 @@ export function DriversListView() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Motoristas"
-        description="Gestão de CNH, comissões e contas de acesso"
-        actions={
-          canWrite ? (
-            <Button asChild>
-              <Link href="/dashboard/motoristas/novo">
-                <Plus className="mr-2 h-4 w-4" />
-                Novo motorista
-              </Link>
-            </Button>
-          ) : undefined
-        }
-      />
-
+    <ListPage
+      header={
+        <PageHeader
+          title="Motoristas"
+          description="Gestão de CNH, comissões e contas de acesso"
+          actions={
+            canWrite ? (
+              <Button asChild>
+                <Link href="/dashboard/motoristas/novo">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo motorista
+                </Link>
+              </Button>
+            ) : undefined
+          }
+        />
+      }
+      toolbar={
+        <div className="space-y-3">
+          <ListSearchField
+            value={search}
+            onChange={(value) => {
+              setSearch(value)
+              setPage(1)
+            }}
+            placeholder="Buscar por nome, CNH ou CPF..."
+            className="max-w-md"
+          />
+          {!isLoading && allDrivers.length > 0 ? (
+            <StatusFilterChips
+              value={statusFilter}
+              onChange={(value) => {
+                setStatusFilter(value)
+                setPage(1)
+              }}
+              chips={STATUS_ORDER.map((s) => ({
+                value: s,
+                label: s === "all" ? "Todos" : DRIVER_STATUS_LABELS[s],
+                count: countByStatus[s] ?? 0,
+                visible: s === "all" || (countByStatus[s] ?? 0) > 0,
+                dotClassName: s !== "all" ? statusDotClass(DRIVER_STATUS_TONE[s]) : undefined,
+              }))}
+            />
+          ) : null}
+        </div>
+      }
+    >
       {isLoading ? (
         <div className="grid gap-4 lg:grid-cols-2">
           <Skeleton className="h-28 rounded-xl" />
@@ -157,18 +245,46 @@ export function DriversListView() {
           description={error instanceof Error ? error.message : "Falha ao carregar motoristas."}
           onRetry={() => void revalidate()}
         />
-      ) : !data?.items.length ? (
+      ) : allDrivers.length === 0 ? (
         <EmptyState
           title="Sem motoristas"
           description="Cadastre motoristas da frota com CNH, comissão e acesso ao app."
-          actionLabel="Novo motorista"
-          onAction={() => router.push("/dashboard/motoristas/novo")}
+          actionLabel={canWrite ? "Novo motorista" : undefined}
+          onAction={canWrite ? () => router.push("/dashboard/motoristas/novo") : undefined}
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          title="Nenhum resultado"
+          description="Nenhum motorista encontrado com os filtros aplicados."
+          actionLabel={hasFilters ? "Limpar filtros" : undefined}
+          onAction={
+            hasFilters
+              ? () => {
+                  setSearch("")
+                  setStatusFilter("all")
+                }
+              : undefined
+          }
         />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {data.items.map((d) => (
-            <DriverCard key={d.id} driver={d} canWrite={canWrite} onDelete={setDeleteId} />
-          ))}
+        <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {filtered.map((d) => (
+              <DriverCard key={d.id} driver={d} canWrite={canWrite} onDelete={setDeleteId} />
+            ))}
+          </div>
+          {(data?.total ?? 0) > 0 && !hasFilters ? (
+            <ListPagination
+              page={page}
+              pageSize={pageSize}
+              total={data?.total ?? 0}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size)
+                setPage(1)
+              }}
+            />
+          ) : null}
         </div>
       )}
 
@@ -181,6 +297,6 @@ export function DriversListView() {
         loading={deleting}
         onConfirm={handleDelete}
       />
-    </div>
+    </ListPage>
   )
 }
