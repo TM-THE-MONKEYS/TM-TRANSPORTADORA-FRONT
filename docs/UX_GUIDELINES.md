@@ -72,7 +72,7 @@ Padrão:
 - Cards com hover/foco unificado (`ClickableListCard`).
 - Paginação: `ListPagination` (mesmo padrão de `DataTable`) com `page`/`pageSize` server-side em Fretes, Frota e Motoristas.
 
-Módulos alinhados: Fretes, Frota, Motoristas. Financeiro/Abastecimento/Manutenção usam layouts próprios (tabelas/formulários) e reutilizam tokens/EmptyState onde couber.
+Módulos alinhados: Fretes, Frota, Motoristas, Financeiro (paginação + EmptyState + ListSearchField), Abastecimento (ListSearchField + EmptyState), Manutenção (ListSearchField + chips de status + EmptyState).
 
 ### Formulários
 

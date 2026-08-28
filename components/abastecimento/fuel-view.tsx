@@ -27,6 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PageHeader } from "@/components/shared/page-header"
+import { ListSearchField } from "@/components/shared/list-search-field"
+import { EmptyState } from "@/components/shared/empty-state"
 import { useAuth } from "@/components/providers/auth-provider"
 import { listDrivers } from "@/lib/api/services/drivers"
 import { listFreights } from "@/lib/api/services/freight"
@@ -79,6 +81,7 @@ export function FuelView() {
   const [posto, setPosto] = useState("")
   const [kmDisplay, setKmDisplay] = useState("")
   const [saving, setSaving] = useState(false)
+  const [fuelSearch, setFuelSearch] = useState("")
   const [editRefill, setEditRefill] = useState<FuelRefill | null>(null)
   const [deleteRefill, setDeleteRefill] = useState<FuelRefill | null>(null)
   const [editValor, setEditValor] = useState("")
@@ -122,6 +125,20 @@ export function FuelView() {
     if (!isMotorista || !currentDriverId) return all
     return all.filter((r) => r.driver_id === currentDriverId)
   }, [refills, isMotorista, currentDriverId])
+
+  const searchFilteredRefills = useMemo(() => {
+    if (!fuelSearch.trim()) return visibleRefills
+    const q = fuelSearch.trim().toLowerCase()
+    return visibleRefills.filter((r) => {
+      const freight = freightMap.get(r.freight_id)
+      return (
+        (freight?.code ?? "").toLowerCase().includes(q) ||
+        (r.posto ?? "").toLowerCase().includes(q) ||
+        (r.cidade ?? "").toLowerCase().includes(q) ||
+        resolveDriverDisplayName(r, drivers).toLowerCase().includes(q)
+      )
+    })
+  }, [visibleRefills, fuelSearch, freightMap, drivers])
 
   const selectedFreight =
     eligibleFreights.find((f) => f.id === freightId) ??
@@ -516,10 +533,16 @@ export function FuelView() {
 
       {/* History table */}
       <Card>
-        <CardHeader className="pb-0">
+        <CardHeader className="flex-col items-start gap-3 pb-0 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">
             {isMotorista ? "Meus abastecimentos" : "Histórico de abastecimentos"}
           </CardTitle>
+          <ListSearchField
+            value={fuelSearch}
+            onChange={setFuelSearch}
+            placeholder="Buscar por frete, posto ou motorista..."
+            className="w-full sm:w-64"
+          />
         </CardHeader>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -551,14 +574,22 @@ export function FuelView() {
                     novamente.
                   </td>
                 </tr>
-              ) : visibleRefills.length === 0 ? (
+              ) : searchFilteredRefills.length === 0 ? (
                 <tr>
-                  <td colSpan={canManageFuel ? 8 : 7} className="px-5 py-10 text-center text-muted-foreground">
-                    Nenhum abastecimento registrado
+                  <td colSpan={canManageFuel ? 8 : 7} className="p-0">
+                    <EmptyState
+                      title={fuelSearch ? "Nenhum resultado encontrado" : "Nenhum abastecimento registrado"}
+                      description={
+                        fuelSearch
+                          ? "Tente ajustar o termo de busca."
+                          : "Registre o primeiro abastecimento usando o formulário acima."
+                      }
+                      className="rounded-none border-0"
+                    />
                   </td>
                 </tr>
               ) : (
-                visibleRefills.map((entry) => {
+                searchFilteredRefills.map((entry) => {
                   const freight = freightMap.get(entry.freight_id)
                   return (
                     <tr

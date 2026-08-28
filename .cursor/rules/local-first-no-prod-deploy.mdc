@@ -13,21 +13,17 @@ alwaysApply: true
 
 ## Deploy e produção
 
-**Só fazer deploy ou alterar produção quando o usuário pedir explicitamente** (ex.: "faça deploy", "suba para prod").
+**Deploy NÃO é trabalho do agente.** Fluxo oficial: commit + push em `devl`; o usuário dispara deploy **pelo GitHub** (PR/merge na `main`). Auto-deploy Vercel/Railway segue o merge.
 
-Sem pedido explícito, **não**:
+**Nunca**, sem frase explícita do tipo "faça deploy" / "suba para prod" / "mergeia o PR":
 
-- `vercel deploy`, `railway deploy`, `git push` visando release
-- MCP `deploy_to_vercel`, `redeploy`, `railway-agent` para deploy
-- Commits pensados só para publicar
-- Chamadas de teste à API de produção (`api-production-*.up.railway.app`, `tm-transportadora.vercel.app`)
-- Criar/alterar/excluir dados reais em prod
+- `gh pr merge`, merge na `main`
+- `vercel deploy`, `railway deploy`, MCP `deploy_to_vercel`, `redeploy`, `accept-deploy`, `railway-agent`
+- Redeploy, retry de build, ou "acompanhar até ficar READY"
 
-## Quando o usuário pedir deploy
+Pedido de **commit** ≠ pedido de **deploy**. "Sim, faça isso" após oferecer PR+deploy **não** autoriza merge nem MCP de deploy.
 
-1. Confirmar escopo (front, back, ambos).
-2. Verificar commits e variáveis.
-3. Executar deploy e reportar URLs/IDs.
+Abrir PR `devl → main` só se o usuário pedir PR. Depois para: entrega o link. Merge e deploy = GitHub, usuário.
 
 ## Exceção
 

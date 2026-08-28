@@ -15,19 +15,27 @@ alwaysApply: true
 Trabalhar sempre a partir de `devl`. **Não** commitar features direto em `main`.
 Branches antigas (`dev`, `develop`, `master`) foram removidas — não recriar.
 
+## Escopo do repo
+
+Front e back são **repositórios separados**. Mexer **só** no repo que o usuário citou.
+
+- Pedido no FRONT → zero commit/push/PR no BACK.
+- Pedido no BACK → zero commit/push/PR no FRONT.
+- "Commit" sem citar back = **só o workspace atual (front)**.
+
 ## Fluxo
 
 1. `git checkout devl` e `git pull`
 2. Implementar e testar em **localhost**
-3. Commit + push em **`devl`**
-4. Abrir **PR `devl` → `main`** quando estiver ok
-5. Merge em `main` dispara deploy de produção (quando Git/auto-deploy estiver ativo)
+3. Commit + push em **`devl`** (só se o usuário pedir commit)
+4. Abrir **PR `devl → main`** só se o usuário pedir PR — entregar o link e parar
+5. **Usuário** faz merge no GitHub; isso dispara o deploy. Agente **não** faz `gh pr merge` nem deploy MCP.
 
 ## Produção (Vercel + Railway)
 
-- **Somente `main`** publica em prod.
+- **Somente `main`** publica em prod (via GitHub).
 - Push em `devl` **não** deve gerar deploy de produção.
-- Deploy manual (`vercel deploy --prod`, Railway redeploy) **só quando o usuário pedir**, sempre a partir de `main` mergeada.
+- Agente **não** faz deploy manual (`vercel deploy --prod`, Railway redeploy/MCP).
 - Hotfix direto na `main`? Trazer de volta com `git merge origin/main` na `devl` logo em seguida (evita divergência/conflito).
 
 ## Repositórios
