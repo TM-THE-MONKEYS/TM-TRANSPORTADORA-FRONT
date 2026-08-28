@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/select"
 import { PageHeader } from "@/components/shared/page-header"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { ListSearchField } from "@/components/shared/list-search-field"
+import { EmptyState } from "@/components/shared/empty-state"
 import { useAuth } from "@/components/providers/auth-provider"
 import {
   advanceMaintenanceStatus,
@@ -92,6 +94,8 @@ export function MaintenanceView() {
   const [custoDisplay, setCustoDisplay] = useState("")
   const [saving, setSaving] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [maintenanceSearch, setMaintenanceSearch] = useState("")
+  const [maintenanceStatusFilter, setMaintenanceStatusFilter] = useState<MaintenanceStatus | "all">("all")
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{
@@ -126,6 +130,25 @@ export function MaintenanceView() {
   )
 
   const truckMap = useMemo(() => new Map(trucks.map((t) => [t.id, t])), [trucks])
+
+  const filteredMaintenances = useMemo(() => {
+    let result = items
+    if (maintenanceStatusFilter !== "all") {
+      result = result.filter((i) => i.status === maintenanceStatusFilter)
+    }
+    if (maintenanceSearch.trim()) {
+      const q = maintenanceSearch.trim().toLowerCase()
+      result = result.filter((i) => {
+        const truck = truckMap.get(i.truck_id)
+        return (
+          (i.descricao ?? "").toLowerCase().includes(q) ||
+          (i.oficina ?? "").toLowerCase().includes(q) ||
+          (truck?.plate ?? "").toLowerCase().includes(q)
+        )
+      })
+    }
+    return result
+  }, [items, maintenanceStatusFilter, maintenanceSearch, truckMap])
 
   useEffect(() => {
     if (eligibleTrucks.length === 1) setTruckId(eligibleTrucks[0].id)
@@ -468,8 +491,33 @@ export function MaintenanceView() {
       )}
 
       <Card>
-        <CardHeader className="pb-0">
+        <CardHeader className="flex-col items-start gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">Histórico de manutenções</CardTitle>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div className="flex flex-wrap gap-1">
+              {(["all", "agendada", "em_andamento", "concluida", "cancelada"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setMaintenanceStatusFilter(s)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                    maintenanceStatusFilter === s
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+                  )}
+                >
+                  {s === "all" ? "Todos" : STATUS_LABELS[s as MaintenanceStatus]}
+                </button>
+              ))}
+            </div>
+            <ListSearchField
+              value={maintenanceSearch}
+              onChange={setMaintenanceSearch}
+              placeholder="Buscar por veículo, descrição..."
+              className="w-full sm:w-56"
+            />
+          </div>
         </CardHeader>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -507,17 +555,26 @@ export function MaintenanceView() {
                     Não foi possível carregar manutenções. Verifique se a API está no ar.
                   </td>
                 </tr>
-              ) : items.length === 0 ? (
+              ) : filteredMaintenances.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={canManage ? 9 : 8}
-                    className="px-5 py-10 text-center text-muted-foreground"
-                  >
-                    Nenhuma manutenção registrada
+                  <td colSpan={canManage ? 9 : 8} className="p-0">
+                    <EmptyState
+                      title={
+                        maintenanceSearch || maintenanceStatusFilter !== "all"
+                          ? "Nenhuma manutenção encontrada"
+                          : "Nenhuma manutenção registrada"
+                      }
+                      description={
+                        maintenanceSearch || maintenanceStatusFilter !== "all"
+                          ? "Tente ajustar a busca ou os filtros."
+                          : "Agende a primeira manutenção usando o formulário acima."
+                      }
+                      className="rounded-none border-0"
+                    />
                   </td>
                 </tr>
               ) : (
-                items.map((item) => {
+                filteredMaintenances.map((item) => {
                   const truck = truckMap.get(item.truck_id)
                   return (
                     <tr

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { CompetenciaNavigator } from "@/components/shared/competencia-navigator"
 import { FinanceEntriesTable } from "@/components/financeiro/finance-entries-table"
 import { FinancePendingFixedList } from "@/components/financeiro/finance-pending-fixed-list"
+import { ListPagination } from "@/components/shared/list-pagination"
+import { FinanceCharts } from "@/components/financeiro/finance-charts"
 import {
   getFixedExpenseLaunchStatus,
   launchFixedExpense,
@@ -24,6 +26,9 @@ import { SEMANTIC } from "@/lib/ui/status-colors"
 import { cn } from "@/lib/utils"
 import type { FinanceEntry, FinanceEntryStatus, FinanceEntryType } from "@/types"
 import { Skeleton } from "@/components/ui/skeleton"
+
+const DEFAULT_PAGE_SIZE = 50
+const PAGE_SIZE_OPTIONS = [25, 50, 100]
 
 interface FinanceMonthHubProps {
   competencia: { mes: number; ano: number }
@@ -47,13 +52,21 @@ export function FinanceMonthHub({
   const [filterType, setFilterType] = useState<FinanceEntryType | "all">("all")
   const [filterStatus, setFilterStatus] = useState<FinanceEntryStatus | "all">("all")
   const [launchingAll, setLaunchingAll] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
   useEffect(() => {
     setFilterType("all")
     setFilterStatus("all")
+    setPage(1)
   }, [competencia.mes, competencia.ano])
 
+  useEffect(() => {
+    setPage(1)
+  }, [filterType, filterStatus])
+
   const competenciaKey = `${competencia.ano}-${competencia.mes}`
+  const exportLabel = `${competencia.ano}-${String(competencia.mes).padStart(2, "0")}`
 
   const { data: cashFlow, isLoading: loadingCash, mutate: refreshCash } = useSWR(
     ["cash-flow", competencia.mes, competencia.ano],
@@ -62,11 +75,11 @@ export function FinanceMonthHub({
   )
 
   const { data: entriesPage, isLoading: loadingEntries, mutate: refreshEntries } = useSWR(
-    ["finance-entries", filterType, filterStatus, competencia.mes, competencia.ano],
+    ["finance-entries", filterType, filterStatus, page, pageSize, competencia.mes, competencia.ano],
     () =>
       listFinanceEntries(
-        1,
-        100,
+        page,
+        pageSize,
         filterType === "all" ? undefined : filterType,
         filterStatus === "all" ? undefined : filterStatus,
         undefined,
@@ -75,6 +88,8 @@ export function FinanceMonthHub({
     { keepPreviousData: false },
   )
   const entries = entriesPage?.items ?? []
+  const totalEntries = entriesPage?.total ?? 0
+  const totalPages = entriesPage?.pages ?? 1
 
   const { data: launchStatus, isLoading: loadingLaunch, mutate: refreshLaunch } = useSWR(
     canAdmin ? ["fixed-launch-status", competencia.mes, competencia.ano] : null,
@@ -169,7 +184,9 @@ export function FinanceMonthHub({
             <span className="text-muted-foreground">·</span>
             <span>
               Despesas{" "}
-              <strong className={cn("tabular-nums", SEMANTIC.negative)}>{formatBRL(despesas)}</strong>
+              <strong className={cn("tabular-nums", SEMANTIC.negative)}>
+                {formatBRL(despesas)}
+              </strong>
             </span>
             <span className="text-muted-foreground">·</span>
             <span>
@@ -197,11 +214,20 @@ export function FinanceMonthHub({
         />
       )}
 
+      {/* Visão analítica (gráficos) */}
+      {!loadingEntries && entries.length > 0 && (
+        <FinanceCharts
+          entries={entries}
+          cashFlow={cashFlow}
+          competencia={competencia}
+        />
+      )}
+
       <div className="space-y-2">
         <p className="text-sm font-medium">
           Lançamentos{" "}
           <span className="font-normal text-muted-foreground">
-            ({entries.length} neste mês)
+            ({totalEntries} neste mês)
           </span>
         </p>
         <FinanceEntriesTable
@@ -217,7 +243,21 @@ export function FinanceMonthHub({
           onEdit={canAdmin ? onEditEntry : undefined}
           onDelete={canAdmin ? onDeleteEntry : undefined}
           onNewEntry={canAdmin ? onNewEntry : undefined}
+          exportLabel={exportLabel}
         />
+        {!loadingEntries && totalPages > 1 && (
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            total={totalEntries}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setPage(1)
+            }}
+          />
+        )}
       </div>
     </div>
   )

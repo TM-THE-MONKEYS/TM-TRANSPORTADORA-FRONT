@@ -11,10 +11,12 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, AlignJustify, AlignCenter } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ListPagination, DEFAULT_LIST_PAGE_SIZE_OPTIONS } from "@/components/shared/list-pagination"
+import { useTableDensity } from "@/hooks/use-table-density"
 import { cn } from "@/lib/utils"
 
 const DEFAULT_PAGE_SIZE_OPTIONS = DEFAULT_LIST_PAGE_SIZE_OPTIONS
@@ -48,6 +50,7 @@ export function DataTable<T>({
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState("")
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: initialSize })
+  const [density, toggleDensity] = useTableDensity()
 
   const table = useReactTable({
     data,
@@ -71,14 +74,33 @@ export function DataTable<T>({
 
   const totalFiltered = table.getFilteredRowModel().rows.length
 
+  const rowPadding = density === "compact" ? "px-5 py-1.5" : "px-5 py-3.5"
+  const headPadding = density === "compact" ? "px-5 py-2" : "px-5 py-3"
+
   return (
     <div className="space-y-4">
-      <Input
-        placeholder={filterPlaceholder}
-        value={globalFilter}
-        onChange={(e) => setGlobalFilter(e.target.value)}
-        className="max-w-sm"
-      />
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder={filterPlaceholder}
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="max-w-sm"
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={toggleDensity}
+          title={density === "compact" ? "Modo confortável" : "Modo compacto"}
+        >
+          {density === "compact" ? (
+            <AlignCenter className="h-4 w-4" />
+          ) : (
+            <AlignJustify className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
 
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
@@ -88,7 +110,7 @@ export function DataTable<T>({
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-5 py-3 text-left font-medium text-muted-foreground"
+                    className={cn(headPadding, "text-left font-medium text-muted-foreground")}
                   >
                     {header.isPlaceholder ? null : (
                       <button
@@ -155,7 +177,7 @@ export function DataTable<T>({
                   className="border-b transition-colors last:border-0 hover:bg-muted/30"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-5 py-3.5">
+                    <td key={cell.id} className={rowPadding}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
