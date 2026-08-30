@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ChevronDown, KeyRound, LogOut, Menu, Moon, Sun, UserRound } from "lucide-react"
+import { ChevronDown, KeyRound, LogOut, Moon, Sun, UserRound } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import {
@@ -28,20 +28,14 @@ function useIsClient() {
   return useSyncExternalStore(subscribeNoop, () => true, () => false)
 }
 
-type AppHeaderProps = {
-  /** Estado aberto (mobile sheet ou sidebar desktop). */
-  navOpen?: boolean
-  onToggleNav?: () => void
-}
-
-export function AppHeader({ navOpen = false, onToggleNav }: AppHeaderProps) {
+export function AppHeader() {
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { user, logout } = useAuth()
   const mounted = useIsClient()
 
   const homeRoute = user
     ? getDefaultHomeRoute(user.role, user.permissions)
-    : "/dashboard"
+    : "/dashboard/home"
   const roleLabel = getUserRoleLabel(user?.role)
   const isDark = theme === "dark"
   const logoSrc =
@@ -51,19 +45,7 @@ export function AppHeader({ navOpen = false, onToggleNav }: AppHeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/80 bg-card/90 shadow-[0_1px_0_0_color-mix(in_oklch,var(--primary)_12%,transparent)] backdrop-blur supports-[backdrop-filter]:bg-card/80">
-      <div className="flex min-h-[4.75rem] items-center gap-3 px-4 md:gap-4 md:px-6">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 shrink-0"
-          onClick={onToggleNav}
-          aria-label={navOpen ? "Fechar menu de módulos" : "Abrir menu de módulos"}
-          aria-expanded={navOpen}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-
+      <div className="flex h-14 items-center gap-3 px-4 md:gap-4 md:px-6">
         <Link
           href={homeRoute}
           className="flex shrink-0 items-center gap-2.5"
@@ -82,8 +64,19 @@ export function AppHeader({ navOpen = false, onToggleNav }: AppHeaderProps) {
           </span>
         </Link>
 
-        <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+        <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
           <CommandPalette />
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            aria-label={isDark ? "Ativar modo claro" : "Ativar modo escuro"}
+          >
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
 
           {user && (
             <DropdownMenu>
@@ -113,13 +106,6 @@ export function AppHeader({ navOpen = false, onToggleNav }: AppHeaderProps) {
                     <KeyRound />
                     Alterar senha
                   </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onClick={() => setTheme(isDark ? "light" : "dark")}
-                >
-                  {isDark ? <Sun /> : <Moon />}
-                  {isDark ? "Modo claro" : "Modo escuro"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
