@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation"
+import { HomeHub } from "@/components/dashboard/home-hub"
 
-/** Home legada — redireciona ao Dashboard (landing pós-login efetiva). */
 export default function HomePage() {
-  redirect("/dashboard")
+  return <HomeHub />
 }

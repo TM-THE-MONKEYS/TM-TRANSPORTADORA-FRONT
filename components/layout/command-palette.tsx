@@ -34,11 +34,10 @@ export function CommandPalette() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-9 items-center gap-2 rounded-md border bg-muted/50 px-3 text-sm text-muted-foreground hover:bg-muted"
+        aria-label="Buscar (Ctrl+K)"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <Search className="h-4 w-4" />
-        <span className="hidden sm:inline">Buscar...</span>
-        <kbd className="hidden rounded border bg-background px-1.5 text-xs sm:inline">Ctrl+K</kbd>
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="overflow-hidden p-0">
