@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/select"
 import { PageHeader } from "@/components/shared/page-header"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
-import { DeliveryChecklist } from "@/components/fretes/delivery-checklist"
 import { FreightClosedAdminPanel } from "@/components/fretes/freight-closed-admin-panel"
 import { FreightAddCostForm } from "@/components/fretes/freight-add-cost-form"
 import { FreightFinancialBreakdown } from "@/components/fretes/freight-financial-breakdown"
@@ -432,7 +431,6 @@ export function FreightDetailView({ id }: { id: string }) {
           <TabsTrigger value="comprovantes">Comprovantes</TabsTrigger>
           <TabsTrigger value="custos">Custos / Abastecimento</TabsTrigger>
           <TabsTrigger value="rastreamento">Rastreamento</TabsTrigger>
-          <TabsTrigger value="checklist">Checklist</TabsTrigger>
         </TabsList>
         <TabsContent value="timeline" className="mt-4">
           <Card>
@@ -669,9 +667,6 @@ export function FreightDetailView({ id }: { id: string }) {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-        <TabsContent value="checklist" className="mt-4">
-          <DeliveryChecklist freightId={id} />
         </TabsContent>
       </Tabs>
 

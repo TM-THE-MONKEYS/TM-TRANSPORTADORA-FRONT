@@ -33,6 +33,8 @@ interface FinanceChartsProps {
   entries: FinanceEntry[]
   cashFlow: CashFlowSummary | undefined
   competencia: { mes: number; ano: number }
+  truckId?: string
+  driverId?: string
 }
 
 function prevCompetencia(comp: { mes: number; ano: number }) {
@@ -46,12 +48,12 @@ function pctChange(current: number, prev: number): number | null {
   return ((current - prev) / Math.abs(prev)) * 100
 }
 
-export function FinanceCharts({ entries, cashFlow, competencia }: FinanceChartsProps) {
+export function FinanceCharts({ entries, cashFlow, competencia, truckId, driverId }: FinanceChartsProps) {
   const prevComp = prevCompetencia(competencia)
 
   const { data: prevCashFlow } = useSWR(
-    ["cash-flow", prevComp.mes, prevComp.ano],
-    () => getCashFlow(prevComp),
+    ["cash-flow", prevComp.mes, prevComp.ano, truckId, driverId],
+    () => getCashFlow(prevComp, truckId, driverId),
     { keepPreviousData: true },
   )
 

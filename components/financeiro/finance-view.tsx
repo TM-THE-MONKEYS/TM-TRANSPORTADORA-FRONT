@@ -3,11 +3,12 @@
 import { useState } from "react"
 import useSWR, { mutate as globalMutate } from "swr"
 import { toast } from "sonner"
-import { Plus, RefreshCcw } from "lucide-react"
+import { Plus, RefreshCcw, Wallet } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/shared/page-header"
 import { FinanceMonthHub } from "@/components/financeiro/finance-month-hub"
 import { FixedExpenseManagerSheet } from "@/components/financeiro/fixed-expense-manager-sheet"
+import { DriverPaymentSheet } from "@/components/financeiro/driver-payment-sheet"
 import { EntryDialog } from "@/components/financeiro/entry-dialog"
 import { FixedExpenseDialog } from "@/components/financeiro/fixed-expense-dialog"
 import {
@@ -39,6 +40,8 @@ export function FinanceView() {
 
   const [syncing, setSyncing] = useState(false)
   const [fixedManagerOpen, setFixedManagerOpen] = useState(false)
+  const [paymentSheetOpen, setPaymentSheetOpen] = useState(false)
+  const [activeDriverId, setActiveDriverId] = useState<string | undefined>()
   const [entryDialog, setEntryDialog] = useState<{ open: boolean; entry?: FinanceEntry }>({
     open: false,
   })
@@ -120,6 +123,14 @@ export function FinanceView() {
         actions={
           canAdmin ? (
             <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPaymentSheetOpen(true)}
+              >
+                <Wallet className="mr-1.5 h-4 w-4" />
+                Fechamento
+              </Button>
               <Button size="sm" onClick={() => setEntryDialog({ open: true })}>
                 <Plus className="mr-1.5 h-4 w-4" />
                 Novo lançamento
@@ -148,6 +159,7 @@ export function FinanceView() {
         onDeleteEntry={setDeleteEntry}
         onOpenFixedManager={() => setFixedManagerOpen(true)}
         onNewEntry={() => setEntryDialog({ open: true })}
+        onDriverFilterChange={setActiveDriverId}
       />
 
       {canAdmin && (
@@ -167,6 +179,14 @@ export function FinanceView() {
           onLaunch={(item) =>
             setLaunchDialog({ open: true, item, date: defaultLaunchDate })
           }
+        />
+      )}
+
+      {canAdmin && (
+        <DriverPaymentSheet
+          open={paymentSheetOpen}
+          onOpenChange={setPaymentSheetOpen}
+          initialDriverId={activeDriverId}
         />
       )}
 
