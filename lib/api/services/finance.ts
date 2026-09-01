@@ -59,14 +59,32 @@ export async function listFinanceEntries(
   status?: FinanceEntryStatus,
   freightId?: string,
   competencia?: { mes: number; ano: number },
+  truckId?: string,
+  driverId?: string,
+  categoria?: string,
 ): Promise<Paginated<FinanceEntry>> {
   if (shouldUseMocks()) {
     let items = [...mockFinanceEntries]
     if (tipo) items = items.filter((e) => e.tipo === tipo)
     if (status) items = items.filter((e) => e.status === status)
     if (freightId) items = items.filter((e) => e.freight_id === freightId)
+    if (categoria) {
+      const q = categoria.toLowerCase()
+      items = items.filter((e) => e.categoria.toLowerCase().includes(q))
+    }
     if (competencia) {
       items = items.filter((e) => entryInCompetencia(e, competencia))
+    }
+    if (truckId || driverId) {
+      const { mockStore } = await import("@/lib/mocks/store")
+      items = items.filter((e) => {
+        if (!e.freight_id) return false
+        const freight = mockStore.freights.find((f) => f.id === e.freight_id)
+        if (!freight) return false
+        if (truckId && freight.truck_id !== truckId) return false
+        if (driverId && freight.driver_id !== driverId) return false
+        return true
+      })
     }
     const start = (page - 1) * pageSize
     return {
@@ -81,10 +99,13 @@ export async function listFinanceEntries(
   if (tipo) qs.set("tipo", tipo)
   if (status) qs.set("status", status)
   if (freightId) qs.set("freight_id", freightId)
+  if (categoria) qs.set("categoria", categoria)
   if (competencia) {
     qs.set("competencia_mes", String(competencia.mes))
     qs.set("competencia_ano", String(competencia.ano))
   }
+  if (truckId) qs.set("truck_id", truckId)
+  if (driverId) qs.set("driver_id", driverId)
   const res = await apiRequest<Paginated<FinanceEntry>>(`/finance?${qs}`, { auth: true })
   if (competencia) {
     const items = res.items.filter((e) => entryInCompetencia(e, competencia))
@@ -101,15 +122,35 @@ export async function listFinanceByFreight(
   return page.items
 }
 
-export async function getCashFlow(competencia?: { mes: number; ano: number }): Promise<CashFlowSummary> {
-  if (shouldUseMocks()) return computeMockCashFlow(competencia)
+export async function getCashFlow(
+  competencia?: { mes: number; ano: number },
+  truckId?: string,
+  driverId?: string,
+): Promise<CashFlowSummary> {
+  if (shouldUseMocks()) {
+    if (!truckId && !driverId) return computeMockCashFlow(competencia)
+    // For mocks with vehicle filters: join via freight
+    const { mockStore } = await import("@/lib/mocks/store")
+    let items = [...mockFinanceEntries]
+    if (competencia) items = items.filter((e) => entryInCompetencia(e, competencia))
+    items = items.filter((e) => {
+      if (!e.freight_id) return false
+      const freight = mockStore.freights.find((f) => f.id === e.freight_id)
+      if (!freight) return false
+      if (truckId && freight.truck_id !== truckId) return false
+      if (driverId && freight.driver_id !== driverId) return false
+      return true
+    })
+    return computeCashFlowFromEntries(items)
+  }
 
-  // Usa endpoint agregado do back — listagem pagina no máx. size=100 e size>100 vira 422.
   const qs = new URLSearchParams()
   if (competencia) {
     qs.set("competencia_mes", String(competencia.mes))
     qs.set("competencia_ano", String(competencia.ano))
   }
+  if (truckId) qs.set("truck_id", truckId)
+  if (driverId) qs.set("driver_id", driverId)
   const q = qs.toString()
   return apiRequest(`/finance/cash-flow${q ? `?${q}` : ""}`, { auth: true })
 }
@@ -179,6 +220,7 @@ async function syncMockFinanceFromFreights(): Promise<{ receitas: number; despes
 export function invalidateFinanceCaches(): void {
   void mutate((key) => Array.isArray(key) && key[0] === "cash-flow")
   void mutate((key) => Array.isArray(key) && key[0] === "finance-entries")
+  void mutate((key) => Array.isArray(key) && key[0] === "driver-commission-entries")
   void mutate((key) => Array.isArray(key) && key[0] === "fixed-launch-status")
   void mutate("reports-kpis")
   void mutate(
