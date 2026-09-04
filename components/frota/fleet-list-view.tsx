@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import useSWR, { mutate } from "swr"
-import { Pencil, Plus, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2, TrendingDown, TrendingUp } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
@@ -16,15 +16,19 @@ import { QueryErrorState } from "@/components/shared/query-error-state"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { ListPage } from "@/components/shared/list-page"
 import { ListSearchField } from "@/components/shared/list-search-field"
+import { ListStatTile } from "@/components/shared/list-stat-tile"
+import { ListFilterBar } from "@/components/shared/list-filter-bar"
 import { ListPagination } from "@/components/shared/list-pagination"
 import { StatusFilterChips } from "@/components/shared/status-filter-chips"
 import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { listTrucks, deleteTruck } from "@/lib/api/services/fleet"
-import { formatDateBR } from "@/lib/format/dates"
+import { getFreightsSummary } from "@/lib/api/services/freight"
+import { formatDateBR, shiftCompetencia } from "@/lib/format/dates"
+import { formatBRL } from "@/lib/format/currency"
 import { findActiveFreightByTruck } from "@/lib/freight/active-trip"
 import { getEffectiveTruckStatus, TRUCK_STATUS_LABELS } from "@/lib/fleet/truck-availability"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
-import { statusDotClass, TRUCK_STATUS_TONE } from "@/lib/ui/status-colors"
+import { statusDotClass, STATUS_TONE, TRUCK_STATUS_TONE } from "@/lib/ui/status-colors"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
@@ -48,7 +52,22 @@ export function FleetListView() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Filtros de competência e motorista
+  const now = new Date()
+  const [competencia, setCompetencia] = useState({ mes: now.getMonth() + 1, ano: now.getFullYear() })
+  const [filterDriverId, setFilterDriverId] = useState<string | undefined>()
+
+  function handleCompetenciaShift(delta: number) {
+    setCompetencia((c) => shiftCompetencia(c, delta))
+  }
+
   const { freights } = useOperationContext()
+
+  const { data: summary, isLoading: loadingSummary } = useSWR(
+    ["freights-summary-fleet", competencia.mes, competencia.ano, filterDriverId],
+    () => getFreightsSummary({ competencia, driverId: filterDriverId }),
+    { keepPreviousData: true },
+  )
   const queryKey = useMemo(
     () => ["trucks", search, page, pageSize] as const,
     [search, page, pageSize],
@@ -116,8 +135,33 @@ export function FleetListView() {
           }
         />
       }
+      stats={
+        <div className="grid grid-cols-2 gap-3">
+          <ListStatTile
+            icon={TrendingUp}
+            label="Faturamento bruto"
+            value={loadingSummary ? "..." : formatBRL(summary?.faturamento_bruto ?? 0)}
+            accent={STATUS_TONE.success.bg}
+          />
+          <ListStatTile
+            icon={TrendingDown}
+            label="Gastos"
+            value={loadingSummary ? "..." : formatBRL(summary?.gastos ?? 0)}
+            accent={STATUS_TONE.danger.bg}
+          />
+        </div>
+      }
       toolbar={
         <div className="space-y-3">
+          <ListFilterBar
+            competencia={competencia}
+            onCompetenciaShift={handleCompetenciaShift}
+            driverId={filterDriverId}
+            onDriverChange={setFilterDriverId}
+            truckId={undefined}
+            onTruckChange={() => {}}
+            showTruckFilter={false}
+          />
           <ListSearchField
             value={search}
             onChange={(value) => {

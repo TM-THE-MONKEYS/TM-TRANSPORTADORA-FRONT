@@ -10,8 +10,8 @@ import {
   ChevronRight,
   Clock,
   Plus,
+  TrendingDown,
   TrendingUp,
-  Truck,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,15 +23,21 @@ import { QueryErrorState } from "@/components/shared/query-error-state"
 import { ListPage } from "@/components/shared/list-page"
 import { ListSearchField } from "@/components/shared/list-search-field"
 import { ListStatTile } from "@/components/shared/list-stat-tile"
+import { ListFilterBar } from "@/components/shared/list-filter-bar"
 import { ListPagination } from "@/components/shared/list-pagination"
 import { StatusFilterChips } from "@/components/shared/status-filter-chips"
 import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
-import { advanceFreightStatus, getFreightCosts, listFreights } from "@/lib/api/services/freight"
+import {
+  advanceFreightStatus,
+  getFreightCosts,
+  getFreightsSummary,
+  listFreights,
+} from "@/lib/api/services/freight"
 import { formatFreightRouteShort } from "@/lib/freight/route-label"
 import { formatBRL } from "@/lib/format/currency"
 import { formatWeightKg } from "@/lib/format/numbers"
-import { formatDateBR } from "@/lib/format/dates"
+import { formatDateBR, shiftCompetencia } from "@/lib/format/dates"
 import { getDriverName, getTruckLabel, isFreightInTransit } from "@/lib/freight/active-trip"
 import { FREIGHT_STATUS_LABELS, nextFreightStatus } from "@/lib/freight/status"
 import {
@@ -93,15 +99,42 @@ export function FreightsListView() {
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const canStatus = usePermission(PERMISSIONS.freightStatus)
   const { drivers, trucks } = useOperationContext()
+
+  // Competência e filtros de entidade
+  const now = new Date()
+  const [competencia, setCompetencia] = useState({
+    mes: now.getMonth() + 1,
+    ano: now.getFullYear(),
+  })
+  const [filterDriverId, setFilterDriverId] = useState<string | undefined>()
+  const [filterTruckId, setFilterTruckId] = useState<string | undefined>()
+
   const [statusFilter, setStatusFilter] = useState<FreightStatus | "all">("all")
   const [search, setSearch] = useState("")
   const [advancing, setAdvancing] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
+  function handleCompetenciaShift(delta: number) {
+    setCompetencia((c) => shiftCompetencia(c, delta))
+    setPage(1)
+  }
+
+  const filters = {
+    competencia,
+    driverId: filterDriverId,
+    truckId: filterTruckId,
+  }
+
   const { data, isLoading, error, mutate } = useSWR(
-    ["freights-list", page, pageSize],
-    () => listFreights(page, pageSize),
+    ["freights-list", page, pageSize, competencia.mes, competencia.ano, filterDriverId, filterTruckId],
+    () => listFreights(page, pageSize, filters),
+  )
+
+  const { data: summary, isLoading: loadingSummary } = useSWR(
+    ["freights-summary", competencia.mes, competencia.ano, filterDriverId, filterTruckId],
+    () => getFreightsSummary(filters),
+    { keepPreviousData: true },
   )
 
   const allFreights = data?.items ?? []
@@ -131,9 +164,7 @@ export function FreightsListView() {
     return items
   }, [allFreights, statusFilter, search])
 
-  const inTransitCount = allFreights.filter((f) => isFreightInTransit(f.status)).length
-  const overdueCount = allFreights.filter(isOverdue).length
-  const totalValue = allFreights.reduce((s, f) => s + f.value_brl, 0)
+  const overdueCount = summary?.com_atraso ?? allFreights.filter(isOverdue).length
   const hasFilters = statusFilter !== "all" || search.trim() !== ""
 
   async function handleAdvance(e: React.MouseEvent, freight: FreightOrder) {
@@ -170,25 +201,24 @@ export function FreightsListView() {
         />
       }
       stats={
-        !isLoading && allFreights.length > 0 ? (
+        !isLoading ? (
           <div className="grid grid-cols-3 gap-3">
             <ListStatTile
-              icon={Truck}
-              label="Em trânsito"
-              value={inTransitCount}
-              accent={STATUS_TONE.progress.bg}
-              onClick={() => setStatusFilter("em_transporte")}
+              icon={TrendingUp}
+              label="Faturamento bruto"
+              value={loadingSummary ? "..." : formatBRL(summary?.faturamento_bruto ?? 0)}
+              accent={STATUS_TONE.success.bg}
             />
             <ListStatTile
-              icon={TrendingUp}
-              label="Volume total"
-              value={formatBRL(totalValue)}
-              accent={STATUS_TONE.success.bg}
+              icon={TrendingDown}
+              label="Gastos"
+              value={loadingSummary ? "..." : formatBRL(summary?.gastos ?? 0)}
+              accent={STATUS_TONE.danger.bg}
             />
             <ListStatTile
               icon={Clock}
               label="Com atraso"
-              value={overdueCount}
+              value={loadingSummary ? "..." : overdueCount}
               accent={overdueCount > 0 ? STATUS_TONE.danger.bg : STATUS_TONE.neutral.bg}
             />
           </div>
@@ -196,6 +226,14 @@ export function FreightsListView() {
       }
       toolbar={
         <div className="space-y-3">
+          <ListFilterBar
+            competencia={competencia}
+            onCompetenciaShift={handleCompetenciaShift}
+            driverId={filterDriverId}
+            onDriverChange={(id) => { setFilterDriverId(id); setPage(1) }}
+            truckId={filterTruckId}
+            onTruckChange={(id) => { setFilterTruckId(id); setPage(1) }}
+          />
           <ListSearchField
             value={search}
             onChange={(value) => {

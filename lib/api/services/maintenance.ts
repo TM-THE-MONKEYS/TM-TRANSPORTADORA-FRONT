@@ -66,12 +66,19 @@ export async function listMaintenances(
   truckId?: string,
   status?: MaintenanceStatus,
   tipo?: MaintenanceType,
+  competencia?: { mes: number; ano: number },
 ): Promise<Paginated<Maintenance>> {
   if (shouldUseMocks()) {
     let items = [...mockMaintenances]
     if (truckId) items = items.filter((m) => m.truck_id === truckId)
     if (status) items = items.filter((m) => m.status === status)
     if (tipo) items = items.filter((m) => m.tipo === tipo)
+    if (competencia) {
+      items = items.filter((m) => {
+        const d = new Date(m.scheduled_at ?? m.created_at)
+        return d.getMonth() + 1 === competencia.mes && d.getFullYear() === competencia.ano
+      })
+    }
     const start = (page - 1) * pageSize
     return {
       items: items.slice(start, start + pageSize),
@@ -86,6 +93,10 @@ export async function listMaintenances(
   if (truckId) qs.set("truck_id", truckId)
   if (status) qs.set("status", status)
   if (tipo) qs.set("tipo", tipo)
+  if (competencia) {
+    qs.set("competencia_mes", String(competencia.mes))
+    qs.set("competencia_ano", String(competencia.ano))
+  }
 
   const res = await apiRequest<Paginated<Record<string, unknown>>>(`/maintenance?${qs}`, {
     auth: true,

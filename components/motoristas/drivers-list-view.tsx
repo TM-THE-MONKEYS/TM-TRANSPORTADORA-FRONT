@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import useSWR, { mutate } from "swr"
-import { BadgePercent, Calendar, IdCard, Pencil, Plus, Trash2 } from "lucide-react"
+import { BadgePercent, Calendar, IdCard, Pencil, Plus, Trash2, TrendingDown, TrendingUp } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
@@ -16,10 +16,13 @@ import { QueryErrorState } from "@/components/shared/query-error-state"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { ListPage } from "@/components/shared/list-page"
 import { ListSearchField } from "@/components/shared/list-search-field"
+import { ListStatTile } from "@/components/shared/list-stat-tile"
+import { ListFilterBar } from "@/components/shared/list-filter-bar"
 import { ListPagination } from "@/components/shared/list-pagination"
 import { StatusFilterChips } from "@/components/shared/status-filter-chips"
 import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { listDrivers } from "@/lib/api/services/drivers"
+import { getFreightsSummary } from "@/lib/api/services/freight"
 import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
 import {
   DRIVER_STATUS_LABELS,
@@ -27,10 +30,11 @@ import {
   driverInitials,
   formatCommissionPct,
 } from "@/lib/motoristas/driver-status"
-import { formatDateBR } from "@/lib/format/dates"
+import { formatDateBR, shiftCompetencia } from "@/lib/format/dates"
+import { formatBRL } from "@/lib/format/currency"
 import { findActiveFreightByDriver } from "@/lib/freight/active-trip"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
-import { DRIVER_STATUS_TONE, statusDotClass } from "@/lib/ui/status-colors"
+import { DRIVER_STATUS_TONE, STATUS_TONE, statusDotClass } from "@/lib/ui/status-colors"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
@@ -138,6 +142,22 @@ export function DriversListView() {
   const [pageSize, setPageSize] = useState(20)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Filtros de competência e caminhão
+  const now = new Date()
+  const [competencia, setCompetencia] = useState({ mes: now.getMonth() + 1, ano: now.getFullYear() })
+  const [filterTruckId, setFilterTruckId] = useState<string | undefined>()
+
+  function handleCompetenciaShift(delta: number) {
+    setCompetencia((c) => shiftCompetencia(c, delta))
+  }
+
+  const { data: summary, isLoading: loadingSummary } = useSWR(
+    ["freights-summary-drivers", competencia.mes, competencia.ano, filterTruckId],
+    () => getFreightsSummary({ competencia, truckId: filterTruckId }),
+    { keepPreviousData: true },
+  )
+
   const { data, isLoading, error, mutate: revalidate } = useSWR(
     ["drivers", page, pageSize],
     () => listDrivers(page, pageSize),
@@ -205,8 +225,33 @@ export function DriversListView() {
           }
         />
       }
+      stats={
+        <div className="grid grid-cols-2 gap-3">
+          <ListStatTile
+            icon={TrendingUp}
+            label="Faturamento bruto"
+            value={loadingSummary ? "..." : formatBRL(summary?.faturamento_bruto ?? 0)}
+            accent={STATUS_TONE.success.bg}
+          />
+          <ListStatTile
+            icon={TrendingDown}
+            label="Gastos"
+            value={loadingSummary ? "..." : formatBRL(summary?.gastos ?? 0)}
+            accent={STATUS_TONE.danger.bg}
+          />
+        </div>
+      }
       toolbar={
         <div className="space-y-3">
+          <ListFilterBar
+            competencia={competencia}
+            onCompetenciaShift={handleCompetenciaShift}
+            driverId={undefined}
+            onDriverChange={() => {}}
+            truckId={filterTruckId}
+            onTruckChange={(id) => { setFilterTruckId(id); setPage(1) }}
+            showDriverFilter={false}
+          />
           <ListSearchField
             value={search}
             onChange={(value) => {

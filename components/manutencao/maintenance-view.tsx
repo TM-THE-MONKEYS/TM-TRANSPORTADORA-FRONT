@@ -30,6 +30,7 @@ import {
 import { PageHeader } from "@/components/shared/page-header"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { ListSearchField } from "@/components/shared/list-search-field"
+import { CompetenciaNavigator } from "@/components/shared/competencia-navigator"
 import { EmptyState } from "@/components/shared/empty-state"
 import { useAuth } from "@/components/providers/auth-provider"
 import {
@@ -38,6 +39,7 @@ import {
   getMaintenanceAlerts,
   listMaintenances,
 } from "@/lib/api/services/maintenance"
+import { shiftCompetencia } from "@/lib/format/dates"
 import { filterTrucksForMaintenance } from "@/lib/maintenance/eligibility"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { getTruckLabel } from "@/lib/freight/active-trip"
@@ -97,6 +99,12 @@ export function MaintenanceView() {
   const [maintenanceSearch, setMaintenanceSearch] = useState("")
   const [maintenanceStatusFilter, setMaintenanceStatusFilter] = useState<MaintenanceStatus | "all">("all")
 
+  const now = new Date()
+  const [competencia, setCompetencia] = useState({ mes: now.getMonth() + 1, ano: now.getFullYear() })
+  function handleCompetenciaShift(delta: number) {
+    setCompetencia((c) => shiftCompetencia(c, delta))
+  }
+
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{
     id: string
@@ -114,7 +122,10 @@ export function MaintenanceView() {
     error: listError,
     isLoading: loadingList,
     mutate: refreshList,
-  } = useSWR("maintenance-list", () => listMaintenances(1, 100))
+  } = useSWR(
+    ["maintenance-list", competencia.mes, competencia.ano],
+    () => listMaintenances(1, 100, undefined, undefined, undefined, competencia),
+  )
 
   const alerts = alertsData ?? []
   const items = maintenancePage?.items ?? []
@@ -494,6 +505,12 @@ export function MaintenanceView() {
         <CardHeader className="flex-col items-start gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">Histórico de manutenções</CardTitle>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <CompetenciaNavigator
+              mes={competencia.mes}
+              ano={competencia.ano}
+              onPrevious={() => handleCompetenciaShift(-1)}
+              onNext={() => handleCompetenciaShift(1)}
+            />
             <div className="flex flex-wrap gap-1">
               {(["all", "agendada", "em_andamento", "concluida", "cancelada"] as const).map((s) => (
                 <button
