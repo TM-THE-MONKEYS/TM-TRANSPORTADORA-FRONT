@@ -58,7 +58,7 @@ export function FleetListView() {
   const [filterDriverId, setFilterDriverId] = useState<string | undefined>()
 
   function handleCompetenciaShift(delta: number) {
-    setCompetencia((c) => shiftCompetencia(c, delta))
+    setCompetencia((c) => shiftCompetencia(c.mes, c.ano, delta))
   }
 
   const { freights } = useOperationContext()

@@ -98,7 +98,7 @@ export function FuelView() {
   const now = new Date()
   const [competencia, setCompetencia] = useState({ mes: now.getMonth() + 1, ano: now.getFullYear() })
   function handleCompetenciaShift(delta: number) {
-    setCompetencia((c) => shiftCompetencia(c, delta))
+    setCompetencia((c) => shiftCompetencia(c.mes, c.ano, delta))
   }
 
   const { data: driversPage } = useSWR("fuel-drivers", () => listDrivers(1, 100))

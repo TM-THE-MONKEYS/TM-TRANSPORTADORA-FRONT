@@ -116,7 +116,7 @@ export function FreightsListView() {
   const [pageSize, setPageSize] = useState(20)
 
   function handleCompetenciaShift(delta: number) {
-    setCompetencia((c) => shiftCompetencia(c, delta))
+    setCompetencia((c) => shiftCompetencia(c.mes, c.ano, delta))
     setPage(1)
   }
 

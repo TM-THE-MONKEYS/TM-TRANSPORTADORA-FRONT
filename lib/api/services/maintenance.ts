@@ -75,7 +75,7 @@ export async function listMaintenances(
     if (tipo) items = items.filter((m) => m.tipo === tipo)
     if (competencia) {
       items = items.filter((m) => {
-        const d = new Date(m.scheduled_at ?? m.created_at)
+        const d = new Date(m.data_agendada ?? m.created_at)
         return d.getMonth() + 1 === competencia.mes && d.getFullYear() === competencia.ano
       })
     }

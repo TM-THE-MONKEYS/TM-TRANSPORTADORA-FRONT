@@ -102,7 +102,7 @@ export function MaintenanceView() {
   const now = new Date()
   const [competencia, setCompetencia] = useState({ mes: now.getMonth() + 1, ano: now.getFullYear() })
   function handleCompetenciaShift(delta: number) {
-    setCompetencia((c) => shiftCompetencia(c, delta))
+    setCompetencia((c) => shiftCompetencia(c.mes, c.ano, delta))
   }
 
   const [confirmOpen, setConfirmOpen] = useState(false)
