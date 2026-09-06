@@ -409,4 +409,6 @@ export interface DashboardFilters {
   branch_id?: string
   customer_id?: string
   truck_id?: string
+  driver_id?: string
+  competencia?: { mes: number; ano: number }
 }

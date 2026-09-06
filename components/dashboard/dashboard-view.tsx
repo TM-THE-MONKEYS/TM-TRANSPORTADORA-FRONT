@@ -41,6 +41,8 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
+import { QueryErrorState } from "@/components/shared/query-error-state"
+import { ListFilterBar } from "@/components/shared/list-filter-bar"
 import { DashboardKpiCard } from "@/components/dashboard/dashboard-kpi-card"
 import { DashboardRecentFreights } from "@/components/dashboard/dashboard-recent-freights"
 import { useTenant } from "@/components/providers/tenant-provider"
@@ -51,10 +53,10 @@ import {
 } from "@/lib/api/services/dashboard"
 import { getCashFlow } from "@/lib/api/services/finance"
 import { listCustomers } from "@/lib/api/services/freight"
-import { listTrucks } from "@/lib/api/services/fleet"
 import { formatBRL } from "@/lib/format/currency"
 import { FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
 import { freightStatusChart, SEMANTIC } from "@/lib/ui/status-colors"
+import { useCompetencia } from "@/hooks/use-competencia"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
@@ -75,29 +77,80 @@ function formatChartDate(iso: string) {
 
 export function DashboardView() {
   const { branchId, branches } = useTenant()
+  const { competencia, shift, canGoForward } = useCompetencia()
   const [filters, setFilters] = useState<DashboardFilters>({})
   const canFinance = usePermission(PERMISSIONS.financeRead)
   const canFreightWrite = usePermission(PERMISSIONS.freightWrite)
 
   const hasActiveFilters =
-    Boolean(filters.branch_id) || Boolean(filters.customer_id) || Boolean(filters.truck_id)
+    Boolean(filters.branch_id) ||
+    Boolean(filters.customer_id) ||
+    Boolean(filters.truck_id) ||
+    Boolean(filters.driver_id)
 
   function clearFilters() {
     setFilters({})
   }
 
-  const swrKey = ["dashboard-kpis", branchId, filters] as const
+  const kpiFilters: DashboardFilters = {
+    ...filters,
+    branch_id: branchId ?? filters.branch_id,
+    competencia,
+  }
 
-  const { data: kpis, isLoading: loadingKpis } = useSWR(swrKey, () =>
-    getDashboardKpis({ ...filters, branch_id: branchId ?? filters.branch_id }),
+  const { data: kpis, isLoading: loadingKpis, error: kpisError, mutate: retryKpis } = useSWR(
+    [
+      "dashboard-kpis",
+      branchId,
+      filters.branch_id,
+      filters.customer_id,
+      filters.truck_id,
+      filters.driver_id,
+      competencia.mes,
+      competencia.ano,
+    ],
+    () => getDashboardKpis(kpiFilters),
   )
-  const { data: byStatus } = useSWR("freights-by-status", getFreightsByStatus)
-  const { data: revenue } = useSWR(canFinance ? "revenue-series" : null, () => getRevenueSeries(30))
+  const { data: byStatus, error: byStatusError } = useSWR(
+    [
+      "freights-by-status",
+      competencia.mes,
+      competencia.ano,
+      filters.truck_id,
+      filters.driver_id,
+      filters.customer_id,
+    ],
+    () => getFreightsByStatus(kpiFilters),
+  )
+  const { data: revenue, error: revenueError } = useSWR(
+    canFinance
+      ? [
+          "revenue-series",
+          competencia.mes,
+          competencia.ano,
+          filters.truck_id,
+          filters.driver_id,
+        ]
+      : null,
+    () => getRevenueSeries(30),
+  )
   const { data: customers } = useSWR("customers", listCustomers)
-  const { data: trucksPage } = useSWR("trucks-filter", () => listTrucks(1, 200))
-  const { data: cashFlow, isLoading: loadingCashFlow } = useSWR(
-    canFinance ? "dashboard-cash-flow" : null,
-    () => getCashFlow(),
+  const {
+    data: cashFlow,
+    isLoading: loadingCashFlow,
+    error: cashFlowError,
+    mutate: retryCashFlow,
+  } = useSWR(
+    canFinance
+      ? [
+          "dashboard-cash-flow",
+          competencia.mes,
+          competencia.ano,
+          filters.truck_id,
+          filters.driver_id,
+        ]
+      : null,
+    () => getCashFlow(competencia, filters.truck_id, filters.driver_id),
   )
 
   const statusChartData = useMemo(
@@ -150,6 +203,19 @@ export function DashboardView() {
         </span>
         <Separator orientation="vertical" className="h-5" />
 
+        <ListFilterBar
+          competencia={competencia}
+          onCompetenciaShift={shift}
+          nextDisabled={!canGoForward}
+          driverId={filters.driver_id}
+          onDriverChange={(id) => setFilters((f) => ({ ...f, driver_id: id }))}
+          truckId={filters.truck_id}
+          onTruckChange={(id) => setFilters((f) => ({ ...f, truck_id: id }))}
+          showDriverFilter
+          showTruckFilter
+          showClear={false}
+        />
+
         {branches.length > 0 && (
           <Select
             value={filters.branch_id ?? branchId ?? "all"}
@@ -190,25 +256,6 @@ export function DashboardView() {
           </SelectContent>
         </Select>
 
-        <Select
-          value={filters.truck_id ?? "all"}
-          onValueChange={(v) =>
-            setFilters((f) => ({ ...f, truck_id: v === "all" ? undefined : v }))
-          }
-        >
-          <SelectTrigger className="h-8 w-[165px] bg-background text-xs">
-            <SelectValue placeholder="Caminhão" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos caminhões</SelectItem>
-            {(trucksPage?.items ?? []).map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.plate} — {t.model}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         {hasActiveFilters && (
           <Button
             variant="ghost"
@@ -225,6 +272,12 @@ export function DashboardView() {
       {/* KPIs operacionais */}
       <section>
         <SectionLabel>Operacional</SectionLabel>
+        {kpisError ? (
+          <QueryErrorState
+            description={kpisError instanceof Error ? kpisError.message : "Falha ao carregar KPIs."}
+            onRetry={() => void retryKpis()}
+          />
+        ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <DashboardKpiCard
             label="Fretes em andamento"
@@ -257,10 +310,11 @@ export function DashboardView() {
             loading={loadingKpis}
           />
         </div>
+        )}
       </section>
 
       {/* KPIs financeiros */}
-      {canFinance && (
+      {canFinance && !kpisError && (
         <section>
           <SectionLabel>Financeiro</SectionLabel>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -328,7 +382,9 @@ export function DashboardView() {
               </CardHeader>
               <CardContent>
                 <div className="h-[260px]">
-                  {revenueChartData.length === 0 ? (
+                  {revenueError ? (
+                    <EmptyChart label="Não foi possível carregar a receita" />
+                  ) : revenueChartData.length === 0 ? (
                     <EmptyChart label="Sem receitas no período" />
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
@@ -412,7 +468,9 @@ export function DashboardView() {
               </div>
             </CardHeader>
             <CardContent>
-              {statusChartData.length === 0 ? (
+              {byStatusError ? (
+                <p className="text-sm text-muted-foreground">Não foi possível carregar o status dos fretes.</p>
+              ) : statusChartData.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum frete cadastrado</p>
               ) : (
                 <div className="space-y-3">
@@ -500,7 +558,18 @@ export function DashboardView() {
                 </div>
               </CardHeader>
               <CardContent>
-                {loadingCashFlow ? (
+                {cashFlowError ? (
+                  <div className="space-y-3 py-2 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      {cashFlowError instanceof Error
+                        ? cashFlowError.message
+                        : "Falha ao carregar o fluxo de caixa."}
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => void retryCashFlow()}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                ) : loadingCashFlow ? (
                   <div className="space-y-2">
                     {Array.from({ length: 3 }).map((_, i) => (
                       <Skeleton key={i} className="h-14 rounded-lg" />

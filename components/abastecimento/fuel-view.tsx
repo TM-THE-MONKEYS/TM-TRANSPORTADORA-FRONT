@@ -34,7 +34,6 @@ import { useAuth } from "@/components/providers/auth-provider"
 import { listDrivers } from "@/lib/api/services/drivers"
 import { listFreights } from "@/lib/api/services/freight"
 import { listAllFuelRefills, registerFuelRefill, deleteFuelRefill, updateFuelRefill, type FuelRefill } from "@/lib/api/services/fuel"
-import { shiftCompetencia } from "@/lib/format/dates"
 import { resolveDriverDisplayName } from "@/lib/drivers/display-name"
 import { resolveDriverIdForUser } from "@/lib/drivers/resolve-driver"
 import { isFreightClosed } from "@/lib/freight/closed-freight"
@@ -56,7 +55,7 @@ import {
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { getDriverName, getTruckLabel } from "@/lib/freight/active-trip"
 import { formatBRL } from "@/lib/format/currency"
-import { formatDateBR, isoToDateInput } from "@/lib/format/dates"
+import { formatDateBR, isoToDateInput, isCompetenciaWithinLimit, shiftCompetencia } from "@/lib/format/dates"
 import { usePermission } from "@/hooks/use-permission"
 import { isAdminRole, PERMISSIONS } from "@/lib/rbac/permissions"
 import { FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
@@ -98,8 +97,14 @@ export function FuelView() {
   const now = new Date()
   const [competencia, setCompetencia] = useState({ mes: now.getMonth() + 1, ano: now.getFullYear() })
   function handleCompetenciaShift(delta: number) {
-    setCompetencia((c) => shiftCompetencia(c.mes, c.ano, delta))
+    setCompetencia((c) => {
+      const next = shiftCompetencia(c.mes, c.ano, delta)
+      if (delta > 0 && !isCompetenciaWithinLimit(next.mes, next.ano)) return c
+      return next
+    })
   }
+  const nextCompetencia = shiftCompetencia(competencia.mes, competencia.ano, 1)
+  const canGoForward = isCompetenciaWithinLimit(nextCompetencia.mes, nextCompetencia.ano)
 
   const { data: driversPage } = useSWR("fuel-drivers", () => listDrivers(1, 100))
   const { data: freightsPage } = useSWR("fuel-freights", () => listFreights(1, 100))
@@ -555,6 +560,7 @@ export function FuelView() {
               ano={competencia.ano}
               onPrevious={() => handleCompetenciaShift(-1)}
               onNext={() => handleCompetenciaShift(1)}
+              nextDisabled={!canGoForward}
             />
             <ListSearchField
               value={fuelSearch}

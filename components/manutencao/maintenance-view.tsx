@@ -39,7 +39,7 @@ import {
   getMaintenanceAlerts,
   listMaintenances,
 } from "@/lib/api/services/maintenance"
-import { shiftCompetencia } from "@/lib/format/dates"
+import { isCompetenciaWithinLimit, shiftCompetencia } from "@/lib/format/dates"
 import { filterTrucksForMaintenance } from "@/lib/maintenance/eligibility"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { getTruckLabel } from "@/lib/freight/active-trip"
@@ -102,8 +102,14 @@ export function MaintenanceView() {
   const now = new Date()
   const [competencia, setCompetencia] = useState({ mes: now.getMonth() + 1, ano: now.getFullYear() })
   function handleCompetenciaShift(delta: number) {
-    setCompetencia((c) => shiftCompetencia(c.mes, c.ano, delta))
+    setCompetencia((c) => {
+      const next = shiftCompetencia(c.mes, c.ano, delta)
+      if (delta > 0 && !isCompetenciaWithinLimit(next.mes, next.ano)) return c
+      return next
+    })
   }
+  const nextCompetencia = shiftCompetencia(competencia.mes, competencia.ano, 1)
+  const canGoForward = isCompetenciaWithinLimit(nextCompetencia.mes, nextCompetencia.ano)
 
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmAction, setConfirmAction] = useState<{
@@ -510,6 +516,7 @@ export function MaintenanceView() {
               ano={competencia.ano}
               onPrevious={() => handleCompetenciaShift(-1)}
               onNext={() => handleCompetenciaShift(1)}
+              nextDisabled={!canGoForward}
             />
             <div className="flex flex-wrap gap-1">
               {(["all", "agendada", "em_andamento", "concluida", "cancelada"] as const).map((s) => (

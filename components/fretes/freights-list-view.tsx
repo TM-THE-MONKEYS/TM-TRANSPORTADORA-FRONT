@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import useSWR from "swr"
@@ -37,8 +37,8 @@ import {
 import { formatFreightRouteShort } from "@/lib/freight/route-label"
 import { formatBRL } from "@/lib/format/currency"
 import { formatWeightKg } from "@/lib/format/numbers"
-import { formatDateBR, shiftCompetencia } from "@/lib/format/dates"
-import { getDriverName, getTruckLabel, isFreightInTransit } from "@/lib/freight/active-trip"
+import { formatDateBR } from "@/lib/format/dates"
+import { getDriverName, getTruckLabel } from "@/lib/freight/active-trip"
 import { FREIGHT_STATUS_LABELS, nextFreightStatus } from "@/lib/freight/status"
 import {
   freightStatusAccent,
@@ -46,6 +46,7 @@ import {
   SEMANTIC,
   STATUS_TONE,
 } from "@/lib/ui/status-colors"
+import { useCompetencia } from "@/hooks/use-competencia"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
@@ -99,13 +100,8 @@ export function FreightsListView() {
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const canStatus = usePermission(PERMISSIONS.freightStatus)
   const { drivers, trucks } = useOperationContext()
+  const { competencia, shift, canGoForward } = useCompetencia()
 
-  // Competência e filtros de entidade
-  const now = new Date()
-  const [competencia, setCompetencia] = useState({
-    mes: now.getMonth() + 1,
-    ano: now.getFullYear(),
-  })
   const [filterDriverId, setFilterDriverId] = useState<string | undefined>()
   const [filterTruckId, setFilterTruckId] = useState<string | undefined>()
 
@@ -115,57 +111,50 @@ export function FreightsListView() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
-  function handleCompetenciaShift(delta: number) {
-    setCompetencia((c) => shiftCompetencia(c.mes, c.ano, delta))
+  useEffect(() => {
     setPage(1)
-  }
+  }, [competencia.mes, competencia.ano])
 
   const filters = {
     competencia,
     driverId: filterDriverId,
     truckId: filterTruckId,
+    status: statusFilter === "all" ? undefined : statusFilter,
+    search: search.trim() || undefined,
   }
 
   const { data, isLoading, error, mutate } = useSWR(
-    ["freights-list", page, pageSize, competencia.mes, competencia.ano, filterDriverId, filterTruckId],
+    [
+      "freights-list",
+      page,
+      pageSize,
+      competencia.mes,
+      competencia.ano,
+      filterDriverId,
+      filterTruckId,
+      statusFilter,
+      search,
+    ],
     () => listFreights(page, pageSize, filters),
   )
 
-  const { data: summary, isLoading: loadingSummary } = useSWR(
-    ["freights-summary", competencia.mes, competencia.ano, filterDriverId, filterTruckId],
+  const { data: summary, isLoading: loadingSummary, error: summaryError } = useSWR(
+    [
+      "freights-summary",
+      competencia.mes,
+      competencia.ano,
+      filterDriverId,
+      filterTruckId,
+      statusFilter,
+      search,
+    ],
     () => getFreightsSummary(filters),
     { keepPreviousData: true },
   )
 
-  const allFreights = data?.items ?? []
-
-  const countByStatus = useMemo(() => {
-    const counts: Record<string, number> = { all: allFreights.length }
-    for (const f of allFreights) {
-      counts[f.status] = (counts[f.status] ?? 0) + 1
-    }
-    return counts
-  }, [allFreights])
-
-  const filtered = useMemo(() => {
-    let items = allFreights
-    if (statusFilter !== "all") items = items.filter((f) => f.status === statusFilter)
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      items = items.filter(
-        (f) =>
-          f.code.toLowerCase().includes(q) ||
-          (f.customer_name ?? "").toLowerCase().includes(q) ||
-          f.origin_city.toLowerCase().includes(q) ||
-          f.destination_city.toLowerCase().includes(q) ||
-          (f.stops ?? []).some((s) => s.city.toLowerCase().includes(q)),
-      )
-    }
-    return items
-  }, [allFreights, statusFilter, search])
-
-  const overdueCount = summary?.com_atraso ?? allFreights.filter(isOverdue).length
-  const hasFilters = statusFilter !== "all" || search.trim() !== ""
+  const items = data?.items ?? []
+  const overdueCount = summaryError ? null : (summary?.com_atraso ?? 0)
+  const hasSearchOrStatus = statusFilter !== "all" || search.trim() !== ""
 
   async function handleAdvance(e: React.MouseEvent, freight: FreightOrder) {
     e.stopPropagation()
@@ -206,20 +195,22 @@ export function FreightsListView() {
             <ListStatTile
               icon={TrendingUp}
               label="Faturamento bruto"
-              value={loadingSummary ? "..." : formatBRL(summary?.faturamento_bruto ?? 0)}
+              value={
+                loadingSummary ? "..." : summaryError ? "—" : formatBRL(summary?.faturamento_bruto ?? 0)
+              }
               accent={STATUS_TONE.success.bg}
             />
             <ListStatTile
               icon={TrendingDown}
               label="Gastos"
-              value={loadingSummary ? "..." : formatBRL(summary?.gastos ?? 0)}
+              value={loadingSummary ? "..." : summaryError ? "—" : formatBRL(summary?.gastos ?? 0)}
               accent={STATUS_TONE.danger.bg}
             />
             <ListStatTile
               icon={Clock}
               label="Com atraso"
-              value={loadingSummary ? "..." : overdueCount}
-              accent={overdueCount > 0 ? STATUS_TONE.danger.bg : STATUS_TONE.neutral.bg}
+              value={loadingSummary ? "..." : overdueCount ?? "—"}
+              accent={overdueCount && overdueCount > 0 ? STATUS_TONE.danger.bg : STATUS_TONE.neutral.bg}
             />
           </div>
         ) : null
@@ -228,7 +219,8 @@ export function FreightsListView() {
         <div className="space-y-3">
           <ListFilterBar
             competencia={competencia}
-            onCompetenciaShift={handleCompetenciaShift}
+            onCompetenciaShift={shift}
+            nextDisabled={!canGoForward}
             driverId={filterDriverId}
             onDriverChange={(id) => { setFilterDriverId(id); setPage(1) }}
             truckId={filterTruckId}
@@ -251,8 +243,6 @@ export function FreightsListView() {
             chips={STATUS_ORDER.map((s) => ({
               value: s,
               label: STATUS_TAB_LABELS[s],
-              count: countByStatus[s] ?? 0,
-              visible: s === "all" || (countByStatus[s] ?? 0) > 0,
               dotClassName: s !== "all" ? freightStatusDot(s) : undefined,
             }))}
           />
@@ -270,30 +260,35 @@ export function FreightsListView() {
           description={error instanceof Error ? error.message : "Falha ao carregar fretes."}
           onRetry={() => void mutate()}
         />
-      ) : allFreights.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
-          title="Nenhum frete"
-          description="Crie a primeira ordem de frete para iniciar a operação."
-          actionLabel={canWrite ? "Nova ordem" : undefined}
-          onAction={canWrite ? () => router.push("/dashboard/fretes/novo") : undefined}
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          title="Nenhum resultado"
-          description="Nenhum frete encontrado com os filtros aplicados."
-          actionLabel={hasFilters ? "Limpar filtros" : undefined}
+          title={hasSearchOrStatus ? "Nenhum resultado" : "Nenhum frete"}
+          description={
+            hasSearchOrStatus
+              ? "Nenhum frete encontrado com os filtros aplicados."
+              : "Nenhum frete nesta competência."
+          }
+          actionLabel={
+            hasSearchOrStatus
+              ? "Limpar filtros"
+              : canWrite
+                ? "Nova ordem"
+                : undefined
+          }
           onAction={
-            hasFilters
+            hasSearchOrStatus
               ? () => {
                   setSearch("")
                   setStatusFilter("all")
                 }
-              : undefined
+              : canWrite
+                ? () => router.push("/dashboard/fretes/novo")
+                : undefined
           }
         />
       ) : (
         <div className="space-y-2">
-          {filtered.map((f) => {
+          {items.map((f) => {
             const overdue = isOverdue(f)
             const nextStatus = nextFreightStatus(f.status)
             const driverName = getDriverName(drivers, f.driver_id ?? undefined)
@@ -390,7 +385,7 @@ export function FreightsListView() {
             )
           })}
 
-          {(data?.total ?? 0) > 0 && !hasFilters ? (
+          {(data?.total ?? 0) > 0 ? (
             <ListPagination
               page={page}
               pageSize={pageSize}

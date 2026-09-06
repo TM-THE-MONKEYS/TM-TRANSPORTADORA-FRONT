@@ -16,6 +16,7 @@ import { addTrackingUpdate, getTrackingTimeline } from "@/lib/api/services/track
 import { mergeFreightCostsWithFuel } from "@/lib/freight/freight-expenses"
 import { revalidateFleetAndFreightCaches } from "@/lib/freight/sync-fleet-status"
 import { listFuelRefillsByFreight } from "@/lib/api/services/fuel"
+import { parseLocalDate } from "@/lib/format/dates"
 import * as mock from "@/lib/mocks/handlers"
 import type {
   FreightCost,
@@ -30,6 +31,9 @@ import type {
 export interface FreightListFilters {
   driverId?: string
   truckId?: string
+  clientId?: string
+  status?: FreightStatus
+  search?: string
   competencia?: { mes: number; ano: number }
 }
 
@@ -38,10 +42,13 @@ export async function listFreights(
   pageSize = 20,
   filters?: FreightListFilters,
 ): Promise<Paginated<FreightOrder>> {
-  if (shouldUseMocks()) return mock.mockListFreights(page, pageSize)
+  if (shouldUseMocks()) return mock.mockListFreights(page, pageSize, filters)
   const qs = new URLSearchParams({ page: String(page), size: String(pageSize) })
   if (filters?.driverId) qs.set("driver_id", filters.driverId)
   if (filters?.truckId) qs.set("truck_id", filters.truckId)
+  if (filters?.clientId) qs.set("client_id", filters.clientId)
+  if (filters?.status) qs.set("status", filters.status)
+  if (filters?.search?.trim()) qs.set("search", filters.search.trim())
   if (filters?.competencia) {
     qs.set("competencia_mes", String(filters.competencia.mes))
     qs.set("competencia_ano", String(filters.competencia.ano))
@@ -58,7 +65,26 @@ export async function getFreightsSummary(
     let items = [...mockStore.freights]
     if (filters?.driverId) items = items.filter((f) => f.driver_id === filters.driverId)
     if (filters?.truckId) items = items.filter((f) => f.truck_id === filters.truckId)
+    if (filters?.clientId) items = items.filter((f) => f.customer_id === filters.clientId)
     if (filters?.status) items = items.filter((f) => f.status === filters.status)
+    if (filters?.competencia) {
+      items = items.filter((f) => {
+        const ref = f.deadline_at ?? f.created_at
+        if (!ref) return false
+        const d = parseLocalDate(ref)
+        return d.getMonth() + 1 === filters.competencia!.mes && d.getFullYear() === filters.competencia!.ano
+      })
+    }
+    if (filters?.search?.trim()) {
+      const q = filters.search.trim().toLowerCase()
+      items = items.filter(
+        (f) =>
+          f.code.toLowerCase().includes(q) ||
+          (f.customer_name ?? "").toLowerCase().includes(q) ||
+          f.origin_city.toLowerCase().includes(q) ||
+          f.destination_city.toLowerCase().includes(q),
+      )
+    }
     const now = new Date()
     return {
       faturamento_bruto: items.reduce((s, f) => s + f.value_brl, 0),
@@ -77,7 +103,9 @@ export async function getFreightsSummary(
   const qs = new URLSearchParams()
   if (filters?.driverId) qs.set("driver_id", filters.driverId)
   if (filters?.truckId) qs.set("truck_id", filters.truckId)
+  if (filters?.clientId) qs.set("client_id", filters.clientId)
   if (filters?.status) qs.set("status", filters.status)
+  if (filters?.search?.trim()) qs.set("search", filters.search.trim())
   if (filters?.competencia) {
     qs.set("competencia_mes", String(filters.competencia.mes))
     qs.set("competencia_ano", String(filters.competencia.ano))

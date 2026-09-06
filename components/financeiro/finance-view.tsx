@@ -36,7 +36,7 @@ import type { FinanceEntry, FixedExpense } from "@/types"
 export function FinanceView() {
   const { user } = useAuth()
   const canAdmin = isAdminRole(user?.role) || user?.role === "financeiro"
-  const { competencia, shift } = useCompetencia()
+  const { competencia, shift, canGoForward } = useCompetencia()
 
   const [syncing, setSyncing] = useState(false)
   const [fixedManagerOpen, setFixedManagerOpen] = useState(false)
@@ -154,6 +154,7 @@ export function FinanceView() {
         key={`${competencia.ano}-${competencia.mes}`}
         competencia={competencia}
         onShift={shift}
+        canGoForward={canGoForward}
         canAdmin={canAdmin}
         onEditEntry={(entry) => setEntryDialog({ open: true, entry })}
         onDeleteEntry={setDeleteEntry}

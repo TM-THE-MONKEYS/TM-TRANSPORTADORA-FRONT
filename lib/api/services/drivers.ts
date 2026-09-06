@@ -5,11 +5,30 @@ import {
   toDriverUpdatePayload,
 } from "@/lib/api/adapters/drivers"
 import * as mock from "@/lib/mocks/handlers"
-import type { Driver, Paginated } from "@/types"
+import type { Driver, DriverStatus, Paginated } from "@/types"
 
-export async function listDrivers(page = 1, pageSize = 20): Promise<Paginated<Driver>> {
-  if (shouldUseMocks()) return mock.mockListDrivers(page, pageSize)
-  return apiRequest(`/drivers?page=${page}&size=${pageSize}`, { auth: true })
+export interface DriverListFilters {
+  search?: string
+  status?: DriverStatus
+  competencia?: { mes: number; ano: number }
+  truckId?: string
+}
+
+export async function listDrivers(
+  page = 1,
+  pageSize = 20,
+  filters?: DriverListFilters,
+): Promise<Paginated<Driver>> {
+  if (shouldUseMocks()) return mock.mockListDrivers(page, pageSize, filters)
+  const qs = new URLSearchParams({ page: String(page), size: String(pageSize) })
+  if (filters?.search?.trim()) qs.set("search", filters.search.trim())
+  if (filters?.status) qs.set("status", filters.status)
+  if (filters?.truckId) qs.set("truck_id", filters.truckId)
+  if (filters?.competencia) {
+    qs.set("competencia_mes", String(filters.competencia.mes))
+    qs.set("competencia_ano", String(filters.competencia.ano))
+  }
+  return apiRequest(`/drivers?${qs}`, { auth: true })
 }
 
 export async function getDriver(id: string): Promise<Driver> {

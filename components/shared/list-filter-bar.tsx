@@ -22,6 +22,9 @@ interface ListFilterBarProps {
   showTruckFilter?: boolean
   /** Exibir seletor de motorista (ocultar em páginas onde o motorista já é a entidade principal) */
   showDriverFilter?: boolean
+  nextDisabled?: boolean
+  /** Esconde o botão Limpar interno (ex.: Dashboard tem um Limpar que também zera cliente). */
+  showClear?: boolean
   className?: string
 }
 
@@ -42,6 +45,8 @@ export function ListFilterBar({
   onTruckChange,
   showTruckFilter = true,
   showDriverFilter = true,
+  nextDisabled = false,
+  showClear = true,
   className,
 }: ListFilterBarProps) {
   const { trucks, drivers, freights } = useOperationContext()
@@ -82,6 +87,7 @@ export function ListFilterBar({
         ano={competencia.ano}
         onPrevious={() => onCompetenciaShift(-1)}
         onNext={() => onCompetenciaShift(1)}
+        nextDisabled={nextDisabled}
       />
 
       {showDriverFilter && (
@@ -106,7 +112,7 @@ export function ListFilterBar({
         />
       )}
 
-      {hasFilters && (
+      {showClear && hasFilters && (
         <Button
           variant="ghost"
           size="sm"
