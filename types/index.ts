@@ -246,6 +246,14 @@ export interface FreightCost {
   created_at: string
 }
 
+export interface FreightSummary {
+  faturamento_bruto: number
+  gastos: number
+  margem: number
+  quantidade_fretes: number
+  com_atraso: number
+}
+
 // ── Finance ──────────────────────────────────────────────────────────────────
 
 export type FinanceEntryType = "receita" | "despesa"
@@ -401,4 +409,6 @@ export interface DashboardFilters {
   branch_id?: string
   customer_id?: string
   truck_id?: string
+  driver_id?: string
+  competencia?: { mes: number; ano: number }
 }

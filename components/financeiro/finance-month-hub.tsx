@@ -43,6 +43,7 @@ interface FinanceMonthHubProps {
   onNewEntry?: () => void
   /** Notifies parent when the driver filter changes — used to pre-populate the payment sheet. */
   onDriverFilterChange?: (driverId: string | undefined) => void
+  canGoForward?: boolean
 }
 
 export function FinanceMonthHub({
@@ -54,6 +55,7 @@ export function FinanceMonthHub({
   onOpenFixedManager,
   onNewEntry,
   onDriverFilterChange,
+  canGoForward = true,
 }: FinanceMonthHubProps) {
   const [filterType, setFilterType] = useState<FinanceEntryType | "all">("all")
   const [filterStatus, setFilterStatus] = useState<FinanceEntryStatus | "all">("all")
@@ -202,6 +204,7 @@ export function FinanceMonthHub({
             ano={competencia.ano}
             onPrevious={() => onShift(-1)}
             onNext={() => onShift(1)}
+            nextDisabled={!canGoForward}
           />
           {canAdmin && (
             <Button variant="outline" size="sm" onClick={onOpenFixedManager}>

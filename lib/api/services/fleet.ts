@@ -9,16 +9,37 @@ import {
   toTruckUpdatePayload,
 } from "@/lib/api/adapters/trucks"
 import * as mock from "@/lib/mocks/handlers"
-import type { Paginated, Truck, TruckImplement } from "@/types"
+import type { Paginated, Truck, TruckImplement, TruckStatus } from "@/types"
+
+export interface TruckListFilters {
+  search?: string
+  status?: TruckStatus
+  competencia?: { mes: number; ano: number }
+  driverId?: string
+}
+
+function resolveTruckFilters(
+  searchOrFilters?: string | TruckListFilters,
+): TruckListFilters {
+  if (typeof searchOrFilters === "string") return { search: searchOrFilters }
+  return searchOrFilters ?? {}
+}
 
 export async function listTrucks(
   page = 1,
   pageSize = 20,
-  search?: string,
+  searchOrFilters?: string | TruckListFilters,
 ): Promise<Paginated<Truck>> {
-  if (shouldUseMocks()) return mock.mockListTrucks(page, pageSize, search)
+  const filters = resolveTruckFilters(searchOrFilters)
+  if (shouldUseMocks()) return mock.mockListTrucks(page, pageSize, filters)
   const qs = new URLSearchParams({ page: String(page), size: String(pageSize) })
-  if (search?.trim()) qs.set("search", search.trim())
+  if (filters.search?.trim()) qs.set("search", filters.search.trim())
+  if (filters.status) qs.set("status", filters.status)
+  if (filters.driverId) qs.set("driver_id", filters.driverId)
+  if (filters.competencia) {
+    qs.set("competencia_mes", String(filters.competencia.mes))
+    qs.set("competencia_ano", String(filters.competencia.ano))
+  }
   return apiRequest(`/trucks?${qs}`, { auth: true })
 }
 

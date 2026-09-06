@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { formatCompetenciaLabel } from "@/lib/format/dates"
 import { cn } from "@/lib/utils"
 
+const NEXT_LIMIT_LABEL = "Limite de 2 meses à frente"
+
 interface CompetenciaNavigatorProps {
   mes: number
   ano: number
@@ -12,6 +14,7 @@ interface CompetenciaNavigatorProps {
   onNext: () => void
   className?: string
   size?: "sm" | "md"
+  nextDisabled?: boolean
 }
 
 export function CompetenciaNavigator({
@@ -21,6 +24,7 @@ export function CompetenciaNavigator({
   onNext,
   className,
   size = "sm",
+  nextDisabled = false,
 }: CompetenciaNavigatorProps) {
   const btnClass = size === "sm" ? "h-8 w-8" : "h-9 w-9"
   const labelClass = size === "sm" ? "min-w-[120px] text-xs" : "min-w-[140px] text-sm"
@@ -45,16 +49,20 @@ export function CompetenciaNavigator({
       <span className={cn("text-center font-medium capitalize", labelClass)}>
         {formatCompetenciaLabel(mes, ano)}
       </span>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className={btnClass}
-        onClick={onNext}
-        aria-label="Próximo mês"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
+      <span title={nextDisabled ? NEXT_LIMIT_LABEL : undefined} className="inline-flex">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={btnClass}
+          onClick={onNext}
+          disabled={nextDisabled}
+          aria-disabled={nextDisabled}
+          aria-label={nextDisabled ? NEXT_LIMIT_LABEL : "Próximo mês"}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </span>
     </div>
   )
 }

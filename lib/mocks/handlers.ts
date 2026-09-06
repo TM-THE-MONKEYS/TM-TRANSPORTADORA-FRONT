@@ -6,12 +6,14 @@ import { generateId, mockStore } from "@/lib/mocks/store"
 import { canDriverRefuelFreight, isFreightOpenForFuel } from "@/lib/fuel/eligibility"
 import { truckHasActiveFreight } from "@/lib/fleet/truck-availability"
 import { nextFreightStatus } from "@/lib/freight/status"
+import { parseLocalDate } from "@/lib/format/dates"
 import type {
   AuthTokens,
   AuthUser,
   DashboardFilters,
   DashboardKpis,
   Driver,
+  DriverStatus,
   FreightEvent,
   FreightOccurrence,
   FreightOrder,
@@ -19,6 +21,7 @@ import type {
   Paginated,
   Truck,
   TruckImplement,
+  TruckStatus,
   UserRead,
 } from "@/types"
 
@@ -62,6 +65,23 @@ function delay(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+function matchesCompetencia(
+  iso: string | null | undefined,
+  competencia?: { mes: number; ano: number },
+): boolean {
+  if (!competencia) return true
+  if (!iso) return false
+  const d = parseLocalDate(iso)
+  return d.getMonth() + 1 === competencia.mes && d.getFullYear() === competencia.ano
+}
+
+function freightInCompetencia(
+  freight: FreightOrder,
+  competencia?: { mes: number; ano: number },
+): boolean {
+  return matchesCompetencia(freight.deadline_at ?? freight.created_at, competencia)
+}
+
 export async function mockBranches() {
   await delay(100)
   return DEMO_BRANCHES
@@ -75,12 +95,34 @@ export async function mockDashboardKpis(_filters?: DashboardFilters): Promise<Da
 export async function mockListTrucks(
   page = 1,
   pageSize = 20,
-  search?: string,
+  searchOrFilters?: string | {
+    search?: string
+    status?: TruckStatus
+    competencia?: { mes: number; ano: number }
+    driverId?: string
+  },
 ): Promise<Paginated<Truck>> {
   await delay(200)
+  const filters =
+    typeof searchOrFilters === "string" ? { search: searchOrFilters } : searchOrFilters ?? {}
   let items = mockStore.trucks
-  if (search?.trim()) {
-    const q = search.trim().toLowerCase()
+  if (filters.status) {
+    items = items.filter((t) => t.status === filters.status)
+  }
+  if (filters.competencia || filters.driverId) {
+    const truckIds = new Set(
+      mockStore.freights
+        .filter((f) => {
+          if (filters.driverId && f.driver_id !== filters.driverId) return false
+          if (filters.competencia && !freightInCompetencia(f, filters.competencia)) return false
+          return Boolean(f.truck_id)
+        })
+        .map((f) => f.truck_id as string),
+    )
+    items = items.filter((t) => truckIds.has(t.id))
+  }
+  if (filters.search?.trim()) {
+    const q = filters.search.trim().toLowerCase()
     items = items.filter(
       (t) =>
         t.plate.toLowerCase().includes(q) ||
@@ -162,9 +204,43 @@ export async function mockDeleteImplement(truckId: string, implementId: string):
   )
 }
 
-export async function mockListDrivers(page = 1, pageSize = 20): Promise<Paginated<Driver>> {
+export async function mockListDrivers(
+  page = 1,
+  pageSize = 20,
+  filters?: {
+    search?: string
+    status?: DriverStatus
+    competencia?: { mes: number; ano: number }
+    truckId?: string
+  },
+): Promise<Paginated<Driver>> {
   await delay(200)
-  return paginate(mockStore.drivers, page, pageSize)
+  let items = mockStore.drivers
+  if (filters?.status) {
+    items = items.filter((d) => d.status === filters.status)
+  }
+  if (filters?.competencia || filters?.truckId) {
+    const driverIds = new Set(
+      mockStore.freights
+        .filter((f) => {
+          if (filters.truckId && f.truck_id !== filters.truckId) return false
+          if (filters.competencia && !freightInCompetencia(f, filters.competencia)) return false
+          return Boolean(f.driver_id)
+        })
+        .map((f) => f.driver_id as string),
+    )
+    items = items.filter((d) => driverIds.has(d.id))
+  }
+  if (filters?.search?.trim()) {
+    const q = filters.search.trim().toLowerCase()
+    items = items.filter(
+      (d) =>
+        d.name.toLowerCase().includes(q) ||
+        d.cnh_number.toLowerCase().includes(q) ||
+        (d.cpf ?? "").toLowerCase().includes(q),
+    )
+  }
+  return paginate(items, page, pageSize)
 }
 
 export async function mockGetDriver(id: string): Promise<Driver | null> {
@@ -212,9 +288,39 @@ export async function mockDeleteDriver(id: string): Promise<void> {
   mockStore.drivers = mockStore.drivers.filter((d) => d.id !== id)
 }
 
-export async function mockListFreights(page = 1, pageSize = 20): Promise<Paginated<FreightOrder>> {
+export async function mockListFreights(
+  page = 1,
+  pageSize = 20,
+  filters?: {
+    driverId?: string
+    truckId?: string
+    clientId?: string
+    status?: FreightStatus
+    search?: string
+    competencia?: { mes: number; ano: number }
+  },
+): Promise<Paginated<FreightOrder>> {
   await delay(200)
-  return paginate(mockStore.freights, page, pageSize)
+  let items = mockStore.freights
+  if (filters?.driverId) items = items.filter((f) => f.driver_id === filters.driverId)
+  if (filters?.truckId) items = items.filter((f) => f.truck_id === filters.truckId)
+  if (filters?.clientId) items = items.filter((f) => f.customer_id === filters.clientId)
+  if (filters?.status) items = items.filter((f) => f.status === filters.status)
+  if (filters?.competencia) {
+    items = items.filter((f) => freightInCompetencia(f, filters.competencia))
+  }
+  if (filters?.search?.trim()) {
+    const q = filters.search.trim().toLowerCase()
+    items = items.filter(
+      (f) =>
+        f.code.toLowerCase().includes(q) ||
+        (f.customer_name ?? "").toLowerCase().includes(q) ||
+        f.origin_city.toLowerCase().includes(q) ||
+        f.destination_city.toLowerCase().includes(q) ||
+        (f.stops ?? []).some((s) => s.city.toLowerCase().includes(q)),
+    )
+  }
+  return paginate(items, page, pageSize)
 }
 
 export async function mockGetFreight(id: string): Promise<FreightOrder | null> {

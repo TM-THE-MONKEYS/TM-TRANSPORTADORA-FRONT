@@ -54,8 +54,9 @@ export function isoToDateInput(iso: string | null | undefined): string {
   }
 }
 
-export function currentCompetencia(): { mes: number; ano: number } {
-  const now = new Date()
+export const MAX_COMPETENCIA_MONTHS_AHEAD = 2
+
+export function currentCompetencia(now = new Date()): { mes: number; ano: number } {
   return { mes: now.getMonth() + 1, ano: now.getFullYear() }
 }
 
@@ -66,6 +67,34 @@ export function shiftCompetencia(
 ): { mes: number; ano: number } {
   const d = new Date(ano, mes - 1 + delta, 1)
   return { mes: d.getMonth() + 1, ano: d.getFullYear() }
+}
+
+/** Passado sempre permitido. Teto = mês atual + maxMonthsAhead. */
+export function isCompetenciaWithinLimit(
+  mes: number,
+  ano: number,
+  maxMonthsAhead = MAX_COMPETENCIA_MONTHS_AHEAD,
+  now = new Date(),
+): boolean {
+  const current = currentCompetencia(now)
+  const max = shiftCompetencia(current.mes, current.ano, maxMonthsAhead)
+  if (ano < max.ano) return true
+  if (ano > max.ano) return false
+  return mes <= max.mes
+}
+
+/** Se passar do teto, retorna o mês atual + maxMonthsAhead. */
+export function clampCompetenciaToLimit(
+  mes: number,
+  ano: number,
+  maxMonthsAhead = MAX_COMPETENCIA_MONTHS_AHEAD,
+  now = new Date(),
+): { mes: number; ano: number } {
+  if (isCompetenciaWithinLimit(mes, ano, maxMonthsAhead, now)) {
+    return { mes, ano }
+  }
+  const current = currentCompetencia(now)
+  return shiftCompetencia(current.mes, current.ano, maxMonthsAhead)
 }
 
 export function formatCompetenciaLabel(mes: number, ano: number): string {

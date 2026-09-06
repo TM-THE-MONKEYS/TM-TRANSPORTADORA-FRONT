@@ -1,10 +1,10 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import useSWR, { mutate } from "swr"
-import { BadgePercent, Calendar, IdCard, Pencil, Plus, Trash2 } from "lucide-react"
+import { BadgePercent, Calendar, IdCard, Pencil, Plus, Trash2, TrendingDown, TrendingUp } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
@@ -16,10 +16,13 @@ import { QueryErrorState } from "@/components/shared/query-error-state"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { ListPage } from "@/components/shared/list-page"
 import { ListSearchField } from "@/components/shared/list-search-field"
+import { ListStatTile } from "@/components/shared/list-stat-tile"
+import { ListFilterBar } from "@/components/shared/list-filter-bar"
 import { ListPagination } from "@/components/shared/list-pagination"
 import { StatusFilterChips } from "@/components/shared/status-filter-chips"
 import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { listDrivers } from "@/lib/api/services/drivers"
+import { getFreightsSummary } from "@/lib/api/services/freight"
 import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
 import {
   DRIVER_STATUS_LABELS,
@@ -28,9 +31,11 @@ import {
   formatCommissionPct,
 } from "@/lib/motoristas/driver-status"
 import { formatDateBR } from "@/lib/format/dates"
+import { formatBRL } from "@/lib/format/currency"
 import { findActiveFreightByDriver } from "@/lib/freight/active-trip"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
-import { DRIVER_STATUS_TONE, statusDotClass } from "@/lib/ui/status-colors"
+import { DRIVER_STATUS_TONE, STATUS_TONE, statusDotClass } from "@/lib/ui/status-colors"
+import { useCompetencia } from "@/hooks/use-competencia"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
@@ -132,45 +137,47 @@ function DriverCard({
 export function DriversListView() {
   const router = useRouter()
   const canWrite = usePermission(PERMISSIONS.driversWrite)
+  const { competencia, shift, canGoForward } = useCompetencia()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<DriverStatus | "all">("all")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const { data, isLoading, error, mutate: revalidate } = useSWR(
-    ["drivers", page, pageSize],
-    () => listDrivers(page, pageSize),
+  const [filterTruckId, setFilterTruckId] = useState<string | undefined>()
+
+  useEffect(() => {
+    setPage(1)
+  }, [competencia.mes, competencia.ano])
+
+  const { data: summary, isLoading: loadingSummary, error: summaryError } = useSWR(
+    ["freights-summary-drivers", competencia.mes, competencia.ano, filterTruckId],
+    () => getFreightsSummary({ competencia, truckId: filterTruckId }),
+    { keepPreviousData: true },
   )
 
-  const allDrivers = data?.items ?? []
+  const { data, isLoading, error, mutate: revalidate } = useSWR(
+    [
+      "drivers",
+      page,
+      pageSize,
+      search,
+      statusFilter,
+      competencia.mes,
+      competencia.ano,
+      filterTruckId,
+    ],
+    () =>
+      listDrivers(page, pageSize, {
+        search: search.trim() || undefined,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        competencia,
+        truckId: filterTruckId,
+      }),
+  )
 
-  const countByStatus = useMemo(() => {
-    const counts: Record<string, number> = { all: allDrivers.length }
-    for (const d of allDrivers) {
-      counts[d.status] = (counts[d.status] ?? 0) + 1
-    }
-    return counts
-  }, [allDrivers])
-
-  const filtered = useMemo(() => {
-    let items = allDrivers
-    if (statusFilter !== "all") {
-      items = items.filter((d) => d.status === statusFilter)
-    }
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      items = items.filter(
-        (d) =>
-          d.name.toLowerCase().includes(q) ||
-          d.cnh_number.toLowerCase().includes(q) ||
-          (d.cpf ?? "").toLowerCase().includes(q),
-      )
-    }
-    return items
-  }, [allDrivers, statusFilter, search])
-
-  const hasFilters = statusFilter !== "all" || search.trim() !== ""
+  const items = data?.items ?? []
+  const hasSearchOrStatus = statusFilter !== "all" || search.trim() !== ""
 
   async function handleDelete() {
     if (!deleteId) return
@@ -205,8 +212,36 @@ export function DriversListView() {
           }
         />
       }
+      stats={
+        <div className="grid grid-cols-2 gap-3">
+          <ListStatTile
+            icon={TrendingUp}
+            label="Faturamento bruto"
+            value={
+              loadingSummary ? "..." : summaryError ? "—" : formatBRL(summary?.faturamento_bruto ?? 0)
+            }
+            accent={STATUS_TONE.success.bg}
+          />
+          <ListStatTile
+            icon={TrendingDown}
+            label="Gastos"
+            value={loadingSummary ? "..." : summaryError ? "—" : formatBRL(summary?.gastos ?? 0)}
+            accent={STATUS_TONE.danger.bg}
+          />
+        </div>
+      }
       toolbar={
         <div className="space-y-3">
+          <ListFilterBar
+            competencia={competencia}
+            onCompetenciaShift={shift}
+            nextDisabled={!canGoForward}
+            driverId={undefined}
+            onDriverChange={() => {}}
+            truckId={filterTruckId}
+            onTruckChange={(id) => { setFilterTruckId(id); setPage(1) }}
+            showDriverFilter={false}
+          />
           <ListSearchField
             value={search}
             onChange={(value) => {
@@ -216,22 +251,18 @@ export function DriversListView() {
             placeholder="Buscar por nome, CNH ou CPF..."
             className="max-w-md"
           />
-          {!isLoading && allDrivers.length > 0 ? (
-            <StatusFilterChips
-              value={statusFilter}
-              onChange={(value) => {
-                setStatusFilter(value)
-                setPage(1)
-              }}
-              chips={STATUS_ORDER.map((s) => ({
-                value: s,
-                label: s === "all" ? "Todos" : DRIVER_STATUS_LABELS[s],
-                count: countByStatus[s] ?? 0,
-                visible: s === "all" || (countByStatus[s] ?? 0) > 0,
-                dotClassName: s !== "all" ? statusDotClass(DRIVER_STATUS_TONE[s]) : undefined,
-              }))}
-            />
-          ) : null}
+          <StatusFilterChips
+            value={statusFilter}
+            onChange={(value) => {
+              setStatusFilter(value)
+              setPage(1)
+            }}
+            chips={STATUS_ORDER.map((s) => ({
+              value: s,
+              label: s === "all" ? "Todos" : DRIVER_STATUS_LABELS[s],
+              dotClassName: s !== "all" ? statusDotClass(DRIVER_STATUS_TONE[s]) : undefined,
+            }))}
+          />
         </div>
       }
     >
@@ -245,35 +276,40 @@ export function DriversListView() {
           description={error instanceof Error ? error.message : "Falha ao carregar motoristas."}
           onRetry={() => void revalidate()}
         />
-      ) : allDrivers.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
-          title="Sem motoristas"
-          description="Cadastre motoristas da frota com CNH, comissão e acesso ao app."
-          actionLabel={canWrite ? "Novo motorista" : undefined}
-          onAction={canWrite ? () => router.push("/dashboard/motoristas/novo") : undefined}
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          title="Nenhum resultado"
-          description="Nenhum motorista encontrado com os filtros aplicados."
-          actionLabel={hasFilters ? "Limpar filtros" : undefined}
+          title={hasSearchOrStatus ? "Nenhum resultado" : "Sem motoristas"}
+          description={
+            hasSearchOrStatus
+              ? "Nenhum motorista encontrado com os filtros aplicados."
+              : "Nenhum motorista nesta competência."
+          }
+          actionLabel={
+            hasSearchOrStatus
+              ? "Limpar filtros"
+              : canWrite
+                ? "Novo motorista"
+                : undefined
+          }
           onAction={
-            hasFilters
+            hasSearchOrStatus
               ? () => {
                   setSearch("")
                   setStatusFilter("all")
                 }
-              : undefined
+              : canWrite
+                ? () => router.push("/dashboard/motoristas/novo")
+                : undefined
           }
         />
       ) : (
         <div className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
-            {filtered.map((d) => (
+            {items.map((d) => (
               <DriverCard key={d.id} driver={d} canWrite={canWrite} onDelete={setDeleteId} />
             ))}
           </div>
-          {(data?.total ?? 0) > 0 && !hasFilters ? (
+          {(data?.total ?? 0) > 0 ? (
             <ListPagination
               page={page}
               pageSize={pageSize}

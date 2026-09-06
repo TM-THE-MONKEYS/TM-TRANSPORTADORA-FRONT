@@ -24,7 +24,7 @@ import {
 } from "@/lib/freight/driver-commission"
 import { getTruckLabel } from "@/lib/freight/active-trip"
 import { formatBRL } from "@/lib/format/currency"
-import { formatDateBR } from "@/lib/format/dates"
+import { formatDateBR, isCompetenciaWithinLimit } from "@/lib/format/dates"
 import { formatCommissionPct } from "@/lib/motoristas/driver-status"
 import { SEMANTIC } from "@/lib/ui/status-colors"
 import { cn } from "@/lib/utils"
@@ -174,6 +174,8 @@ export function DriverPaymentSheet({
   const [truckId, setTruckId] = useState<string | undefined>()
   const [competencia, setCompetencia] = useState(currentCompetencia)
   const [markingAll, setMarkingAll] = useState(false)
+  const nextCompetencia = shiftCompetencia(competencia, 1)
+  const canGoForward = isCompetenciaWithinLimit(nextCompetencia.mes, nextCompetencia.ano)
 
   const { trucks, drivers, freights } = useOperationContext()
 
@@ -345,7 +347,11 @@ export function DriverPaymentSheet({
             mes={competencia.mes}
             ano={competencia.ano}
             onPrevious={() => setCompetencia((c) => shiftCompetencia(c, -1))}
-            onNext={() => setCompetencia((c) => shiftCompetencia(c, 1))}
+            onNext={() => {
+              if (!canGoForward) return
+              setCompetencia((c) => shiftCompetencia(c, 1))
+            }}
+            nextDisabled={!canGoForward}
           />
           {truckId && (
             <p className="basis-full text-xs text-muted-foreground">

@@ -1,10 +1,10 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import useSWR, { mutate } from "swr"
-import { Pencil, Plus, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2, TrendingDown, TrendingUp } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
@@ -16,15 +16,20 @@ import { QueryErrorState } from "@/components/shared/query-error-state"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { ListPage } from "@/components/shared/list-page"
 import { ListSearchField } from "@/components/shared/list-search-field"
+import { ListStatTile } from "@/components/shared/list-stat-tile"
+import { ListFilterBar } from "@/components/shared/list-filter-bar"
 import { ListPagination } from "@/components/shared/list-pagination"
 import { StatusFilterChips } from "@/components/shared/status-filter-chips"
 import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { listTrucks, deleteTruck } from "@/lib/api/services/fleet"
+import { getFreightsSummary } from "@/lib/api/services/freight"
 import { formatDateBR } from "@/lib/format/dates"
+import { formatBRL } from "@/lib/format/currency"
 import { findActiveFreightByTruck } from "@/lib/freight/active-trip"
 import { getEffectiveTruckStatus, TRUCK_STATUS_LABELS } from "@/lib/fleet/truck-availability"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
-import { statusDotClass, TRUCK_STATUS_TONE } from "@/lib/ui/status-colors"
+import { statusDotClass, STATUS_TONE, TRUCK_STATUS_TONE } from "@/lib/ui/status-colors"
+import { useCompetencia } from "@/hooks/use-competencia"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
@@ -41,20 +46,43 @@ const STATUS_ORDER: Array<TruckStatus | "all"> = [
 export function FleetListView() {
   const router = useRouter()
   const canWrite = usePermission(PERMISSIONS.fleetWrite)
+  const { competencia, shift, canGoForward } = useCompetencia()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<TruckStatus | "all">("all")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [filterDriverId, setFilterDriverId] = useState<string | undefined>()
+
+  useEffect(() => {
+    setPage(1)
+  }, [competencia.mes, competencia.ano])
 
   const { freights } = useOperationContext()
-  const queryKey = useMemo(
-    () => ["trucks", search, page, pageSize] as const,
-    [search, page, pageSize],
+
+  const { data: summary, isLoading: loadingSummary, error: summaryError } = useSWR(
+    ["freights-summary-fleet", competencia.mes, competencia.ano, filterDriverId],
+    () => getFreightsSummary({ competencia, driverId: filterDriverId }),
+    { keepPreviousData: true },
   )
+  const queryKey = [
+    "trucks",
+    search,
+    page,
+    pageSize,
+    statusFilter,
+    competencia.mes,
+    competencia.ano,
+    filterDriverId,
+  ] as const
   const { data, isLoading, error, mutate: revalidate } = useSWR(queryKey, () =>
-    listTrucks(page, pageSize, search || undefined),
+    listTrucks(page, pageSize, {
+      search: search.trim() || undefined,
+      status: statusFilter === "all" ? undefined : statusFilter,
+      competencia,
+      driverId: filterDriverId,
+    }),
   )
 
   const items = data?.items ?? []
@@ -68,20 +96,7 @@ export function FleetListView() {
     [items, freights],
   )
 
-  const countByStatus = useMemo(() => {
-    const counts: Record<string, number> = { all: withStatus.length }
-    for (const row of withStatus) {
-      counts[row.effectiveStatus] = (counts[row.effectiveStatus] ?? 0) + 1
-    }
-    return counts
-  }, [withStatus])
-
-  const filtered = useMemo(() => {
-    if (statusFilter === "all") return withStatus
-    return withStatus.filter((row) => row.effectiveStatus === statusFilter)
-  }, [withStatus, statusFilter])
-
-  const hasFilters = statusFilter !== "all" || search.trim() !== ""
+  const hasSearchOrStatus = statusFilter !== "all" || search.trim() !== ""
 
   async function handleDelete() {
     if (!deleteId) return
@@ -116,8 +131,36 @@ export function FleetListView() {
           }
         />
       }
+      stats={
+        <div className="grid grid-cols-2 gap-3">
+          <ListStatTile
+            icon={TrendingUp}
+            label="Faturamento bruto"
+            value={
+              loadingSummary ? "..." : summaryError ? "—" : formatBRL(summary?.faturamento_bruto ?? 0)
+            }
+            accent={STATUS_TONE.success.bg}
+          />
+          <ListStatTile
+            icon={TrendingDown}
+            label="Gastos"
+            value={loadingSummary ? "..." : summaryError ? "—" : formatBRL(summary?.gastos ?? 0)}
+            accent={STATUS_TONE.danger.bg}
+          />
+        </div>
+      }
       toolbar={
         <div className="space-y-3">
+          <ListFilterBar
+            competencia={competencia}
+            onCompetenciaShift={shift}
+            nextDisabled={!canGoForward}
+            driverId={filterDriverId}
+            onDriverChange={(id) => { setFilterDriverId(id); setPage(1) }}
+            truckId={undefined}
+            onTruckChange={() => {}}
+            showTruckFilter={false}
+          />
           <ListSearchField
             value={search}
             onChange={(value) => {
@@ -127,22 +170,18 @@ export function FleetListView() {
             placeholder="Buscar por placa ou modelo..."
             className="max-w-md"
           />
-          {!isLoading && items.length > 0 ? (
-            <StatusFilterChips
-              value={statusFilter}
-              onChange={(value) => {
-                setStatusFilter(value)
-                setPage(1)
-              }}
-              chips={STATUS_ORDER.map((s) => ({
-                value: s,
-                label: s === "all" ? "Todos" : TRUCK_STATUS_LABELS[s],
-                count: countByStatus[s] ?? 0,
-                visible: s === "all" || (countByStatus[s] ?? 0) > 0,
-                dotClassName: s !== "all" ? statusDotClass(TRUCK_STATUS_TONE[s]) : undefined,
-              }))}
-            />
-          ) : null}
+          <StatusFilterChips
+            value={statusFilter}
+            onChange={(value) => {
+              setStatusFilter(value)
+              setPage(1)
+            }}
+            chips={STATUS_ORDER.map((s) => ({
+              value: s,
+              label: s === "all" ? "Todos" : TRUCK_STATUS_LABELS[s],
+              dotClassName: s !== "all" ? statusDotClass(TRUCK_STATUS_TONE[s]) : undefined,
+            }))}
+          />
         </div>
       }
     >
@@ -158,43 +197,34 @@ export function FleetListView() {
         />
       ) : items.length === 0 ? (
         <EmptyState
-          title={search ? "Nenhum resultado" : "Frota vazia"}
+          title={hasSearchOrStatus ? "Nenhum resultado" : "Frota vazia"}
           description={
-            search ? "Tente outra placa ou modelo." : "Cadastre o primeiro caminhão."
+            hasSearchOrStatus
+              ? "Nenhum caminhão encontrado com os filtros aplicados."
+              : "Nenhum caminhão nesta competência."
           }
           actionLabel={
-            search
-              ? "Limpar busca"
+            hasSearchOrStatus
+              ? "Limpar filtros"
               : canWrite
                 ? "Novo caminhão"
                 : undefined
           }
           onAction={
-            search
-              ? () => setSearch("")
+            hasSearchOrStatus
+              ? () => {
+                  setSearch("")
+                  setStatusFilter("all")
+                }
               : canWrite
                 ? () => router.push("/dashboard/frota/novo")
                 : undefined
           }
         />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          title="Nenhum resultado"
-          description="Nenhum caminhão encontrado com os filtros aplicados."
-          actionLabel={hasFilters ? "Limpar filtros" : undefined}
-          onAction={
-            hasFilters
-              ? () => {
-                  setSearch("")
-                  setStatusFilter("all")
-                }
-              : undefined
-          }
-        />
       ) : (
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-          {filtered.map(({ truck: t, effectiveStatus }) => (
+          {withStatus.map(({ truck: t, effectiveStatus }) => (
             <ClickableListCard
               key={t.id}
               onActivate={() => router.push(`/dashboard/frota/${t.id}`)}
@@ -248,7 +278,7 @@ export function FleetListView() {
             </ClickableListCard>
           ))}
           </div>
-          {(data?.total ?? 0) > 0 && statusFilter === "all" ? (
+          {(data?.total ?? 0) > 0 ? (
             <ListPagination
               page={page}
               pageSize={pageSize}

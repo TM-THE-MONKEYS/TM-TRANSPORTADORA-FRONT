@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import useSWR from "swr"
@@ -10,8 +10,8 @@ import {
   ChevronRight,
   Clock,
   Plus,
+  TrendingDown,
   TrendingUp,
-  Truck,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,16 +23,22 @@ import { QueryErrorState } from "@/components/shared/query-error-state"
 import { ListPage } from "@/components/shared/list-page"
 import { ListSearchField } from "@/components/shared/list-search-field"
 import { ListStatTile } from "@/components/shared/list-stat-tile"
+import { ListFilterBar } from "@/components/shared/list-filter-bar"
 import { ListPagination } from "@/components/shared/list-pagination"
 import { StatusFilterChips } from "@/components/shared/status-filter-chips"
 import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
-import { advanceFreightStatus, getFreightCosts, listFreights } from "@/lib/api/services/freight"
+import {
+  advanceFreightStatus,
+  getFreightCosts,
+  getFreightsSummary,
+  listFreights,
+} from "@/lib/api/services/freight"
 import { formatFreightRouteShort } from "@/lib/freight/route-label"
 import { formatBRL } from "@/lib/format/currency"
 import { formatWeightKg } from "@/lib/format/numbers"
 import { formatDateBR } from "@/lib/format/dates"
-import { getDriverName, getTruckLabel, isFreightInTransit } from "@/lib/freight/active-trip"
+import { getDriverName, getTruckLabel } from "@/lib/freight/active-trip"
 import { FREIGHT_STATUS_LABELS, nextFreightStatus } from "@/lib/freight/status"
 import {
   freightStatusAccent,
@@ -40,6 +46,7 @@ import {
   SEMANTIC,
   STATUS_TONE,
 } from "@/lib/ui/status-colors"
+import { useCompetencia } from "@/hooks/use-competencia"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
@@ -93,48 +100,61 @@ export function FreightsListView() {
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const canStatus = usePermission(PERMISSIONS.freightStatus)
   const { drivers, trucks } = useOperationContext()
+  const { competencia, shift, canGoForward } = useCompetencia()
+
+  const [filterDriverId, setFilterDriverId] = useState<string | undefined>()
+  const [filterTruckId, setFilterTruckId] = useState<string | undefined>()
+
   const [statusFilter, setStatusFilter] = useState<FreightStatus | "all">("all")
   const [search, setSearch] = useState("")
   const [advancing, setAdvancing] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
+  useEffect(() => {
+    setPage(1)
+  }, [competencia.mes, competencia.ano])
+
+  const filters = {
+    competencia,
+    driverId: filterDriverId,
+    truckId: filterTruckId,
+    status: statusFilter === "all" ? undefined : statusFilter,
+    search: search.trim() || undefined,
+  }
+
   const { data, isLoading, error, mutate } = useSWR(
-    ["freights-list", page, pageSize],
-    () => listFreights(page, pageSize),
+    [
+      "freights-list",
+      page,
+      pageSize,
+      competencia.mes,
+      competencia.ano,
+      filterDriverId,
+      filterTruckId,
+      statusFilter,
+      search,
+    ],
+    () => listFreights(page, pageSize, filters),
   )
 
-  const allFreights = data?.items ?? []
+  const { data: summary, isLoading: loadingSummary, error: summaryError } = useSWR(
+    [
+      "freights-summary",
+      competencia.mes,
+      competencia.ano,
+      filterDriverId,
+      filterTruckId,
+      statusFilter,
+      search,
+    ],
+    () => getFreightsSummary(filters),
+    { keepPreviousData: true },
+  )
 
-  const countByStatus = useMemo(() => {
-    const counts: Record<string, number> = { all: allFreights.length }
-    for (const f of allFreights) {
-      counts[f.status] = (counts[f.status] ?? 0) + 1
-    }
-    return counts
-  }, [allFreights])
-
-  const filtered = useMemo(() => {
-    let items = allFreights
-    if (statusFilter !== "all") items = items.filter((f) => f.status === statusFilter)
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      items = items.filter(
-        (f) =>
-          f.code.toLowerCase().includes(q) ||
-          (f.customer_name ?? "").toLowerCase().includes(q) ||
-          f.origin_city.toLowerCase().includes(q) ||
-          f.destination_city.toLowerCase().includes(q) ||
-          (f.stops ?? []).some((s) => s.city.toLowerCase().includes(q)),
-      )
-    }
-    return items
-  }, [allFreights, statusFilter, search])
-
-  const inTransitCount = allFreights.filter((f) => isFreightInTransit(f.status)).length
-  const overdueCount = allFreights.filter(isOverdue).length
-  const totalValue = allFreights.reduce((s, f) => s + f.value_brl, 0)
-  const hasFilters = statusFilter !== "all" || search.trim() !== ""
+  const items = data?.items ?? []
+  const overdueCount = summaryError ? null : (summary?.com_atraso ?? 0)
+  const hasSearchOrStatus = statusFilter !== "all" || search.trim() !== ""
 
   async function handleAdvance(e: React.MouseEvent, freight: FreightOrder) {
     e.stopPropagation()
@@ -170,32 +190,42 @@ export function FreightsListView() {
         />
       }
       stats={
-        !isLoading && allFreights.length > 0 ? (
+        !isLoading ? (
           <div className="grid grid-cols-3 gap-3">
             <ListStatTile
-              icon={Truck}
-              label="Em trânsito"
-              value={inTransitCount}
-              accent={STATUS_TONE.progress.bg}
-              onClick={() => setStatusFilter("em_transporte")}
+              icon={TrendingUp}
+              label="Faturamento bruto"
+              value={
+                loadingSummary ? "..." : summaryError ? "—" : formatBRL(summary?.faturamento_bruto ?? 0)
+              }
+              accent={STATUS_TONE.success.bg}
             />
             <ListStatTile
-              icon={TrendingUp}
-              label="Volume total"
-              value={formatBRL(totalValue)}
-              accent={STATUS_TONE.success.bg}
+              icon={TrendingDown}
+              label="Gastos"
+              value={loadingSummary ? "..." : summaryError ? "—" : formatBRL(summary?.gastos ?? 0)}
+              accent={STATUS_TONE.danger.bg}
             />
             <ListStatTile
               icon={Clock}
               label="Com atraso"
-              value={overdueCount}
-              accent={overdueCount > 0 ? STATUS_TONE.danger.bg : STATUS_TONE.neutral.bg}
+              value={loadingSummary ? "..." : overdueCount ?? "—"}
+              accent={overdueCount && overdueCount > 0 ? STATUS_TONE.danger.bg : STATUS_TONE.neutral.bg}
             />
           </div>
         ) : null
       }
       toolbar={
         <div className="space-y-3">
+          <ListFilterBar
+            competencia={competencia}
+            onCompetenciaShift={shift}
+            nextDisabled={!canGoForward}
+            driverId={filterDriverId}
+            onDriverChange={(id) => { setFilterDriverId(id); setPage(1) }}
+            truckId={filterTruckId}
+            onTruckChange={(id) => { setFilterTruckId(id); setPage(1) }}
+          />
           <ListSearchField
             value={search}
             onChange={(value) => {
@@ -213,8 +243,6 @@ export function FreightsListView() {
             chips={STATUS_ORDER.map((s) => ({
               value: s,
               label: STATUS_TAB_LABELS[s],
-              count: countByStatus[s] ?? 0,
-              visible: s === "all" || (countByStatus[s] ?? 0) > 0,
               dotClassName: s !== "all" ? freightStatusDot(s) : undefined,
             }))}
           />
@@ -232,30 +260,35 @@ export function FreightsListView() {
           description={error instanceof Error ? error.message : "Falha ao carregar fretes."}
           onRetry={() => void mutate()}
         />
-      ) : allFreights.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
-          title="Nenhum frete"
-          description="Crie a primeira ordem de frete para iniciar a operação."
-          actionLabel={canWrite ? "Nova ordem" : undefined}
-          onAction={canWrite ? () => router.push("/dashboard/fretes/novo") : undefined}
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          title="Nenhum resultado"
-          description="Nenhum frete encontrado com os filtros aplicados."
-          actionLabel={hasFilters ? "Limpar filtros" : undefined}
+          title={hasSearchOrStatus ? "Nenhum resultado" : "Nenhum frete"}
+          description={
+            hasSearchOrStatus
+              ? "Nenhum frete encontrado com os filtros aplicados."
+              : "Nenhum frete nesta competência."
+          }
+          actionLabel={
+            hasSearchOrStatus
+              ? "Limpar filtros"
+              : canWrite
+                ? "Nova ordem"
+                : undefined
+          }
           onAction={
-            hasFilters
+            hasSearchOrStatus
               ? () => {
                   setSearch("")
                   setStatusFilter("all")
                 }
-              : undefined
+              : canWrite
+                ? () => router.push("/dashboard/fretes/novo")
+                : undefined
           }
         />
       ) : (
         <div className="space-y-2">
-          {filtered.map((f) => {
+          {items.map((f) => {
             const overdue = isOverdue(f)
             const nextStatus = nextFreightStatus(f.status)
             const driverName = getDriverName(drivers, f.driver_id ?? undefined)
@@ -352,7 +385,7 @@ export function FreightsListView() {
             )
           })}
 
-          {(data?.total ?? 0) > 0 && !hasFilters ? (
+          {(data?.total ?? 0) > 0 ? (
             <ListPagination
               page={page}
               pageSize={pageSize}

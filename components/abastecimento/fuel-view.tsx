@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select"
 import { PageHeader } from "@/components/shared/page-header"
 import { ListSearchField } from "@/components/shared/list-search-field"
+import { CompetenciaNavigator } from "@/components/shared/competencia-navigator"
 import { EmptyState } from "@/components/shared/empty-state"
 import { useAuth } from "@/components/providers/auth-provider"
 import { listDrivers } from "@/lib/api/services/drivers"
@@ -54,7 +55,7 @@ import {
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { getDriverName, getTruckLabel } from "@/lib/freight/active-trip"
 import { formatBRL } from "@/lib/format/currency"
-import { formatDateBR, isoToDateInput } from "@/lib/format/dates"
+import { formatDateBR, isoToDateInput, isCompetenciaWithinLimit, shiftCompetencia } from "@/lib/format/dates"
 import { usePermission } from "@/hooks/use-permission"
 import { isAdminRole, PERMISSIONS } from "@/lib/rbac/permissions"
 import { FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
@@ -92,6 +93,19 @@ export function FuelView() {
   const [editSaving, setEditSaving] = useState(false)
 
   const { trucks } = useOperationContext()
+
+  const now = new Date()
+  const [competencia, setCompetencia] = useState({ mes: now.getMonth() + 1, ano: now.getFullYear() })
+  function handleCompetenciaShift(delta: number) {
+    setCompetencia((c) => {
+      const next = shiftCompetencia(c.mes, c.ano, delta)
+      if (delta > 0 && !isCompetenciaWithinLimit(next.mes, next.ano)) return c
+      return next
+    })
+  }
+  const nextCompetencia = shiftCompetencia(competencia.mes, competencia.ano, 1)
+  const canGoForward = isCompetenciaWithinLimit(nextCompetencia.mes, nextCompetencia.ano)
+
   const { data: driversPage } = useSWR("fuel-drivers", () => listDrivers(1, 100))
   const { data: freightsPage } = useSWR("fuel-freights", () => listFreights(1, 100))
   const {
@@ -99,7 +113,10 @@ export function FuelView() {
     error: refillsError,
     isLoading: loadingRefills,
     mutate: refreshRefills,
-  } = useSWR("fuel-refills-all", () => listAllFuelRefills(1, 100))
+  } = useSWR(
+    ["fuel-refills-all", competencia.mes, competencia.ano],
+    () => listAllFuelRefills(1, 100, competencia),
+  )
 
   const canManageFuel = usePermission(PERMISSIONS.freightWrite) || isAdminRole(user?.role)
 
@@ -537,12 +554,21 @@ export function FuelView() {
           <CardTitle className="text-base">
             {isMotorista ? "Meus abastecimentos" : "Histórico de abastecimentos"}
           </CardTitle>
-          <ListSearchField
-            value={fuelSearch}
-            onChange={setFuelSearch}
-            placeholder="Buscar por frete, posto ou motorista..."
-            className="w-full sm:w-64"
-          />
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <CompetenciaNavigator
+              mes={competencia.mes}
+              ano={competencia.ano}
+              onPrevious={() => handleCompetenciaShift(-1)}
+              onNext={() => handleCompetenciaShift(1)}
+              nextDisabled={!canGoForward}
+            />
+            <ListSearchField
+              value={fuelSearch}
+              onChange={setFuelSearch}
+              placeholder="Buscar por frete, posto ou motorista..."
+              className="w-full sm:w-64"
+            />
+          </div>
         </CardHeader>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
