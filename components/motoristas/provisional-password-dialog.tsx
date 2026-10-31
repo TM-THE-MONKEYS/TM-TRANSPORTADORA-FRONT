@@ -18,17 +18,30 @@ type Props = {
   email: string
   password: string
   onClose: () => void
+  /** create = nova conta; reset = senha redefinida pelo admin */
+  mode?: "create" | "reset"
 }
 
-export function ProvisionalPasswordDialog({ open, cpf, email, password, onClose }: Props) {
+export function ProvisionalPasswordDialog({
+  open,
+  cpf,
+  email,
+  password,
+  onClose,
+  mode = "create",
+}: Props) {
+  const isReset = mode === "reset"
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Conta de acesso criada</DialogTitle>
+          <DialogTitle>
+            {isReset ? "Senha provisória gerada" : "Conta de acesso criada"}
+          </DialogTitle>
           <DialogDescription>
-            Repasse CPF, e-mail e senha provisória ao motorista. A senha não será exibida novamente.
-            No login, o motorista usa o CPF (não o e-mail) e a senha provisória.
+            {isReset
+              ? "Repasse a nova senha provisória ao motorista. A senha não será exibida novamente. No próximo login ele usará o CPF e esta senha."
+              : "Repasse CPF, e-mail e senha provisória ao motorista. A senha não será exibida novamente. No login, o motorista usa o CPF (não o e-mail) e a senha provisória."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

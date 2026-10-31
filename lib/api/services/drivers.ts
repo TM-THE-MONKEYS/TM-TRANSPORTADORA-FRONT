@@ -64,3 +64,53 @@ export async function deleteDriver(id: string): Promise<void> {
   if (shouldUseMocks()) return mock.mockDeleteDriver(id)
   await apiRequest(`/drivers/${id}`, { method: "DELETE", auth: true })
 }
+
+export type DriverAccountPayload = {
+  email: string
+  password: string
+}
+
+export type DriverResetPasswordPayload = {
+  password: string
+}
+
+/** Admin only — creates login for an existing driver (no createUser). */
+export async function createDriverAccount(
+  id: string,
+  data: DriverAccountPayload,
+): Promise<Driver> {
+  if (shouldUseMocks()) return mock.mockCreateDriverAccount(id, data)
+  return apiRequest(`/drivers/${id}/account`, {
+    method: "POST",
+    body: {
+      email: data.email.trim().toLowerCase(),
+      password: data.password,
+    },
+    auth: true,
+  })
+}
+
+/** Admin only — resets password for driver who already has an account. */
+export async function resetDriverPassword(
+  id: string,
+  data: DriverResetPasswordPayload,
+): Promise<{ message: string }> {
+  if (shouldUseMocks()) return mock.mockResetDriverPassword(id, data)
+  return apiRequest(`/drivers/${id}/reset-password`, {
+    method: "POST",
+    body: { password: data.password },
+    auth: true,
+  })
+}
+
+/**
+ * Admin only — removes login account, keeps the driver record.
+ * DELETE /drivers/{id}/account — may return updated Driver or 204.
+ */
+export async function deleteDriverAccount(id: string): Promise<Driver | undefined> {
+  if (shouldUseMocks()) return mock.mockDeleteDriverAccount(id)
+  return apiRequest<Driver | undefined>(`/drivers/${id}/account`, {
+    method: "DELETE",
+    auth: true,
+  })
+}

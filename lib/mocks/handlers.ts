@@ -288,6 +288,83 @@ export async function mockDeleteDriver(id: string): Promise<void> {
   mockStore.drivers = mockStore.drivers.filter((d) => d.id !== id)
 }
 
+export async function mockCreateDriverAccount(
+  id: string,
+  data: { email: string; password: string },
+): Promise<Driver> {
+  await delay(200)
+  const idx = mockStore.drivers.findIndex((d) => d.id === id)
+  if (idx < 0) throw new ApiError(404, "Motorista não encontrado")
+  const driver = mockStore.drivers[idx]
+  if (driver.user_id) throw new ApiError(409, "Motorista já possui conta de acesso")
+
+  const email = data.email.trim().toLowerCase()
+  if (mockStore.users[email]) {
+    throw new ApiError(409, "E-mail já cadastrado para outro usuário")
+  }
+
+  const userId = generateId("user")
+  mockStore.users[email] = {
+    id: userId,
+    email,
+    name: driver.name,
+    role: "motorista",
+    tenant_id: DEMO_TENANT.id,
+    branch_id: DEMO_BRANCHES[0]?.id ?? null,
+    driver_id: id,
+    permissions: [],
+    password: data.password,
+    must_change_password: true,
+  }
+
+  mockStore.drivers[idx] = {
+    ...driver,
+    user_id: userId,
+    email,
+    temporary_password: null,
+  }
+  return { ...mockStore.drivers[idx], temporary_password: data.password }
+}
+
+export async function mockResetDriverPassword(
+  id: string,
+  data: { password: string },
+): Promise<{ message: string }> {
+  await delay(200)
+  const driver = mockStore.drivers.find((d) => d.id === id)
+  if (!driver) throw new ApiError(404, "Motorista não encontrado")
+  if (!driver.user_id) throw new ApiError(404, "Motorista não possui conta de acesso")
+
+  const entry = Object.entries(mockStore.users).find(([, u]) => u.id === driver.user_id)
+  if (!entry) throw new ApiError(404, "Motorista não possui conta de acesso")
+  mockStore.users[entry[0]] = {
+    ...entry[1],
+    password: data.password,
+    must_change_password: true,
+  }
+  return { message: "Senha redefinida com sucesso" }
+}
+
+/** Removes login user; keeps driver (clears user_id / email). */
+export async function mockDeleteDriverAccount(id: string): Promise<Driver> {
+  await delay(200)
+  const idx = mockStore.drivers.findIndex((d) => d.id === id)
+  if (idx < 0) throw new ApiError(404, "Motorista não encontrado")
+  const driver = mockStore.drivers[idx]
+  if (!driver.user_id) throw new ApiError(404, "Motorista não possui conta de acesso")
+
+  const entry = Object.entries(mockStore.users).find(([, u]) => u.id === driver.user_id)
+  if (entry) delete mockStore.users[entry[0]]
+
+  mockStore.drivers[idx] = {
+    ...driver,
+    user_id: null,
+    email: null,
+    temporary_password: null,
+  }
+  return mockStore.drivers[idx]
+}
+
 export async function mockListFreights(
   page = 1,
   pageSize = 20,

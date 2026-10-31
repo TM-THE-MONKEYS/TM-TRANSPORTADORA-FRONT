@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -8,10 +8,7 @@ import useSWR from "swr"
 import {
   BadgePercent,
   CreditCard,
-  KeyRound,
-  Mail,
   Phone,
-  RefreshCw,
   Shield,
   UserRound,
 } from "lucide-react"
@@ -29,11 +26,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ProvisionalPasswordDialog } from "@/components/motoristas/provisional-password-dialog"
-import { getDriver, updateDriver } from "@/lib/api/services/drivers"
-import { generateProvisionalPassword, passwordSchema } from "@/lib/auth/password-policy"
+import { QueryErrorState } from "@/components/shared/query-error-state"
+import { createDriver, getDriver, updateDriver } from "@/lib/api/services/drivers"
 import { formatCpf, isValidCpfLength, stripCpf } from "@/lib/format/cpf"
-import { createDriverWithAccount } from "@/lib/motoristas/create-driver-account"
 import { formatDriverSaveError } from "@/lib/motoristas/driver-errors"
 import { DRIVER_STATUS_LABELS } from "@/lib/motoristas/driver-status"
 import type { DriverStatus } from "@/types"
@@ -51,7 +46,7 @@ const commissionField = z.preprocess(
   z.number().min(0, "Mínimo 0%").max(100, "Máximo 100%").optional(),
 )
 
-const createSchema = z.object({
+const formSchema = z.object({
   name: z.string().min(2, "Informe o nome"),
   cpf: z
     .string()
@@ -63,15 +58,9 @@ const createSchema = z.object({
   status: z.enum(["ativo", "inativo", "suspenso", "ferias"]),
   phone: z.string().optional(),
   commission_pct: commissionField,
-  email: z.string().email("E-mail de login inválido"),
-  provisional_password: passwordSchema,
 })
 
-const editSchema = createSchema.omit({ email: true, provisional_password: true })
-
-type CreateFormData = z.infer<typeof createSchema>
-type EditFormData = z.infer<typeof editSchema>
-type FormData = CreateFormData | EditFormData
+type FormData = z.infer<typeof formSchema>
 
 function FormSection({
   icon: Icon,
@@ -110,12 +99,12 @@ function FieldError({ message }: { message?: string }) {
 export function DriverForm({ driverId }: { driverId?: string }) {
   const router = useRouter()
   const isEdit = Boolean(driverId)
-  const [credentials, setCredentials] = useState<{ cpf: string; email: string; password: string } | null>(null)
-  const [createdDriverId, setCreatedDriverId] = useState<string | null>(null)
-  const { data: driver, isLoading } = useSWR(
-    driverId ? ["driver", driverId] : null,
-    () => getDriver(driverId!),
-  )
+  const {
+    data: driver,
+    isLoading,
+    error,
+    mutate,
+  } = useSWR(driverId ? ["driver", driverId] : null, () => getDriver(driverId!))
 
   const {
     register,
@@ -124,12 +113,11 @@ export function DriverForm({ driverId }: { driverId?: string }) {
     watch,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<CreateFormData>({
-    resolver: zodResolver(isEdit ? editSchema : createSchema),
+  } = useForm<FormData>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       status: "ativo",
       cnh_category: "E",
-      provisional_password: generateProvisionalPassword(),
     },
   })
 
@@ -139,7 +127,7 @@ export function DriverForm({ driverId }: { driverId?: string }) {
       name: driver.name,
       cpf: driver.cpf ? formatCpf(driver.cpf) : "",
       cnh_number: driver.cnh_number,
-      cnh_category: driver.cnh_category as CreateFormData["cnh_category"],
+      cnh_category: driver.cnh_category as FormData["cnh_category"],
       cnh_expires_at: driver.cnh_expires_at?.slice(0, 10) ?? "",
       status: driver.status,
       phone: driver.phone ?? "",
@@ -168,29 +156,25 @@ export function DriverForm({ driverId }: { driverId?: string }) {
         return
       }
 
-      const createData = data as CreateFormData
-      const result = await createDriverWithAccount({
-        driver: payload,
-        email: createData.email,
-        provisionalPassword: createData.provisional_password,
-      })
-
-      setCredentials({
-        cpf: formatCpf(createData.cpf),
-        email: createData.email.trim().toLowerCase(),
-        password: result.provisionalPassword,
-      })
-      setCreatedDriverId(result.driver.id)
+      const created = await createDriver(payload)
+      toast.success("Motorista cadastrado")
+      router.push(`/dashboard/motoristas/${created.id}`)
     } catch (e) {
       toast.error(formatDriverSaveError(e))
     }
   }
 
-  function handleGeneratePassword() {
-    setValue("provisional_password", generateProvisionalPassword(), { shouldValidate: true })
-  }
-
   const cpfValue = watch("cpf") ?? ""
+
+  if (isEdit && error) {
+    return (
+      <QueryErrorState
+        title="Não foi possível carregar o motorista"
+        description={error instanceof Error ? error.message : undefined}
+        onRetry={() => void mutate()}
+      />
+    )
+  }
 
   if (isEdit && isLoading) {
     return (
@@ -202,222 +186,156 @@ export function DriverForm({ driverId }: { driverId?: string }) {
   }
 
   return (
-    <>
-      <ProvisionalPasswordDialog
-        open={!!credentials}
-        cpf={credentials?.cpf ?? ""}
-        email={credentials?.email ?? ""}
-        password={credentials?.password ?? ""}
-        onClose={() => {
-          setCredentials(null)
-          if (createdDriverId) router.push(`/dashboard/motoristas/${createdDriverId}`)
-        }}
-      />
-
-      <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-3xl space-y-6">
-        {!isEdit && (
-          <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
-            Cadastro operacional e conta de acesso em um único passo. O motorista entra com{" "}
-            <span className="font-medium text-foreground">CPF</span> e a senha provisória definida
-            abaixo.
-          </div>
-        )}
-
-        <FormSection
-          icon={UserRound}
-          title="Dados pessoais"
-          description="Identificação e contato do motorista"
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="name">Nome completo</Label>
-              <Input id="name" placeholder="Nome do motorista" {...register("name")} />
-              <FieldError message={errors.name?.message} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cpf">CPF</Label>
-              <Input
-                id="cpf"
-                inputMode="numeric"
-                placeholder="000.000.000-00"
-                value={cpfValue}
-                onChange={(e) => setValue("cpf", formatCpf(e.target.value), { shouldValidate: true })}
-                disabled={isEdit}
-              />
-              <FieldError message={errors.cpf?.message} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <div className="relative">
-                <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="phone"
-                  type="tel"
-                  className="pl-9"
-                  placeholder="(11) 99999-9999"
-                  {...register("phone")}
-                />
-              </div>
-            </div>
-          </div>
-        </FormSection>
-
-        {!isEdit && (
-          <FormSection
-            icon={KeyRound}
-            title="Acesso ao sistema"
-            description="Credenciais para o primeiro login do motorista"
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="email">E-mail de login</Label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    className="pl-9"
-                    placeholder="motorista@empresa.com.br"
-                    {...register("email")}
-                  />
-                </div>
-                {"email" in errors && <FieldError message={errors.email?.message} />}
-              </div>
-
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="provisional_password">Senha provisória</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="provisional_password"
-                    type="text"
-                    className="font-mono"
-                    {...register("provisional_password")}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={handleGeneratePassword}
-                    aria-label="Gerar senha"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                </div>
-                {"provisional_password" in errors && (
-                  <FieldError message={errors.provisional_password?.message} />
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Mínimo 8 caracteres, 1 maiúscula e 1 número. Login com CPF + esta senha.
-                </p>
-              </div>
-            </div>
-          </FormSection>
-        )}
-
-        <FormSection
-          icon={CreditCard}
-          title="CNH e habilitação"
-          description="Documentação obrigatória para operação"
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="cnh_number">Número da CNH</Label>
-              <Input id="cnh_number" inputMode="numeric" {...register("cnh_number")} />
-              <FieldError message={errors.cnh_number?.message} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Categoria</Label>
-              <Select
-                value={watch("cnh_category")}
-                onValueChange={(v) =>
-                  setValue("cnh_category", v as CreateFormData["cnh_category"], { shouldValidate: true })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CNH_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="cnh_expires_at">Validade da CNH</Label>
-              <Input id="cnh_expires_at" type="date" {...register("cnh_expires_at")} />
-              <FieldError message={errors.cnh_expires_at?.message} />
-            </div>
-          </div>
-        </FormSection>
-
-        <FormSection
-          icon={BadgePercent}
-          title="Remuneração e status"
-          description="Comissão sobre fretes e situação operacional"
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="commission_pct">Comissão (%)</Label>
-              <div className="relative">
-                <Input
-                  id="commission_pct"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={100}
-                  step={0.1}
-                  placeholder="Ex: 8"
-                  className="pr-8"
-                  {...register("commission_pct")}
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  %
-                </span>
-              </div>
-              <FieldError message={errors.commission_pct?.message} />
-              <p className="text-xs text-muted-foreground">
-                Percentual aplicado nos fretes deste motorista. Deixe em branco se não houver comissão.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={watch("status")}
-                onValueChange={(v) => setValue("status", v as DriverStatus)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(DRIVER_STATUS_LABELS) as DriverStatus[]).map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {DRIVER_STATUS_LABELS[status]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </FormSection>
-
-        <div className="sticky bottom-0 z-10 -mx-1 flex flex-col-reverse gap-2 rounded-xl border border-border/60 bg-background/95 p-4 backdrop-blur sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => router.back()}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isSubmitting} className="sm:min-w-40">
-            <Shield className="mr-2 h-4 w-4" />
-            {isSubmitting ? "Salvando..." : isEdit ? "Salvar alterações" : "Cadastrar motorista"}
-          </Button>
+    <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-3xl space-y-6">
+      {!isEdit && (
+        <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          Cadastro operacional do motorista. A conta de acesso ao sistema (login) é opcional e
+          pode ser criada depois na ficha, por um administrador.
         </div>
-      </form>
-    </>
+      )}
+
+      <FormSection
+        icon={UserRound}
+        title="Dados pessoais"
+        description="Identificação e contato do motorista"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="name">Nome completo</Label>
+            <Input id="name" placeholder="Nome do motorista" {...register("name")} />
+            <FieldError message={errors.name?.message} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cpf">CPF</Label>
+            <Input
+              id="cpf"
+              inputMode="numeric"
+              placeholder="000.000.000-00"
+              value={cpfValue}
+              onChange={(e) => setValue("cpf", formatCpf(e.target.value), { shouldValidate: true })}
+              disabled={isEdit}
+            />
+            <FieldError message={errors.cpf?.message} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="phone">Telefone</Label>
+            <div className="relative">
+              <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="phone"
+                type="tel"
+                className="pl-9"
+                placeholder="(11) 99999-9999"
+                {...register("phone")}
+              />
+            </div>
+          </div>
+        </div>
+      </FormSection>
+
+      <FormSection
+        icon={CreditCard}
+        title="CNH e habilitação"
+        description="Documentação obrigatória para operação"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="cnh_number">Número da CNH</Label>
+            <Input id="cnh_number" inputMode="numeric" {...register("cnh_number")} />
+            <FieldError message={errors.cnh_number?.message} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Categoria</Label>
+            <Select
+              value={watch("cnh_category")}
+              onValueChange={(v) =>
+                setValue("cnh_category", v as FormData["cnh_category"], { shouldValidate: true })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CNH_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="cnh_expires_at">Validade da CNH</Label>
+            <Input id="cnh_expires_at" type="date" {...register("cnh_expires_at")} />
+            <FieldError message={errors.cnh_expires_at?.message} />
+          </div>
+        </div>
+      </FormSection>
+
+      <FormSection
+        icon={BadgePercent}
+        title="Remuneração e status"
+        description="Comissão sobre fretes e situação operacional"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="commission_pct">Comissão (%)</Label>
+            <div className="relative">
+              <Input
+                id="commission_pct"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={100}
+                step={0.1}
+                placeholder="Ex: 8"
+                className="pr-8"
+                {...register("commission_pct")}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                %
+              </span>
+            </div>
+            <FieldError message={errors.commission_pct?.message} />
+            <p className="text-xs text-muted-foreground">
+              Percentual aplicado nos fretes deste motorista. Deixe em branco se não houver comissão.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select
+              value={watch("status")}
+              onValueChange={(v) => setValue("status", v as DriverStatus)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(DRIVER_STATUS_LABELS) as DriverStatus[]).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {DRIVER_STATUS_LABELS[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </FormSection>
+
+      <div className="sticky bottom-0 z-10 -mx-1 flex flex-col-reverse gap-2 rounded-xl border border-border/60 bg-background/95 p-4 backdrop-blur sm:flex-row sm:justify-end">
+        <Button type="button" variant="outline" onClick={() => router.back()}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting} className="sm:min-w-40">
+          <Shield className="mr-2 h-4 w-4" />
+          {isSubmitting ? "Salvando..." : isEdit ? "Salvar alterações" : "Cadastrar motorista"}
+        </Button>
+      </div>
+    </form>
   )
 }
