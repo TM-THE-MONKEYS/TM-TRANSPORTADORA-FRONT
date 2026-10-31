@@ -87,7 +87,7 @@ export function FreightDetailView({ id }: { id: string }) {
   const canStatus = usePermission(PERMISSIONS.freightStatus)
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const isAdmin = canAdminManageClosedFreight(user?.role)
-  const { drivers, trucks } = useOperationContext()
+  const { drivers, trucks } = useOperationContext({ freights: false })
   const { data: freight, error: freightError, isLoading: freightLoading, mutate: mutateFreight } =
     useSWR(["freight", id], () => getFreight(id))
   const { data: events, mutate: mutateEvents } = useSWR(["freight-events", id], () =>

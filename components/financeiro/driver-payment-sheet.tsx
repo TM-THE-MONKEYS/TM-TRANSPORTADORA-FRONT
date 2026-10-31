@@ -177,7 +177,11 @@ export function DriverPaymentSheet({
   const nextCompetencia = shiftCompetencia(competencia, 1)
   const canGoForward = isCompetenciaWithinLimit(nextCompetencia.mes, nextCompetencia.ano)
 
-  const { trucks, drivers, freights } = useOperationContext()
+  const { trucks, drivers, freights } = useOperationContext({
+    freights: true,
+    drivers: true,
+    trucks: true,
+  })
 
   useEffect(() => {
     if (open) {

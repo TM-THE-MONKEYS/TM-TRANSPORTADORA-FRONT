@@ -73,7 +73,7 @@ const EMPTY_STOP = {
 export function FreightForm() {
   const router = useRouter()
   const { branchId } = useTenant()
-  const { drivers, trucks } = useOperationContext()
+  const { drivers, trucks } = useOperationContext({ freights: false })
   const [weightDisplay, setWeightDisplay] = useState("")
   const [valueDisplay, setValueDisplay] = useState("")
   const [driverId, setDriverId] = useState<string>(NONE)

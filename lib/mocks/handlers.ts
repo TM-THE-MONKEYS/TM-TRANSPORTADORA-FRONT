@@ -571,6 +571,20 @@ export async function mockGetFreightCosts(freightId: string) {
   return mockStore.freightCosts.filter((c) => c.freight_id === freightId)
 }
 
+export async function mockGetFreightsCostsSummary(
+  ids: string[],
+): Promise<Record<string, number>> {
+  await delay(100)
+  const map: Record<string, number> = {}
+  for (const id of ids) {
+    const total = mockStore.freightCosts
+      .filter((c) => c.freight_id === id)
+      .reduce((s, c) => s + c.valor, 0)
+    if (total > 0) map[id] = total
+  }
+  return map
+}
+
 export async function mockRegisterFuelRefill(data: {
   freight_id: string
   driver_id?: string

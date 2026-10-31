@@ -83,7 +83,7 @@ function formatDate(dateStr?: string) {
 
 export function MaintenanceView() {
   const { user } = useAuth()
-  const { trucks, freights } = useOperationContext()
+  const { trucks, freights } = useOperationContext({ drivers: false })
   const canManage = usePermission(PERMISSIONS.fleetWrite) || isAdminRole(user?.role)
 
   const [truckId, setTruckId] = useState("")

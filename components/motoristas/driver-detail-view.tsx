@@ -160,7 +160,7 @@ export function DriverDetailView({ id }: { id: string }) {
     password: string
     mode: "create" | "reset"
   } | null>(null)
-  const { freights } = useOperationContext()
+  const { freights } = useOperationContext({ drivers: false, trucks: false })
   const {
     data: driver,
     error,

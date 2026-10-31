@@ -35,6 +35,9 @@ interface ListFilterBarProps {
  * - Motorista é a atribuição principal; caminhão é refinamento dentro dos fretes do motorista.
  * - Quando um motorista está selecionado, a lista de caminhões é restrita aos que aparecem
  *   nos fretes desse motorista.
+ *
+ * Puxa `op-freights` só para labels/vínculos de filtro (slice leve via useOperationContext),
+ * não para renderizar cards de frete — páginas de lista mantêm o próprio `listFreights` paginado.
  */
 export function ListFilterBar({
   competencia,
@@ -49,7 +52,11 @@ export function ListFilterBar({
   showClear = true,
   className,
 }: ListFilterBarProps) {
-  const { trucks, drivers, freights } = useOperationContext()
+  const { trucks, drivers, freights } = useOperationContext({
+    freights: true,
+    drivers: showDriverFilter,
+    trucks: showTruckFilter,
+  })
 
   const hasFilters = Boolean(driverId || truckId)
 
