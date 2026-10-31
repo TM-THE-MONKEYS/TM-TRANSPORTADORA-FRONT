@@ -65,7 +65,7 @@ export function FinanceMonthHub({
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
-  const { trucks, drivers } = useOperationContext()
+  const { trucks, drivers } = useOperationContext({ freights: false })
 
   // Reset all filters when the competência changes
   useEffect(() => {

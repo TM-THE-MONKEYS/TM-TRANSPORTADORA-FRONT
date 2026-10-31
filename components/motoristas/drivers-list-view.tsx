@@ -59,7 +59,7 @@ function DriverCard({
   onDelete: (id: string) => void
 }) {
   const router = useRouter()
-  const { freights } = useOperationContext()
+  const { freights } = useOperationContext({ drivers: false, trucks: false })
   const activeTrip = findActiveFreightByDriver(freights, driver.id)
   const status = driver.status as DriverStatus
 

@@ -1,56 +1,25 @@
-import { ApiError } from "@/lib/api/errors"
-import { createDriver, updateDriver } from "@/lib/api/services/drivers"
-import { createUser } from "@/lib/api/services/users"
-import { formatDriverSaveError } from "@/lib/motoristas/driver-errors"
+import { createDriverAccount } from "@/lib/api/services/drivers"
 import type { Driver } from "@/types"
 
-export type CreateDriverAccountInput = {
-  driver: Omit<Driver, "id" | "created_at" | "tenant_id">
-  email: string
-  provisionalPassword: string
-}
-
-export type CreateDriverAccountResult = {
+export type CreateAccountForDriverResult = {
   driver: Driver
   provisionalPassword: string
 }
 
 /**
- * Cadastro operacional + conta de acesso em um único fluxo.
- * Cria motorista, usuário (role motorista) e vincula user_id no cadastro.
+ * Cria conta de acesso para motorista já cadastrado (admin).
+ * Usa POST /drivers/{id}/account — não cria usuário via POST /users.
  */
-export async function createDriverWithAccount(
-  input: CreateDriverAccountInput,
-): Promise<CreateDriverAccountResult> {
-  const email = input.email.trim().toLowerCase()
-  const driverPayload = { ...input.driver, email }
+export async function createAccountForDriver(
+  driverId: string,
+  email: string,
+  password: string,
+): Promise<CreateAccountForDriverResult> {
+  const driver = await createDriverAccount(driverId, {
+    email: email.trim().toLowerCase(),
+    password,
+  })
 
-  const driver = await createDriver(driverPayload)
-
-  if (driver.temporary_password) {
-    return { driver, provisionalPassword: driver.temporary_password }
-  }
-
-  try {
-    const user = await createUser({
-      nome: input.driver.name,
-      email,
-      password: input.provisionalPassword,
-      role: "motorista",
-      is_active: true,
-      driver_id: driver.id,
-    })
-
-    const linked = await updateDriver(driver.id, {
-      user_id: user.id,
-      email,
-    })
-
-    return { driver: linked, provisionalPassword: input.provisionalPassword }
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 409) {
-      throw new Error(formatDriverSaveError(error))
-    }
-    throw error
-  }
+  const provisionalPassword = driver.temporary_password ?? password
+  return { driver, provisionalPassword }
 }

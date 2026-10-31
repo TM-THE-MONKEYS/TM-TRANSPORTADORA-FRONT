@@ -1,20 +1,24 @@
 "use client"
 
 import Link from "next/link"
-import useSWR from "swr"
 import { ArrowRight, Package } from "lucide-react"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { listFreights } from "@/lib/api/services/freight"
+import { useOperationContext } from "@/hooks/use-operation-context"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateTimeBR } from "@/lib/format/dates"
 import { sortFreightsByRecent } from "@/lib/freight/report-metrics"
 
+/** Reusa a chave SWR `op-freights` (ListFilterBar no dashboard) — sem segundo listFreights. */
 export function DashboardRecentFreights() {
-  const { data, isLoading } = useSWR("dashboard-recent-freights", () => listFreights(1, 12))
-  const freights = sortFreightsByRecent(data?.items ?? []).slice(0, 8)
+  const { freights, isLoading } = useOperationContext({
+    freights: true,
+    drivers: false,
+    trucks: false,
+  })
+  const recent = sortFreightsByRecent(freights).slice(0, 8)
 
   return (
     <Card className="h-full">
@@ -37,7 +41,7 @@ export function DashboardRecentFreights() {
               <Skeleton key={i} className="h-14 w-full" />
             ))}
           </div>
-        ) : freights.length === 0 ? (
+        ) : recent.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-muted-foreground">
             <Package className="h-8 w-8 opacity-40" />
             <p>Nenhum frete cadastrado</p>
@@ -47,7 +51,7 @@ export function DashboardRecentFreights() {
           </div>
         ) : (
           <ul className="divide-y">
-            {freights.map((f) => (
+            {recent.map((f) => (
               <li key={f.id}>
                 <Link
                   href={`/dashboard/fretes/${f.id}`}

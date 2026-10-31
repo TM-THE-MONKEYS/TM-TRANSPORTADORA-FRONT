@@ -23,7 +23,8 @@ import { useAuth } from "@/components/providers/auth-provider"
 import { DataTable } from "@/components/dados/data-table"
 import { EntityEditDialog, type EditField } from "@/components/dados/entity-edit-dialog"
 import { deleteClient, listClients, updateClient } from "@/lib/api/services/clients"
-import { listDrivers, updateDriver, deleteDriver } from "@/lib/api/services/drivers"
+import { listDrivers, updateDriver } from "@/lib/api/services/drivers"
+import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
 import {
   createFinanceEntry,
   deleteFinanceEntry,
@@ -718,7 +719,7 @@ export function DadosView() {
     setDeleting(true)
     try {
       if (deleteEntity === "fretes") await deleteFreight(deleteId)
-      else if (deleteEntity === "motoristas") await deleteDriver(deleteId)
+      else if (deleteEntity === "motoristas") await deleteDriverWithAccount(deleteId)
       else if (deleteEntity === "frota") await deleteTruck(deleteId)
       else if (deleteEntity === "financeiro") await deleteFinanceEntry(deleteId)
       else if (deleteEntity === "clientes") await deleteClient(deleteId)

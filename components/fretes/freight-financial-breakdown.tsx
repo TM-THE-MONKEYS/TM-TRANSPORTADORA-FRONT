@@ -16,7 +16,7 @@ type FreightFinancialBreakdownProps = {
 }
 
 export function FreightFinancialBreakdown({ freightId, className }: FreightFinancialBreakdownProps) {
-  const { drivers } = useOperationContext()
+  const { drivers } = useOperationContext({ freights: false, trucks: false })
 
   const { data: freight, error: freightError, isLoading: loadingFreight } = useSWR(
     freightId ? ["freight-breakdown", freightId] : null,

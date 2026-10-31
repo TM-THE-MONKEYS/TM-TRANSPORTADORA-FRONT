@@ -9,6 +9,7 @@ import {
   Calendar,
   CreditCard,
   IdCard,
+  KeyRound,
   Mail,
   Pencil,
   Phone,
@@ -17,16 +18,24 @@ import {
   UserRound,
 } from "lucide-react"
 import { toast } from "sonner"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { QueryErrorState } from "@/components/shared/query-error-state"
+import {
+  CreateDriverAccountDialog,
+  ResetDriverPasswordDialog,
+} from "@/components/motoristas/driver-account-dialogs"
 import { DriverDocumentsPanel } from "@/components/motoristas/driver-documents-panel"
+import { ProvisionalPasswordDialog } from "@/components/motoristas/provisional-password-dialog"
 import { SignaturePad } from "@/components/motoristas/signature-pad"
-import { getDriver } from "@/lib/api/services/drivers"
+import { useAuth } from "@/components/providers/auth-provider"
+import { deleteDriverAccount, getDriver } from "@/lib/api/services/drivers"
 import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
+import { formatDriverSaveError } from "@/lib/motoristas/driver-errors"
 import {
   DRIVER_STATUS_LABELS,
   DRIVER_STATUS_VARIANT,
@@ -39,8 +48,8 @@ import { findActiveFreightByDriver } from "@/lib/freight/active-trip"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
-import { PERMISSIONS } from "@/lib/rbac/permissions"
-import type { DriverStatus } from "@/types"
+import { isAdminRole, PERMISSIONS } from "@/lib/rbac/permissions"
+import type { Driver, DriverStatus } from "@/types"
 
 function InfoItem({
   icon: Icon,
@@ -64,13 +73,100 @@ function InfoItem({
   )
 }
 
+function DriverAccessBlock({
+  driver,
+  isAdmin,
+  onCreateAccount,
+  onResetPassword,
+  onRemoveAccount,
+}: {
+  driver: Driver
+  isAdmin: boolean
+  onCreateAccount: () => void
+  onResetPassword: () => void
+  onRemoveAccount: () => void
+}) {
+  const hasAccount = Boolean(driver.user_id)
+
+  return (
+    <Card className="border-border/60 shadow-sm sm:col-span-2 lg:col-span-3">
+      <CardHeader className="pb-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <KeyRound className="h-4 w-4" />
+            </div>
+            <div className="space-y-1">
+              <CardTitle className="text-base">Acesso ao sistema</CardTitle>
+              <CardDescription>
+                Conta de login do motorista (CPF + senha). Criação, redefinição e remoção só para
+                admin.
+              </CardDescription>
+            </div>
+          </div>
+          <Badge variant={hasAccount ? "default" : "secondary"}>
+            {hasAccount ? "Ativa" : "Não criada"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {hasAccount
+            ? driver.email
+              ? `E-mail: ${driver.email}`
+              : "Conta vinculada a este motorista."
+            : "Sem conta de acesso. O motorista ainda não consegue entrar no sistema."}
+        </p>
+        {isAdmin && (
+          <div className="flex flex-wrap gap-2">
+            {!hasAccount ? (
+              <Button type="button" onClick={onCreateAccount}>
+                <KeyRound className="mr-2 h-4 w-4" />
+                Criar conta
+              </Button>
+            ) : (
+              <>
+                <Button type="button" variant="outline" onClick={onResetPassword}>
+                  <Shield className="mr-2 h-4 w-4" />
+                  Redefinir senha
+                </Button>
+                <Button type="button" variant="outline" onClick={onRemoveAccount}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remover conta
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export function DriverDetailView({ id }: { id: string }) {
   const router = useRouter()
+  const { user } = useAuth()
+  const isAdmin = isAdminRole(user?.role)
   const canWrite = usePermission(PERMISSIONS.driversWrite)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const { freights } = useOperationContext()
-  const { data: driver } = useSWR(["driver", id], () => getDriver(id))
+  const [confirmRemoveAccount, setConfirmRemoveAccount] = useState(false)
+  const [removingAccount, setRemovingAccount] = useState(false)
+  const [createAccountOpen, setCreateAccountOpen] = useState(false)
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
+  const [credentials, setCredentials] = useState<{
+    cpf: string
+    email: string
+    password: string
+    mode: "create" | "reset"
+  } | null>(null)
+  const { freights } = useOperationContext({ drivers: false, trucks: false })
+  const {
+    data: driver,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR(["driver", id], () => getDriver(id))
   const activeTrip = driver ? findActiveFreightByDriver(freights, driver.id) : undefined
 
   async function handleDelete() {
@@ -87,7 +183,41 @@ export function DriverDetailView({ id }: { id: string }) {
     }
   }
 
-  if (!driver) {
+  async function handleRemoveAccount() {
+    setRemovingAccount(true)
+    try {
+      const updated = await deleteDriverAccount(id)
+      if (updated) {
+        void mutate(updated, { revalidate: false })
+      } else {
+        void mutate(
+          (current) =>
+            current
+              ? { ...current, user_id: null, email: null, temporary_password: null }
+              : current,
+          { revalidate: true },
+        )
+      }
+      toast.success("Conta de acesso removida")
+    } catch (e) {
+      toast.error(formatDriverSaveError(e))
+    } finally {
+      setRemovingAccount(false)
+      setConfirmRemoveAccount(false)
+    }
+  }
+
+  if (error) {
+    return (
+      <QueryErrorState
+        title="Não foi possível carregar o motorista"
+        description={error instanceof Error ? error.message : undefined}
+        onRetry={() => void mutate()}
+      />
+    )
+  }
+
+  if (isLoading || !driver) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-24 w-full rounded-xl" />
@@ -100,6 +230,45 @@ export function DriverDetailView({ id }: { id: string }) {
 
   return (
     <div className="space-y-6">
+      <ProvisionalPasswordDialog
+        open={!!credentials}
+        cpf={credentials?.cpf ?? ""}
+        email={credentials?.email ?? ""}
+        password={credentials?.password ?? ""}
+        mode={credentials?.mode ?? "create"}
+        onClose={() => setCredentials(null)}
+      />
+
+      <CreateDriverAccountDialog
+        open={createAccountOpen}
+        onOpenChange={setCreateAccountOpen}
+        driverId={id}
+        onCreated={({ driver: updated, email, password }) => {
+          void mutate(updated, { revalidate: false })
+          setCredentials({
+            cpf: updated.cpf ? formatCpf(updated.cpf) : "",
+            email,
+            password,
+            mode: "create",
+          })
+          toast.success("Conta de acesso criada")
+        }}
+      />
+
+      <ResetDriverPasswordDialog
+        open={resetPasswordOpen}
+        onOpenChange={setResetPasswordOpen}
+        driverId={id}
+        onReset={(password) => {
+          setCredentials({
+            cpf: driver.cpf ? formatCpf(driver.cpf) : "",
+            email: driver.email ?? "",
+            password,
+            mode: "reset",
+          })
+        }}
+      />
+
       <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-lg font-bold text-primary">
@@ -126,7 +295,7 @@ export function DriverDetailView({ id }: { id: string }) {
             </Button>
             <Button variant="destructive" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="mr-2 h-4 w-4" />
-              Excluir
+              Excluir motorista
             </Button>
           </div>
         )}
@@ -143,6 +312,13 @@ export function DriverDetailView({ id }: { id: string }) {
 
         <TabsContent value="dados">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DriverAccessBlock
+              driver={driver}
+              isAdmin={isAdmin}
+              onCreateAccount={() => setCreateAccountOpen(true)}
+              onResetPassword={() => setResetPasswordOpen(true)}
+              onRemoveAccount={() => setConfirmRemoveAccount(true)}
+            />
             <InfoItem icon={UserRound} label="CPF" value={driver.cpf ? formatCpf(driver.cpf) : "—"} />
             <InfoItem icon={Phone} label="Telefone" value={driver.phone ?? "—"} />
             <InfoItem icon={Mail} label="E-mail de login" value={driver.email ?? "—"} />
@@ -152,11 +328,6 @@ export function DriverDetailView({ id }: { id: string }) {
               icon={BadgePercent}
               label="Comissão"
               value={formatCommissionPct(driver.commission_pct)}
-            />
-            <InfoItem
-              icon={Shield}
-              label="Conta de acesso"
-              value={driver.user_id ? "Ativa" : "Não criada"}
             />
             <InfoItem icon={CreditCard} label="Categoria CNH" value={driver.cnh_category} />
           </div>
@@ -179,11 +350,21 @@ export function DriverDetailView({ id }: { id: string }) {
       </Tabs>
 
       <ConfirmDialog
+        open={confirmRemoveAccount}
+        onOpenChange={setConfirmRemoveAccount}
+        title="Remover conta de acesso?"
+        description="Remove só o login do motorista. O cadastro operacional permanece. Ele não conseguirá entrar até criar outra conta."
+        confirmLabel="Remover conta"
+        loading={removingAccount}
+        onConfirm={handleRemoveAccount}
+      />
+
+      <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title="Excluir motorista?"
-        description="O registro será removido permanentemente."
-        confirmLabel="Excluir"
+        description="Remove o cadastro do motorista e a conta de acesso, se existir. Esta ação é permanente."
+        confirmLabel="Excluir motorista"
         loading={deleting}
         onConfirm={handleDelete}
       />

@@ -244,6 +244,32 @@ export async function getFreightCosts(freightId: string): Promise<FreightCost[]>
   return mergeFreightCostsWithFuel(apiCosts, fuelPage.items)
 }
 
+export type FreightCostSummaryRow = {
+  freight_id: string
+  total_costs: number
+}
+
+/**
+ * Totais de custo por frete (batch) — evita N+1 de `getFreightCosts` na listagem.
+ * `GET /freights/costs-summary?ids=...`
+ */
+export async function getFreightsCostsSummary(
+  ids: string[],
+): Promise<Record<string, number>> {
+  if (ids.length === 0) return {}
+  if (shouldUseMocks()) return mock.mockGetFreightsCostsSummary(ids)
+
+  const qs = new URLSearchParams({ ids: ids.join(",") })
+  const rows = await apiRequest<FreightCostSummaryRow[]>(`/freights/costs-summary?${qs}`, {
+    auth: true,
+  })
+  const map: Record<string, number> = {}
+  for (const row of rows) {
+    map[row.freight_id] = row.total_costs
+  }
+  return map
+}
+
 export async function addFreightCost(
   freightId: string,
   data: { tipo: string; valor: number; litros?: number; descricao?: string },

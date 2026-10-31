@@ -100,7 +100,6 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
       (route) => [route.href, route.permission],
     ),
   ),
-  "/dashboard/motoristas/nova-conta": PERMISSIONS.tenantAdmin,
 }
 
 const ROUTE_PERMISSION_ENTRIES = Object.entries(ROUTE_PERMISSIONS).sort(

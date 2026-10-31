@@ -27,7 +27,7 @@ export function TruckDetailView({ id }: { id: string }) {
   const canWrite = usePermission(PERMISSIONS.fleetWrite)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const { freights } = useOperationContext()
+  const { freights } = useOperationContext({ drivers: false, trucks: false })
   const { data: truck } = useSWR(["truck", id], () => getTruck(id))
   const activeTrip = truck ? findActiveFreightByTruck(freights, truck.id) : undefined
   const effectiveStatus = truck ? getEffectiveTruckStatus(truck, freights) : null

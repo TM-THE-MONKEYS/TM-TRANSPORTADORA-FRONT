@@ -92,7 +92,7 @@ export function FuelView() {
   const [editDate, setEditDate] = useState("")
   const [editSaving, setEditSaving] = useState(false)
 
-  const { trucks } = useOperationContext()
+  const { trucks } = useOperationContext({ freights: false, drivers: false })
 
   const now = new Date()
   const [competencia, setCompetencia] = useState({ mes: now.getMonth() + 1, ano: now.getFullYear() })

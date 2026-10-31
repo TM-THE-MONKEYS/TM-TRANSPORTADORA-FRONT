@@ -153,7 +153,7 @@ export interface Driver {
   photo_url?: string | null
   commission_pct?: number
   created_at: string
-  /** Returned once on creation when password is auto-generated. Never stored. */
+  /** Returned once when account is created (POST .../account). Never stored. */
   temporary_password?: string | null
 }
 

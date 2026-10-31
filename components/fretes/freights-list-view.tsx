@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import useSWR from "swr"
@@ -30,7 +30,7 @@ import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import {
   advanceFreightStatus,
-  getFreightCosts,
+  getFreightsCostsSummary,
   getFreightsSummary,
   listFreights,
 } from "@/lib/api/services/freight"
@@ -53,15 +53,15 @@ import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
 import type { FreightOrder, FreightStatus } from "@/types"
 
-function FreightCostSummary({ freightId, valueBrl }: { freightId: string; valueBrl: number }) {
-  const { data: costs } = useSWR(
-    ["freight-breakdown-costs", freightId],
-    () => getFreightCosts(freightId),
-    { revalidateOnFocus: false },
-  )
-  if (!costs?.length) return null
+function FreightCostSummary({
+  valueBrl,
+  totalCosts,
+}: {
+  valueBrl: number
+  totalCosts: number | undefined
+}) {
+  if (totalCosts == null || totalCosts <= 0) return null
 
-  const totalCosts = costs.reduce((s, c) => s + c.valor, 0)
   const margin = valueBrl - totalCosts
 
   return (
@@ -99,7 +99,7 @@ export function FreightsListView() {
   const router = useRouter()
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const canStatus = usePermission(PERMISSIONS.freightStatus)
-  const { drivers, trucks } = useOperationContext()
+  const { drivers, trucks } = useOperationContext({ freights: false })
   const { competencia, shift, canGoForward } = useCompetencia()
 
   const [filterDriverId, setFilterDriverId] = useState<string | undefined>()
@@ -111,9 +111,13 @@ export function FreightsListView() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
-  useEffect(() => {
+  // Reset page when competência changes (React: adjust state during render).
+  const competenciaKey = `${competencia.mes}-${competencia.ano}`
+  const [prevCompetenciaKey, setPrevCompetenciaKey] = useState(competenciaKey)
+  if (competenciaKey !== prevCompetenciaKey) {
+    setPrevCompetenciaKey(competenciaKey)
     setPage(1)
-  }, [competencia.mes, competencia.ano])
+  }
 
   const filters = {
     competencia,
@@ -153,6 +157,12 @@ export function FreightsListView() {
   )
 
   const items = data?.items ?? []
+  const freightIds = items.map((f) => f.id)
+  const { data: costsByFreightId } = useSWR(
+    freightIds.length > 0 ? ["freights-costs-summary", ...freightIds] : null,
+    () => getFreightsCostsSummary(freightIds),
+    { revalidateOnFocus: false },
+  )
   const overdueCount = summaryError ? null : (summary?.com_atraso ?? 0)
   const hasSearchOrStatus = statusFilter !== "all" || search.trim() !== ""
 
@@ -352,7 +362,10 @@ export function FreightsListView() {
                       <p className="text-base font-bold leading-none tabular-nums">
                         {formatBRL(f.value_brl)}
                       </p>
-                      <FreightCostSummary freightId={f.id} valueBrl={f.value_brl} />
+                      <FreightCostSummary
+                        valueBrl={f.value_brl}
+                        totalCosts={costsByFreightId?.[f.id]}
+                      />
                     </div>
                     {f.weight_kg != null && f.weight_kg > 0 && (
                       <p className="text-xs text-muted-foreground">

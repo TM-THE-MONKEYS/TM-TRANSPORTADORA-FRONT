@@ -59,7 +59,7 @@ export function FleetListView() {
     setPage(1)
   }, [competencia.mes, competencia.ano])
 
-  const { freights } = useOperationContext()
+  const { freights } = useOperationContext({ drivers: false, trucks: false })
 
   const { data: summary, isLoading: loadingSummary, error: summaryError } = useSWR(
     ["freights-summary-fleet", competencia.mes, competencia.ano, filterDriverId],
