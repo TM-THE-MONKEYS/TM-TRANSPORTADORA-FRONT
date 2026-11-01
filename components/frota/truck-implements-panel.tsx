@@ -186,7 +186,7 @@ export function TruckImplementsPanel({
 
   return (
     <>
-      <Card className="border-border/60">
+      <Card variant="glass" size="sm">
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div>
             <CardTitle className="flex items-center gap-2">
@@ -228,7 +228,7 @@ export function TruckImplementsPanel({
                 return (
                 <div
                   key={item.id}
-                  className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-4"
+                  className="glass-subtle flex items-start justify-between gap-3 p-4"
                 >
                   <div className="min-w-0 space-y-1">
                     <p className="font-semibold">{item.name}</p>

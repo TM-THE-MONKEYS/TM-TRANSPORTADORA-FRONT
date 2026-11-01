@@ -48,7 +48,7 @@ export function FinancePendingFixedList({
 
   if (loading) {
     return (
-      <Card>
+      <Card variant="glass" size="sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">A lançar neste mês</CardTitle>
         </CardHeader>
@@ -64,7 +64,7 @@ export function FinancePendingFixedList({
   }
 
   return (
-    <Card className={SEMANTIC.cautionBorder}>
+    <Card variant="glass" size="sm" className={SEMANTIC.cautionBorder}>
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -97,7 +97,7 @@ export function FinancePendingFixedList({
           pending.map((item) => (
             <div
               key={item.id}
-              className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2.5"
+              className="glass-subtle flex flex-wrap items-center gap-3 px-3 py-2.5"
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{item.nome}</p>

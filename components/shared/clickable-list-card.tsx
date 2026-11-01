@@ -10,6 +10,8 @@ type ClickableListCardProps = {
   className?: string
   /** Conteúdo absoluto (ex.: barra de accent à esquerda). */
   accent?: React.ReactNode
+  /** Superfície. Default `glass` (blur) — requer `.app-canvas` pai. */
+  variant?: "glass" | "glass-subtle" | "default"
 }
 
 /** Card clicável com hover/foco padronizado (Enter/Espaço). */
@@ -18,6 +20,7 @@ export function ClickableListCard({
   children,
   className,
   accent,
+  variant = "glass",
 }: ClickableListCardProps) {
   return (
     <div
@@ -32,7 +35,15 @@ export function ClickableListCard({
         }
       }}
     >
-      <Card className={cn(LIST_CARD_INTERACTIVE, className)}>
+      <Card
+        variant={variant}
+        size="sm"
+        className={cn(
+          LIST_CARD_INTERACTIVE,
+          variant !== "default" && "glass-interactive",
+          className,
+        )}
+      >
         {accent}
         {children}
       </Card>

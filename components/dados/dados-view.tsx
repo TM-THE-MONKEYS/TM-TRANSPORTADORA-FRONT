@@ -256,7 +256,7 @@ function PaginatedEntityPanel<T>({
   const hasNext = data?.has_next ?? page < totalPages
 
   return (
-    <Card>
+    <Card variant="glass" size="sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-base">{TAB_LABELS[entity]}</CardTitle>
         {canCreate && onCreate && (
@@ -357,7 +357,7 @@ function FlatEntityPanel<T>({
   pageSizeOptions,
 }: FlatPanelProps<T>) {
   return (
-    <Card>
+    <Card variant="glass" size="sm">
       <CardHeader className="pb-4">
         <CardTitle className="text-base">{title}</CardTitle>
         {readOnlyNote && (

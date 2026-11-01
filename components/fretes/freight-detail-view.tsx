@@ -8,6 +8,7 @@ import { ArrowRight, MapPin, Trash2, Upload } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AppCanvas } from "@/components/layout/app-canvas"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
@@ -117,21 +118,23 @@ export function FreightDetailView({ id }: { id: string }) {
 
   if (freightError) {
     return (
-      <div className="space-y-4">
-        <PageHeader title="Frete" description="Não foi possível carregar o frete." />
-        <Card>
-          <CardContent className="space-y-3 pt-6">
-            <p className="text-sm text-destructive">
-              {freightError instanceof Error
-                ? freightError.message
-                : "Erro ao carregar dados do frete."}
-            </p>
-            <Button variant="outline" onClick={() => void mutateFreight()}>
-              Tentar novamente
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AppCanvas>
+        <div className="space-y-4">
+          <PageHeader title="Frete" description="Não foi possível carregar o frete." />
+          <Card variant="glass" size="sm">
+            <CardContent className="space-y-3 pt-6">
+              <p className="text-sm text-destructive">
+                {freightError instanceof Error
+                  ? freightError.message
+                  : "Erro ao carregar dados do frete."}
+              </p>
+              <Button variant="outline" onClick={() => void mutateFreight()}>
+                Tentar novamente
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppCanvas>
     )
   }
 
@@ -236,6 +239,7 @@ export function FreightDetailView({ id }: { id: string }) {
   const statusSelectValue = statusDraft
 
   return (
+    <AppCanvas>
     <div>
       <PageHeader
         title={freight.code}
@@ -296,10 +300,10 @@ export function FreightDetailView({ id }: { id: string }) {
       </div>
 
       {closed && !isAdmin && (
-        <div className="mb-6 rounded-lg border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        <Card variant="glass" size="sm" className="mb-6 px-4 py-3 text-sm text-muted-foreground">
           Frete encerrado ({freight.status === "entregue" ? "entregue" : "cancelado"}). Edição
           restrita — contate um administrador para reabrir ou lançar gastos retroativos.
-        </div>
+        </Card>
       )}
 
       {canEditClosed && (
@@ -307,7 +311,7 @@ export function FreightDetailView({ id }: { id: string }) {
       )}
 
       {(freight.stops?.length ?? 0) > 0 && (
-        <Card className="mb-6">
+        <Card variant="glass" size="sm" className="mb-6">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <MapPin className="h-4 w-4 text-primary" />
@@ -349,7 +353,7 @@ export function FreightDetailView({ id }: { id: string }) {
       )}
 
       {canAssign && (
-        <Card className="mb-6">
+        <Card variant="glass" size="sm" className="mb-6">
           <CardHeader>
             <CardTitle className="text-base">Operação — motorista e veículo</CardTitle>
           </CardHeader>
@@ -433,7 +437,7 @@ export function FreightDetailView({ id }: { id: string }) {
           <TabsTrigger value="rastreamento">Rastreamento</TabsTrigger>
         </TabsList>
         <TabsContent value="timeline" className="mt-4">
-          <Card>
+          <Card variant="glass" size="sm">
             <CardHeader>
               <CardTitle>Histórico do frete</CardTitle>
             </CardHeader>
@@ -456,7 +460,7 @@ export function FreightDetailView({ id }: { id: string }) {
         </TabsContent>
         <TabsContent value="ocorrencias" className="mt-4 space-y-4">
           {canAddOccurrence ? (
-            <Card>
+            <Card variant="glass" size="sm">
               <CardContent className="space-y-4 pt-6">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -490,7 +494,7 @@ export function FreightDetailView({ id }: { id: string }) {
                 </div>
 
                 {/* Optional cost link */}
-                <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                <div className="glass-subtle space-y-3 p-3">
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id="occ-cost-enabled"
@@ -556,14 +560,14 @@ export function FreightDetailView({ id }: { id: string }) {
               </CardContent>
             </Card>
           ) : (
-            <Card>
+            <Card variant="glass" size="sm">
               <CardContent className="py-6 text-sm text-muted-foreground">
                 Frete encerrado — novas ocorrências só podem ser registradas por um administrador.
               </CardContent>
             </Card>
           )}
           {(occurrences ?? []).map((o) => (
-            <Card key={o.id}>
+            <Card key={o.id} variant="glass" size="sm">
               <CardContent className="pt-4">
                 <p className="font-medium">{o.type}</p>
                 <p className="text-sm">{o.description}</p>
@@ -573,7 +577,7 @@ export function FreightDetailView({ id }: { id: string }) {
           ))}
         </TabsContent>
         <TabsContent value="comprovantes" className="mt-4">
-          <Card>
+          <Card variant="glass" size="sm">
             <CardContent className="flex flex-col items-center gap-4 py-12">
               <Upload className="h-10 w-10 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
@@ -587,7 +591,7 @@ export function FreightDetailView({ id }: { id: string }) {
         </TabsContent>
         <TabsContent value="custos" className="mt-4 space-y-4">
           {!closed && (canWrite || isAdmin) && (
-            <Card>
+            <Card variant="glass" size="sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Lançar gasto da viagem</CardTitle>
               </CardHeader>
@@ -608,7 +612,7 @@ export function FreightDetailView({ id }: { id: string }) {
               </CardContent>
             </Card>
           )}
-          <Card>
+          <Card variant="glass" size="sm">
             <CardHeader>
               <CardTitle className="text-base">Histórico de custos</CardTitle>
             </CardHeader>
@@ -623,7 +627,7 @@ export function FreightDetailView({ id }: { id: string }) {
           </Card>
         </TabsContent>
         <TabsContent value="rastreamento" className="mt-4">
-          <Card>
+          <Card variant="glass" size="sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-primary" />
@@ -691,5 +695,6 @@ export function FreightDetailView({ id }: { id: string }) {
         </DialogContent>
       </Dialog>
     </div>
+    </AppCanvas>
   )
 }

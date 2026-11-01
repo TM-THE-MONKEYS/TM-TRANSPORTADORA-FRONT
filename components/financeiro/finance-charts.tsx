@@ -12,6 +12,7 @@ import {
   Cell,
 } from "recharts"
 import { TrendingDown, TrendingUp, Minus } from "lucide-react"
+import { Card } from "@/components/ui/card"
 import { getCashFlow } from "@/lib/api/services/finance"
 import { formatBRL } from "@/lib/format/currency"
 import { FINANCE_STATUS_TONE, STATUS_TONE } from "@/lib/ui/status-colors"
@@ -79,7 +80,7 @@ export function FinanceCharts({ entries, cashFlow, competencia, truckId, driverI
     <div className="grid gap-4 sm:grid-cols-2">
       {/* Breakdown por categoria */}
       {categoryData.length > 0 && (
-        <div className="rounded-lg border bg-card p-4">
+        <Card variant="glass" size="sm" className="p-4">
           <p className="mb-3 text-sm font-medium">Despesas por categoria</p>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart
@@ -125,12 +126,12 @@ export function FinanceCharts({ entries, cashFlow, competencia, truckId, driverI
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </Card>
       )}
 
       {/* Comparação de saldo com mês anterior */}
       {prevCashFlow && (
-        <div className="rounded-lg border bg-card p-4 space-y-3">
+        <Card variant="glass" size="sm" className="space-y-3 p-4">
           <p className="text-sm font-medium">Saldo vs mês anterior</p>
           <div className="space-y-2">
             <SaldoRow label="Mês atual" value={currentSaldo} />
@@ -191,7 +192,7 @@ export function FinanceCharts({ entries, cashFlow, competencia, truckId, driverI
               </p>
             </div>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   )

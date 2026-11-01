@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { CompetenciaNavigator } from "@/components/shared/competencia-navigator"
 import { EntityFilterSelect } from "@/components/shared/entity-filter-select"
 import { useOperationContext } from "@/hooks/use-operation-context"
+import { cn } from "@/lib/utils"
 import { getTruckLabel } from "@/lib/freight/active-trip"
 
 interface ListFilterBarProps {
@@ -25,8 +26,12 @@ interface ListFilterBarProps {
   nextDisabled?: boolean
   /** Esconde o botão Limpar interno (ex.: Dashboard tem um Limpar que também zera cliente). */
   showClear?: boolean
+  /** `glass`: controles translúcidos para uso sobre vidro (dashboard). Default idêntico ao atual. */
+  variant?: "default" | "glass"
   className?: string
 }
+
+const GLASS_CONTROL = "border-foreground/15 bg-background/60"
 
 /**
  * Barra de filtros compartilhada entre Fretes, Frota e Motoristas.
@@ -50,8 +55,10 @@ export function ListFilterBar({
   showDriverFilter = true,
   nextDisabled = false,
   showClear = true,
+  variant = "default",
   className,
 }: ListFilterBarProps) {
+  const glass = variant === "glass"
   const { trucks, drivers, freights } = useOperationContext({
     freights: true,
     drivers: showDriverFilter,
@@ -95,6 +102,7 @@ export function ListFilterBar({
         onPrevious={() => onCompetenciaShift(-1)}
         onNext={() => onCompetenciaShift(1)}
         nextDisabled={nextDisabled}
+        className={glass ? GLASS_CONTROL : undefined}
       />
 
       {showDriverFilter && (
@@ -103,7 +111,7 @@ export function ListFilterBar({
           onValueChange={handleDriverChange}
           items={driverItems}
           allLabel="Todos motoristas"
-          className="w-[165px]"
+          className={cn("w-[165px]", glass && GLASS_CONTROL)}
           disabled={drivers.length === 0}
         />
       )}
@@ -114,7 +122,7 @@ export function ListFilterBar({
           onValueChange={onTruckChange}
           items={truckItems}
           allLabel="Todos caminhões"
-          className="w-[170px]"
+          className={cn("w-[170px]", glass && GLASS_CONTROL)}
           disabled={truckItems.length === 0}
         />
       )}

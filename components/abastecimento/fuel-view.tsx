@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { CircleDollarSign, Fuel, Gauge, Pencil, Route, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AppCanvas } from "@/components/layout/app-canvas"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -318,6 +319,7 @@ export function FuelView() {
   }
 
   return (
+    <AppCanvas>
     <div className="space-y-8">
       <PageHeader
         title="Abastecimento"
@@ -331,7 +333,7 @@ export function FuelView() {
       />
 
       {isMotorista && !currentDriverId && (
-        <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+        <p className="glass border-destructive/30 px-4 py-3 text-sm text-destructive">
           Conta de motorista sem vínculo ao cadastro de motoristas. Peça ao administrador para
           associar seu usuário ao registro do motorista.
         </p>
@@ -340,7 +342,7 @@ export function FuelView() {
       {/* KPI strip */}
       {!loadingRefills && visibleRefills.length > 0 && (
         <div className="grid grid-cols-3 gap-4">
-          <Card className="border-0 bg-primary/5">
+          <Card variant="glass" size="sm">
             <CardContent className="flex items-center gap-3 p-4">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                 <CircleDollarSign className="h-5 w-5 text-primary" />
@@ -351,7 +353,7 @@ export function FuelView() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-primary/5">
+          <Card variant="glass" size="sm">
             <CardContent className="flex items-center gap-3 p-4">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                 <Fuel className="h-5 w-5 text-primary" />
@@ -364,7 +366,7 @@ export function FuelView() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-primary/5">
+          <Card variant="glass" size="sm">
             <CardContent className="flex items-center gap-3 p-4">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                 <Route className="h-5 w-5 text-primary" />
@@ -381,7 +383,7 @@ export function FuelView() {
       {/* Form card — centered */}
       {canRegisterFuel && (
         <div className="flex justify-center">
-          <Card className="w-full max-w-2xl shadow-sm">
+          <Card variant="glass" size="sm" className="w-full max-w-2xl">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
@@ -395,7 +397,7 @@ export function FuelView() {
 
             <CardContent className="pt-6">
               {allowClosedFuel && (
-                <p className={cn("mb-4 rounded-md border px-3 py-2 text-xs text-muted-foreground", SEMANTIC.cautionSurface)}>
+                <p className={cn("glass-subtle mb-4 px-3 py-2 text-xs text-muted-foreground", SEMANTIC.cautionBorder)}>
                   Modo administrativo: permite lançar abastecimento em frete já encerrado.
                   {presetFreightId && (
                     <>
@@ -439,7 +441,7 @@ export function FuelView() {
                   {/* Truck km block */}
                   {freightId && (
                     selectedFreight?.truck_id ? (
-                      <div className="flex items-start gap-3 rounded-xl border bg-muted/40 px-4 py-3">
+                      <div className="glass-subtle flex items-start gap-3 px-4 py-3">
                         <Gauge className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                         <div className="w-full space-y-2">
                           <div>
@@ -475,7 +477,7 @@ export function FuelView() {
                         </div>
                       </div>
                     ) : (
-                      <p className={cn("rounded-xl border px-4 py-3 text-sm", SEMANTIC.warningSurface, SEMANTIC.warningText)}>
+                      <p className={cn("glass-subtle px-4 py-3 text-sm", SEMANTIC.warningText)}>
                         Este frete não tem caminhão vinculado. Peça ao operador para atribuir um
                         veículo antes do abastecimento.
                       </p>
@@ -549,7 +551,7 @@ export function FuelView() {
       )}
 
       {/* History table */}
-      <Card>
+      <Card variant="glass" size="sm">
         <CardHeader className="flex-col items-start gap-3 pb-0 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">
             {isMotorista ? "Meus abastecimentos" : "Histórico de abastecimentos"}
@@ -743,5 +745,6 @@ export function FuelView() {
         </DialogContent>
       </Dialog>
     </div>
+    </AppCanvas>
   )
 }

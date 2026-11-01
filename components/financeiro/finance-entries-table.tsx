@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -507,7 +508,7 @@ export function FinanceEntriesTable({
             const info = STATUS_BADGE[effStatus]
             const origin = resolveFinanceEntryOrigin(entry.observacoes)
             return (
-              <div key={entry.id} className="rounded-lg border bg-card px-4 py-3 space-y-2">
+              <Card key={entry.id} variant="glass" size="sm" className="space-y-2 px-4 py-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex items-center gap-1.5">
@@ -588,7 +589,7 @@ export function FinanceEntriesTable({
                     )}
                   </div>
                 </div>
-              </div>
+              </Card>
             )
           })}
         </div>
@@ -598,13 +599,13 @@ export function FinanceEntriesTable({
       {loading && (
         <div className="space-y-2 sm:hidden">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-lg border px-4 py-3 space-y-2">
+            <Card key={i} variant="glass" size="sm" className="space-y-2 px-4 py-3">
               <div className="flex justify-between">
                 <Skeleton className="h-4 w-40" />
                 <Skeleton className="h-4 w-16" />
               </div>
               <Skeleton className="h-3 w-24" />
-            </div>
+            </Card>
           ))}
         </div>
       )}

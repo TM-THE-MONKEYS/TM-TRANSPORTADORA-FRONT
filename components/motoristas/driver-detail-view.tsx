@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AppCanvas } from "@/components/layout/app-canvas"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -61,7 +62,7 @@ function InfoItem({
   value: React.ReactNode
 }) {
   return (
-    <div className="flex gap-3 rounded-lg border border-border/50 bg-muted/30 p-4">
+    <div className="glass flex gap-3 p-4">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground shadow-sm">
         <Icon className="h-4 w-4" />
       </div>
@@ -89,7 +90,7 @@ function DriverAccessBlock({
   const hasAccount = Boolean(driver.user_id)
 
   return (
-    <Card className="border-border/60 shadow-sm sm:col-span-2 lg:col-span-3">
+    <Card variant="glass" size="sm" className="sm:col-span-2 lg:col-span-3">
       <CardHeader className="pb-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
@@ -209,26 +210,31 @@ export function DriverDetailView({ id }: { id: string }) {
 
   if (error) {
     return (
-      <QueryErrorState
-        title="Não foi possível carregar o motorista"
-        description={error instanceof Error ? error.message : undefined}
-        onRetry={() => void mutate()}
-      />
+      <AppCanvas>
+        <QueryErrorState
+          title="Não foi possível carregar o motorista"
+          description={error instanceof Error ? error.message : undefined}
+          onRetry={() => void mutate()}
+        />
+      </AppCanvas>
     )
   }
 
   if (isLoading || !driver) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <Skeleton className="h-80 w-full rounded-xl" />
-      </div>
+      <AppCanvas>
+        <div className="space-y-4">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-80 w-full rounded-xl" />
+        </div>
+      </AppCanvas>
     )
   }
 
   const status = driver.status as DriverStatus
 
   return (
+    <AppCanvas>
     <div className="space-y-6">
       <ProvisionalPasswordDialog
         open={!!credentials}
@@ -269,7 +275,7 @@ export function DriverDetailView({ id }: { id: string }) {
         }}
       />
 
-      <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <div className="glass flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-lg font-bold text-primary">
             {driverInitials(driver.name)}
@@ -338,7 +344,7 @@ export function DriverDetailView({ id }: { id: string }) {
         </TabsContent>
 
         <TabsContent value="assinatura">
-          <Card>
+          <Card variant="glass" size="sm">
             <CardHeader>
               <CardTitle>Assinatura digital</CardTitle>
             </CardHeader>
@@ -369,5 +375,6 @@ export function DriverDetailView({ id }: { id: string }) {
         onConfirm={handleDelete}
       />
     </div>
+    </AppCanvas>
   )
 }

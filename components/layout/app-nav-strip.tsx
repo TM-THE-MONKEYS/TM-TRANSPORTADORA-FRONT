@@ -19,7 +19,7 @@ export function AppNavStrip() {
 
   return (
     <nav
-      className="overflow-x-auto border-b border-border bg-card/80 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="overflow-x-auto border-b border-border/60 bg-chrome/90 text-chrome-foreground [scrollbar-width:none] backdrop-blur supports-[backdrop-filter]:bg-chrome/80 [&::-webkit-scrollbar]:hidden"
       aria-label="Módulos"
     >
       <div className="flex h-11 min-w-max items-center gap-0.5 px-4 md:px-6">

@@ -233,6 +233,7 @@ export function DriversListView() {
       toolbar={
         <div className="space-y-3">
           <ListFilterBar
+            variant="glass"
             competencia={competencia}
             onCompetenciaShift={shift}
             nextDisabled={!canGoForward}

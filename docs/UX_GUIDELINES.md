@@ -27,13 +27,45 @@ Microinteração de card clicável: `LIST_CARD_INTERACTIVE` / `ClickableListCard
 ## Design system
 
 - **Tema:** light/dark via `next-themes` (preferência do usuário; tokens em `:root` e `.dark`).
-- **Tokens:** `app/globals.css` — primary azul logístico The Monkeys, superfícies frias com leve wash azul, accent verde operacional, destructive, chart-1..5.
-- **Atmosfera:** wash radial sutil no `body` (primary ~5–8%); header com borda/sombra em tom primary; item ativo da sidebar com barra primary.
+- **Tokens:** `app/globals.css` — primary azul logístico The Monkeys, superfícies frias com leve wash azul, accent verde operacional, destructive, chart-1..5. Chrome (`--chrome` / `bg-chrome`): header, nav strip e footer — greige neutro no light (não branco puro), grafite no dark.
+- **Atmosfera:** wash radial sutil no `body` (primary ~5–8%); chrome com borda/sombra em tom primary; item ativo da sidebar com barra primary.
+- **Canvas de vidro (app autenticado):** `AppCanvas` (`components/layout/app-canvas.tsx`) / classes `.app-canvas` ≈ `.dashboard-canvas`. `ListPage` envolve canvas por default. Home (foto) usa `glass-hero`, sem canvas. Auth fica em `Card` default.
 - **Status semânticos:** `--status-neutral|info|warning|progress|success|danger|caution` (nome por função, não por cor). Classes Tailwind: `bg-status-*`, `text-status-*`.
 - **Mapa único de status:** `lib/ui/status-colors.ts` — tom por frete/caminhão/motorista/financeiro/manutenção/tracking. Badges, dots, barras e gráficos devem reutilizar este módulo (nunca hardcode `violet-*` / `emerald-*` etc.).
 - **Semântica financeira:** `SEMANTIC.positive` / `SEMANTIC.negative` / superfícies `caution*` / `warning*` / `progress*`.
 - **Tipografia:** Inter (sans), densidade confortável em tabelas e cards.
 - **Ícones:** Lucide React.
+- **Vidro (glassmorphism) — painel autenticado:** tokens em `.app-canvas` / `.dashboard-canvas` (alias). Home foto: `glass-hero` (sem canvas). `--background`/`--card` globais não mudam; login/auth usam `Card` default.
+
+  | Token | Papel |
+  |-------|-------|
+  | `--canvas` | Fundo neutro. Light: greige. Dark: grafite quente (nunca branco/preto puro) |
+  | `--glass-bg` / `--glass-fill-base` | Base do `glass` (~22% light / ~28% dark) — bem translúcido p/ o blur aparecer (estilo home) |
+  | `--glass-tile` | Fundo dos tiles internos (`glass-subtle`) |
+  | `--glass-border` / `--glass-border-hover` / `--glass-highlight` / `--glass-shadow` | Borda, hover, brilho inset, sombra curta |
+  | `--muted-foreground` (local) + `--ink-mix` | Contraste AA sobre vidro |
+
+  Canvas desenha manchas (`--blob-*`) para o blur ter o que desfocar.
+
+  | Utilitário / API | Quando usar |
+  |------------------|-------------|
+  | `<AppCanvas>` / `ListPage` (canvas default) | Listagens, detalhes, ops, financeiro, dashboard |
+  | `glass` / `<Card variant="glass" size="sm">` | Painéis flutuantes com blur (`blur(18px)`, fill baixo) |
+  | `glass-subtle` | Filho **dentro** de um `glass` (sem blur aninhado) |
+  | `glass-strong` | Overlay denso (tooltip/popover) |
+  | `glass-hero` | Tiles da home sobre foto (`HomeHubCard`) |
+  | `glass-interactive` | Hover em tiles clicáveis / KPI |
+  | `<MetricCard>` | KPI; default `glass-subtle` |
+  | `ClickableListCard` / `ListStatTile` | Listagens — `glass` + interactive |
+  | `ListFilterBar variant="glass"` | Filtros no canvas |
+
+  `Card` `size`: `default` \| `sm` \| `lg` \| `none` (`--card-pad`). Preferir `sm` no painel.
+
+  Regras:
+  - **Nunca aninhar `backdrop-filter`.** Filho de `glass` → `glass-subtle`.
+  - Tokens `--glass-*` só no canvas; fora, `glass` sem fundo definido (exceto `glass-hero`).
+  - Sheets/dialogs: `Card` default (sem AppCanvas).
+  - Sobre vidro: separadores `bg-foreground/10`, hover `bg-foreground/5`, Skeleton `bg-foreground/10`, ghost `hover:bg-foreground/5`.
 - **Loading:** sempre `<Skeleton />` de `components/ui/skeleton.tsx` — inclusive linhas em `components/dados/data-table.tsx`. Não reimplementar com `animate-pulse` manual.
 
 ## Navegação

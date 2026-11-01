@@ -120,7 +120,7 @@ function FixedExpenseCard({
   const endDate = fixedExpenseEndDate(item)
 
   return (
-    <Card className={cn("transition-all", !active && "opacity-60")}>
+    <Card variant="default" size="sm" className={cn("transition-all", !active && "opacity-60")}>
       <CardContent className="pt-4">
         <div className="mb-3 flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
