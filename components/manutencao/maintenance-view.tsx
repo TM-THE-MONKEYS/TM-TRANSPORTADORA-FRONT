@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AppCanvas } from "@/components/layout/app-canvas"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -278,6 +279,7 @@ export function MaintenanceView() {
   }
 
   return (
+    <AppCanvas>
     <div className="space-y-8">
       <PageHeader
         title="Manutenção de Frota"
@@ -285,7 +287,7 @@ export function MaintenanceView() {
       />
 
       {!loadingAlerts && alerts.length > 0 && (
-        <div className={cn("rounded-xl border px-4 py-3", SEMANTIC.warningSurface)}>
+        <div className="glass px-4 py-3">
           <div className="flex items-start gap-3">
             <AlertTriangle className={cn("mt-0.5 h-5 w-5 shrink-0", SEMANTIC.warningText)} />
             <div>
@@ -308,7 +310,7 @@ export function MaintenanceView() {
 
       {!loadingList && items.length > 0 && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <Card className="border-0 bg-primary/5">
+          <Card variant="glass" size="sm">
             <CardContent className="flex items-center gap-3 p-4">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                 <CalendarClock className="h-5 w-5 text-primary" />
@@ -319,7 +321,7 @@ export function MaintenanceView() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-primary/5">
+          <Card variant="glass" size="sm">
             <CardContent className="flex items-center gap-3 p-4">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                 <Wrench className="h-5 w-5 text-primary" />
@@ -330,7 +332,7 @@ export function MaintenanceView() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-primary/5">
+          <Card variant="glass" size="sm">
             <CardContent className="flex items-center gap-3 p-4">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                 <Truck className="h-5 w-5 text-primary" />
@@ -341,7 +343,7 @@ export function MaintenanceView() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-0 bg-primary/5">
+          <Card variant="glass" size="sm">
             <CardContent className="flex items-center gap-3 p-4">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                 <CircleDollarSign className="h-5 w-5 text-primary" />
@@ -357,7 +359,7 @@ export function MaintenanceView() {
 
       {canManage && (
         <div className="flex justify-center">
-          <Card className="w-full max-w-2xl shadow-sm">
+          <Card variant="glass" size="sm" className="w-full max-w-2xl">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-base">
                 <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
@@ -396,7 +398,7 @@ export function MaintenanceView() {
                   </div>
 
                   {selectedTruck && (
-                    <div className="flex items-start gap-3 rounded-xl border bg-muted/40 px-4 py-3">
+                    <div className="glass-subtle flex items-start gap-3 px-4 py-3">
                       <Gauge className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                       <div className="w-full space-y-2">
                         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -507,7 +509,7 @@ export function MaintenanceView() {
         </p>
       )}
 
-      <Card>
+      <Card variant="glass" size="sm">
         <CardHeader className="flex-col items-start gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">Histórico de manutenções</CardTitle>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -708,5 +710,6 @@ export function MaintenanceView() {
         onConfirm={handleConfirmAction}
       />
     </div>
+    </AppCanvas>
   )
 }

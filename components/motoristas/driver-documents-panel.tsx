@@ -151,7 +151,7 @@ export function DriverDocumentsPanel({
 
   return (
     <>
-      <Card className="border-border/60">
+      <Card variant="glass" size="sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ImageIcon className="h-5 w-5 text-primary" />
@@ -163,7 +163,7 @@ export function DriverDocumentsPanel({
         </CardHeader>
         <CardContent className="space-y-6">
           {canWrite && (
-            <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-4">
+            <div className="glass-subtle p-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Tipo de documento</Label>
@@ -227,7 +227,7 @@ export function DriverDocumentsPanel({
               {documents.map((doc) => (
                 <div
                   key={doc.id}
-                  className="overflow-hidden rounded-lg border border-border/60 bg-card shadow-sm"
+                  className="glass-subtle overflow-hidden"
                 >
                   <DocumentPreview driverId={driverId} doc={doc} />
                   <div className="space-y-2 p-4">

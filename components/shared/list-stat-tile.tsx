@@ -10,6 +10,10 @@ type ListStatTileProps = {
   onClick?: () => void
 }
 
+/**
+ * Tile de estatística nas listagens.
+ * Usa `glass` + blur (mesmo idioma da home) — requer `.app-canvas` pai.
+ */
 export function ListStatTile({
   icon: Icon,
   label,
@@ -23,9 +27,9 @@ export function ListStatTile({
       onClick={onClick}
       disabled={!onClick}
       className={cn(
-        "flex items-center gap-3 rounded-xl border bg-card p-4 text-left transition-all",
+        "glass glass-interactive flex items-center gap-3 p-4 text-left",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        onClick ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-sm" : "cursor-default",
+        onClick ? "cursor-pointer" : "cursor-default",
       )}
     >
       <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", accent)}>

@@ -98,7 +98,7 @@ export function DashboardQuickActions() {
   )
 
   return (
-    <Card>
+    <Card variant="glass" size="sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Acesso rápido</CardTitle>
         <CardDescription className="sr-only sm:not-sr-only">

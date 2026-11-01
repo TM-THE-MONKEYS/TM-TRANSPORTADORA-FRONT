@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Plus, RefreshCcw, Wallet } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/shared/page-header"
+import { AppCanvas } from "@/components/layout/app-canvas"
 import { FinanceMonthHub } from "@/components/financeiro/finance-month-hub"
 import { FixedExpenseManagerSheet } from "@/components/financeiro/fixed-expense-manager-sheet"
 import { DriverPaymentSheet } from "@/components/financeiro/driver-payment-sheet"
@@ -116,6 +117,7 @@ export function FinanceView() {
   const defaultLaunchDate = competenciaDefaultDate(competencia.mes, competencia.ano)
 
   return (
+    <AppCanvas>
     <div className="space-y-6">
       <PageHeader
         title="Controle financeiro"
@@ -232,5 +234,6 @@ export function FinanceView() {
         onConfirm={handleDeleteEntry}
       />
     </div>
+    </AppCanvas>
   )
 }

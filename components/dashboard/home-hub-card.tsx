@@ -1,5 +1,7 @@
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
+import { ChevronRight } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 type HomeHubCardProps = {
   href: string
@@ -8,31 +10,49 @@ type HomeHubCardProps = {
   /** CSS custom property name, e.g. "--chart-1". Provides icon bg tint. */
   colorVar?: string
   subtitle?: string
+  className?: string
 }
 
-export function HomeHubCard({ href, label, icon: Icon, colorVar, subtitle }: HomeHubCardProps) {
+/** Item de módulo dentro do painel dock da home (linha, não tile solto). */
+export function HomeHubCard({
+  href,
+  label,
+  icon: Icon,
+  colorVar,
+  subtitle,
+  className,
+}: HomeHubCardProps) {
   const iconBg = colorVar
-    ? `color-mix(in oklch, var(${colorVar}) 20%, transparent)`
-    : undefined
-  const iconColor = colorVar ? `var(${colorVar})` : undefined
+    ? `color-mix(in oklch, var(${colorVar}) 22%, transparent)`
+    : "oklch(1 0 0 / 0.1)"
+  const iconColor = colorVar ? `var(${colorVar})` : "oklch(1 0 0 / 0.9)"
 
   return (
     <Link
       href={href}
-      className="group flex flex-col items-center justify-center gap-3 rounded-xl border border-white/15 bg-white/10 px-4 py-6 text-center backdrop-blur-md transition-colors hover:border-white/30 hover:bg-white/20"
+      className={cn(
+        "group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors",
+        "hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+        className,
+      )}
     >
-      <div
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+      <span
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
         style={{ backgroundColor: iconBg }}
+        aria-hidden
       >
-        <Icon className="h-[18px] w-[18px]" style={{ color: iconColor }} aria-hidden />
-      </div>
-      <div className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium text-white drop-shadow-sm">{label}</span>
-        {subtitle && (
-          <span className="text-xs text-white/65">{subtitle}</span>
-        )}
-      </div>
+        <Icon className="h-[18px] w-[18px]" style={{ color: iconColor }} />
+      </span>
+      <span className="min-w-0 flex-1 text-left">
+        <span className="block truncate text-sm font-medium text-white">{label}</span>
+        {subtitle ? (
+          <span className="block truncate text-xs text-white/55">{subtitle}</span>
+        ) : null}
+      </span>
+      <ChevronRight
+        className="h-4 w-4 shrink-0 text-white/35 transition-transform group-hover:translate-x-0.5 group-hover:text-white/70"
+        aria-hidden
+      />
     </Link>
   )
 }

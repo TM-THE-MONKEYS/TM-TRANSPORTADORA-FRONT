@@ -16,7 +16,7 @@ type FreightClosedAdminPanelProps = {
 
 export function FreightClosedAdminPanel({ freight, onUpdated }: FreightClosedAdminPanelProps) {
   return (
-    <Card className={cn("mb-6", SEMANTIC.cautionSurface)}>
+    <Card variant="glass" size="sm" className={cn("mb-6", SEMANTIC.cautionBorder)}>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <ShieldAlert className={cn("h-4 w-4", SEMANTIC.cautionText)} />
@@ -46,7 +46,7 @@ export function FreightClosedAdminPanel({ freight, onUpdated }: FreightClosedAdm
 
         <div
           className={cn(
-            "flex items-start gap-2 rounded-md border bg-background/60 px-3 py-2 text-xs text-muted-foreground",
+            "glass-subtle flex items-start gap-2 px-3 py-2 text-xs text-muted-foreground",
             SEMANTIC.cautionBorder,
           )}
         >

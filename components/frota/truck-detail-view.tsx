@@ -7,6 +7,7 @@ import useSWR from "swr"
 import { Pencil, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
+import { AppCanvas } from "@/components/layout/app-canvas"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -49,6 +50,7 @@ export function TruckDetailView({ id }: { id: string }) {
   if (!truck) return <Skeleton className="h-96 w-full" />
 
   return (
+    <AppCanvas>
     <div>
       <PageHeader
         title={truck.plate}
@@ -84,7 +86,7 @@ export function TruckDetailView({ id }: { id: string }) {
           <TabsTrigger value="implementos">Implementos</TabsTrigger>
         </TabsList>
         <TabsContent value="dados" className="mt-4">
-          <Card>
+          <Card variant="glass" size="sm">
             <CardContent className="grid gap-2 pt-6 sm:grid-cols-2">
               <p>
                 <span className="text-muted-foreground">Status:</span>{" "}
@@ -102,7 +104,7 @@ export function TruckDetailView({ id }: { id: string }) {
           </Card>
         </TabsContent>
         <TabsContent value="documentacao" className="mt-4">
-          <Card>
+          <Card variant="glass" size="sm">
             <CardContent className="pt-6 space-y-2">
               <p>Seguro: {formatDateBR(truck.insurance_expires_at)}</p>
               <p>Licenciamento: {formatDateBR(truck.license_expires_at)}</p>
@@ -125,5 +127,6 @@ export function TruckDetailView({ id }: { id: string }) {
         onConfirm={handleDelete}
       />
     </div>
+    </AppCanvas>
   )
 }

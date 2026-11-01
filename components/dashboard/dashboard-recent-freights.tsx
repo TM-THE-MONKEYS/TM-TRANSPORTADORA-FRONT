@@ -21,28 +21,28 @@ export function DashboardRecentFreights() {
   const recent = sortFreightsByRecent(freights).slice(0, 8)
 
   return (
-    <Card className="h-full">
+    <Card variant="glass-subtle" size="sm" className="flex h-full min-h-[18rem] min-w-0 flex-col">
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-3">
         <div>
-          <CardTitle className="text-base">Fretes recentes</CardTitle>
+          <CardTitle className="tracking-tight">Fretes recentes</CardTitle>
           <CardDescription>Últimas movimentações na operação</CardDescription>
         </div>
-        <Button variant="ghost" size="sm" asChild>
+        <Button variant="ghost" size="sm" className="text-muted-foreground hover:bg-foreground/5 hover:text-foreground" asChild>
           <Link href="/dashboard/fretes">
             Ver todos
             <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </Button>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
         {isLoading ? (
           <div className="space-y-2 px-4 pb-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full" />
+              <Skeleton key={i} className="h-14 w-full bg-foreground/10" />
             ))}
           </div>
         ) : recent.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-muted-foreground">
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-10 text-center text-sm text-muted-foreground">
             <Package className="h-8 w-8 opacity-40" />
             <p>Nenhum frete cadastrado</p>
             <Button size="sm" asChild>
@@ -50,12 +50,12 @@ export function DashboardRecentFreights() {
             </Button>
           </div>
         ) : (
-          <ul className="divide-y">
+          <ul className="divide-y divide-foreground/10">
             {recent.map((f) => (
               <li key={f.id}>
                 <Link
                   href={`/dashboard/fretes/${f.id}`}
-                  className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+                  className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">

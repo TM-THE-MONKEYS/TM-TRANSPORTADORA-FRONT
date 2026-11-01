@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AppCanvas } from "@/components/layout/app-canvas"
 import {
   Select,
   SelectContent,
@@ -74,7 +75,7 @@ function FormSection({
   children: React.ReactNode
 }) {
   return (
-    <Card className="border-border/60 shadow-sm">
+    <Card variant="glass" size="sm">
       <CardHeader className="pb-4">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -168,27 +169,32 @@ export function DriverForm({ driverId }: { driverId?: string }) {
 
   if (isEdit && error) {
     return (
-      <QueryErrorState
-        title="Não foi possível carregar o motorista"
-        description={error instanceof Error ? error.message : undefined}
-        onRetry={() => void mutate()}
-      />
+      <AppCanvas>
+        <QueryErrorState
+          title="Não foi possível carregar o motorista"
+          description={error instanceof Error ? error.message : undefined}
+          onRetry={() => void mutate()}
+        />
+      </AppCanvas>
     )
   }
 
   if (isEdit && isLoading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4">
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <Skeleton className="h-64 w-full rounded-xl" />
-      </div>
+      <AppCanvas>
+        <div className="mx-auto max-w-3xl space-y-4">
+          <Skeleton className="h-48 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </AppCanvas>
     )
   }
 
   return (
+    <AppCanvas>
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-3xl space-y-6">
       {!isEdit && (
-        <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+        <div className="glass px-4 py-3 text-sm text-muted-foreground">
           Cadastro operacional do motorista. A conta de acesso ao sistema (login) é opcional e
           pode ser criada depois na ficha, por um administrador.
         </div>
@@ -327,7 +333,7 @@ export function DriverForm({ driverId }: { driverId?: string }) {
         </div>
       </FormSection>
 
-      <div className="sticky bottom-0 z-10 -mx-1 flex flex-col-reverse gap-2 rounded-xl border border-border/60 bg-background/95 p-4 backdrop-blur sm:flex-row sm:justify-end">
+      <div className="glass-strong sticky bottom-0 z-10 -mx-1 flex flex-col-reverse gap-2 p-4 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancelar
         </Button>
@@ -337,5 +343,6 @@ export function DriverForm({ driverId }: { driverId?: string }) {
         </Button>
       </div>
     </form>
+    </AppCanvas>
   )
 }

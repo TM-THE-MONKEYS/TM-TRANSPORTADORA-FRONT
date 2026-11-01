@@ -10,8 +10,11 @@
 :root {
   --background: oklch(0.975 0.012 245);
   --foreground: oklch(0.2 0.03 245);
-  --card: oklch(0.995 0.004 245);
+  --card: oklch(0.98 0.008 245);
   --card-foreground: oklch(0.2 0.03 245);
+  /* Chrome: header / nav / footer — greige neutro (não branco puro). */
+  --chrome: oklch(0.905 0.012 80);
+  --chrome-foreground: oklch(0.22 0.025 245);
   --popover: oklch(1 0.002 245);
   --popover-foreground: oklch(0.2 0.03 245);
   --primary: oklch(0.48 0.17 250);
@@ -55,6 +58,8 @@
   --foreground: oklch(0.95 0.01 245);
   --card: oklch(0.185 0.022 245);
   --card-foreground: oklch(0.95 0.01 245);
+  --chrome: oklch(0.175 0.018 245);
+  --chrome-foreground: oklch(0.95 0.01 245);
   --popover: oklch(0.185 0.022 245);
   --popover-foreground: oklch(0.95 0.01 245);
   --primary: oklch(0.68 0.14 250);
@@ -99,6 +104,8 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-chrome: var(--chrome);
+  --color-chrome-foreground: var(--chrome-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
@@ -138,6 +145,236 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/*
+  Vidro (glassmorphism) — app autenticado (listagens, detalhes, dashboard).
+  Referência: home hub (`glass-hero` sobre foto) + painéis foscos estilo visionOS.
+  Tokens em `.app-canvas` / `.dashboard-canvas` (alias). Não alteram --background/--card.
+  `glass*` / `glass-subtle` / `glass-strong` só dentro do canvas.
+  Home foto: `glass-hero` (não precisa de canvas).
+*/
+@layer components {
+  .app-canvas,
+  .dashboard-canvas {
+    --canvas: oklch(0.9 0.008 80);
+    --glass-bg: oklch(0.99 0.003 85);
+    --glass-tile: oklch(1 0 0 / 0.28);
+    --glass-fill-base: 22%;
+    --blob-1: 38%;
+    --blob-2: 34%;
+    --blob-3: 28%;
+    --blob-4: 32%;
+    --blob-5: 30%;
+    --blob-6: 28%;
+    --blob-7: 26%;
+    --glass-border: oklch(1 0 0 / 0.55);
+    --glass-border-hover: oklch(1 0 0 / 0.85);
+    --glass-highlight: oklch(1 0 0 / 0.75);
+    --glass-shadow: oklch(0.3 0.04 60 / 0.22);
+    /* Texto secundário mais escuro sobre vidro claro (AA ≥ 4.5:1). */
+    --muted-foreground: oklch(0.38 0.02 250);
+    /* Tom semântico escurecido p/ texto sobre vidro: % do token misturado com --foreground. */
+    --ink-mix: 65%;
+    --ink-positive: color-mix(in oklab, var(--status-success) var(--ink-mix), var(--foreground));
+    --ink-negative: color-mix(in oklab, var(--destructive) var(--ink-mix), var(--foreground));
+
+    background-color: var(--canvas);
+    /* Luz ambiente: o vidro desfoca estas manchas. Só tokens; intensidade em --blob-*. */
+    background-image:
+      radial-gradient(38rem 28rem at 2% -4%, color-mix(in oklch, var(--primary) var(--blob-1), transparent), transparent 72%),
+      radial-gradient(34rem 26rem at 100% 8%, color-mix(in oklch, var(--chart-4) var(--blob-2), transparent), transparent 72%),
+      radial-gradient(30rem 24rem at 80% 52%, color-mix(in oklch, var(--chart-3) var(--blob-3), transparent), transparent 72%),
+      radial-gradient(36rem 28rem at 10% 100%, color-mix(in oklch, var(--chart-2) var(--blob-4), transparent), transparent 72%),
+      radial-gradient(34rem 26rem at 94% 100%, color-mix(in oklch, var(--chart-3) var(--blob-5), transparent), transparent 72%),
+      radial-gradient(28rem 22rem at 42% 24%, color-mix(in oklch, var(--chart-4) var(--blob-6), transparent), transparent 72%),
+      radial-gradient(26rem 22rem at 30% 62%, color-mix(in oklch, var(--chart-3) var(--blob-7), transparent), transparent 72%);
+    background-repeat: no-repeat;
+  }
+
+  .dark .app-canvas,
+  .dark .dashboard-canvas {
+    --canvas: oklch(0.27 0.012 65);
+    --glass-bg: oklch(0.42 0.014 65);
+    --glass-tile: oklch(1 0 0 / 0.06);
+    --glass-fill-base: 28%;
+    --blob-1: 30%;
+    --blob-2: 26%;
+    --blob-3: 20%;
+    --blob-4: 22%;
+    --blob-5: 22%;
+    --blob-6: 20%;
+    --blob-7: 18%;
+    --glass-border: oklch(1 0 0 / 0.16);
+    --glass-border-hover: oklch(1 0 0 / 0.3);
+    --glass-highlight: oklch(1 0 0 / 0.18);
+    --glass-shadow: oklch(0 0 0 / 0.45);
+    --muted-foreground: oklch(0.8 0.01 70);
+    --ink-mix: 50%;
+  }
+}
+
+/*
+  Painel fosco flutuante (listas, detalhes, widgets).
+  Mais transparente + blur forte ≈ sensação de vidro da home.
+*/
+@utility glass {
+  --glass-fill: var(--glass-fill-base, 22%);
+  background-color: color-mix(in oklch, var(--glass-bg) var(--glass-fill), transparent);
+  /* Tinta opcional: `[--glass-tint:color-mix(...)]` no elemento. */
+  background-image: linear-gradient(var(--glass-tint, transparent), var(--glass-tint, transparent));
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: calc(var(--radius) + 10px);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 1px 0 color-mix(in oklch, var(--glass-border) 30%, transparent),
+    0 12px 32px -14px var(--glass-shadow);
+
+  @supports not (backdrop-filter: blur(1px)) {
+    --glass-fill: 92%;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    --glass-fill: 96%;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/*
+  Vidro da home hub (sobre foto escura). Sem tokens de canvas.
+  Equivalente ao antigo `bg-white/10 backdrop-blur-md border-white/15`.
+*/
+@utility glass-hero {
+  background-color: oklch(1 0 0 / 0.1);
+  border: 1px solid oklch(1 0 0 / 0.15);
+  border-radius: calc(var(--radius) + 4px);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.18);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease;
+
+  &:hover {
+    background-color: oklch(1 0 0 / 0.2);
+    border-color: oklch(1 0 0 / 0.3);
+  }
+
+  @supports not (backdrop-filter: blur(1px)) {
+    background-color: oklch(0.2 0 0 / 0.72);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: oklch(0.18 0 0 / 0.88);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* Home: painel dock (vidro um pouco mais denso que o tile avulso). */
+@layer components {
+  .home-hub-dock.glass-hero {
+    background-color: oklch(1 0 0 / 0.12);
+    border-color: oklch(1 0 0 / 0.18);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 0.22),
+      0 24px 48px -28px oklch(0 0 0 / 0.55);
+
+    &:hover {
+      /* Dock não muda de fundo no hover do container — só os itens. */
+      background-color: oklch(1 0 0 / 0.12);
+      border-color: oklch(1 0 0 / 0.18);
+    }
+  }
+
+  .home-hub-enter {
+    animation: home-hub-rise 520ms ease-out both;
+  }
+
+  @keyframes home-hub-rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .home-hub-enter {
+      animation: none;
+    }
+  }
+}
+
+/* Popovers/tooltips: mais opaco, blur maior. */
+@utility glass-strong {
+  --glass-fill: 88%;
+  background-color: color-mix(in oklch, var(--glass-bg) var(--glass-fill), transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: calc(var(--radius) + 10px);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 10px 28px -12px var(--glass-shadow);
+
+  @supports not (backdrop-filter: blur(1px)) {
+    --glass-fill: 98%;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    --glass-fill: 98%;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/*
+  Tiles DENTRO de um `glass` (KPIs, gráficos, filtros): só fundo translúcido
+  (--glass-tile: mais escuro no dark, mais claro no light).
+  Nunca backdrop-filter aqui — blur dentro de blur é caro e fica sujo.
+*/
+@utility glass-subtle {
+  background-color: var(--glass-tile);
+  border: 1px solid color-mix(in oklch, var(--glass-border) 50%, transparent);
+  border-radius: calc(var(--radius) + 6px);
+  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--glass-highlight) 45%, transparent);
+}
+
+/* Hover leve em tiles clicáveis / KPI — combinar com `glass-subtle`. */
+@utility glass-interactive {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+  &:hover {
+    border-color: var(--glass-border-hover);
+    transform: translateY(-1px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: border-color 180ms ease;
+    &:hover {
+      transform: none;
+    }
+  }
 }
 
 @layer base {
