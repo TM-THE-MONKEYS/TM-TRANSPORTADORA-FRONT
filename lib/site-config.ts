@@ -14,11 +14,11 @@ export const siteConfig = {
   demoTenantSlug: "demo-transportadora",
   branding: {
     /**
-     * Troque só o arquivo `public/branding/login.png` (mesmo nome).
-     * Override opcional: NEXT_PUBLIC_LOGIN_IMAGE=/branding/outra-foto.png
+     * Hero login/home: `public/branding/login.jpg` (landscape 16:9, Scania azul).
+     * Override opcional: NEXT_PUBLIC_LOGIN_IMAGE=/branding/outra-foto.jpg
      */
     loginImage: process.env.NEXT_PUBLIC_LOGIN_IMAGE ?? "/branding/login.jpg",
-    loginImageAlt: "TSV Transportes — gestão logística",
+    loginImageAlt: "Caminhão Scania azul — TSV Transportes",
     /** Navbar: PNG transparente recomendado (tema claro = traços escuros). */
     navbarLogo: process.env.NEXT_PUBLIC_NAVBAR_LOGO ?? "/branding/logo.png",
     /** Navbar tema escuro: traços claros em fundo transparente. */
