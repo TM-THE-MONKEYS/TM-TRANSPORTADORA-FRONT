@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ChevronDown, KeyRound, LogOut, Moon, Sun, UserRound } from "lucide-react"
+import { ChevronDown, KeyRound, LogOut, UserRound } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CommandPalette } from "@/components/layout/command-palette"
+import { ToggleTheme } from "@/components/ui/toggle-theme"
 import { useAuth } from "@/components/providers/auth-provider"
 import { getDefaultHomeRoute } from "@/lib/rbac/permissions"
 import { getUserRoleLabel } from "@/lib/navigation/user-role-labels"
@@ -29,7 +29,7 @@ function useIsClient() {
 }
 
 export function AppHeader() {
-  const { theme, setTheme, resolvedTheme } = useTheme()
+  const { resolvedTheme } = useTheme()
   const { user, logout } = useAuth()
   const mounted = useIsClient()
 
@@ -37,7 +37,6 @@ export function AppHeader() {
     ? getDefaultHomeRoute(user.role, user.permissions)
     : "/dashboard/home"
   const roleLabel = getUserRoleLabel(user?.role)
-  const isDark = theme === "dark"
   const logoSrc =
     mounted && resolvedTheme === "dark"
       ? siteConfig.branding.navbarLogoDark
@@ -64,19 +63,8 @@ export function AppHeader() {
           </span>
         </Link>
 
-        <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
-          <CommandPalette />
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 shrink-0"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            aria-label={isDark ? "Ativar modo claro" : "Ativar modo escuro"}
-          >
-            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
+        <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+          <ToggleTheme />
 
           {user && (
             <DropdownMenu>

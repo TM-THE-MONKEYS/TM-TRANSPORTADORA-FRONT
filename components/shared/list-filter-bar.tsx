@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils"
 import { getTruckLabel } from "@/lib/freight/active-trip"
 
 interface ListFilterBarProps {
-  /** Competência selecionada */
-  competencia: { mes: number; ano: number }
-  onCompetenciaShift: (delta: number) => void
+  /** Competência selecionada (obrigatória se `showCompetencia` não for false) */
+  competencia?: { mes: number; ano: number }
+  onCompetenciaShift?: (delta: number) => void
   /** ID do motorista selecionado */
   driverId?: string
   onDriverChange: (id: string | undefined) => void
@@ -23,6 +23,8 @@ interface ListFilterBarProps {
   showTruckFilter?: boolean
   /** Exibir seletor de motorista (ocultar em páginas onde o motorista já é a entidade principal) */
   showDriverFilter?: boolean
+  /** Exibir navegador de competência (ocultar em cadastros que listam todos os registros) */
+  showCompetencia?: boolean
   nextDisabled?: boolean
   /** Esconde o botão Limpar interno (ex.: Dashboard tem um Limpar que também zera cliente). */
   showClear?: boolean
@@ -53,6 +55,7 @@ export function ListFilterBar({
   onTruckChange,
   showTruckFilter = true,
   showDriverFilter = true,
+  showCompetencia = true,
   nextDisabled = false,
   showClear = true,
   variant = "default",
@@ -96,14 +99,16 @@ export function ListFilterBar({
 
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className ?? ""}`}>
-      <CompetenciaNavigator
-        mes={competencia.mes}
-        ano={competencia.ano}
-        onPrevious={() => onCompetenciaShift(-1)}
-        onNext={() => onCompetenciaShift(1)}
-        nextDisabled={nextDisabled}
-        className={glass ? GLASS_CONTROL : undefined}
-      />
+      {showCompetencia && competencia && onCompetenciaShift && (
+        <CompetenciaNavigator
+          mes={competencia.mes}
+          ano={competencia.ano}
+          onPrevious={() => onCompetenciaShift(-1)}
+          onNext={() => onCompetenciaShift(1)}
+          nextDisabled={nextDisabled}
+          className={glass ? GLASS_CONTROL : undefined}
+        />
+      )}
 
       {showDriverFilter && (
         <EntityFilterSelect

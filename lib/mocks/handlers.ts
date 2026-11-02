@@ -240,6 +240,12 @@ export async function mockListDrivers(
         (d.cpf ?? "").toLowerCase().includes(q),
     )
   }
+  items = [...items].sort((a, b) => {
+    const rank = (s: DriverStatus) => (s === "ativo" ? 0 : 1)
+    const byStatus = rank(a.status) - rank(b.status)
+    if (byStatus !== 0) return byStatus
+    return a.name.localeCompare(b.name, "pt-BR")
+  })
   return paginate(items, page, pageSize)
 }
 

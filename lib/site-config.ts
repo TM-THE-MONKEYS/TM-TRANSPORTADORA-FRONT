@@ -14,8 +14,9 @@ export const siteConfig = {
   demoTenantSlug: "demo-transportadora",
   branding: {
     /**
-     * Hero login/home: `public/branding/login.jpg` (landscape 16:9, Scania azul).
-     * Override opcional: NEXT_PUBLIC_LOGIN_IMAGE=/branding/outra-foto.jpg
+     * Hero compartilhado login + home hub (`/dashboard/home`).
+     * Arquivo: `public/branding/login.jpg` (imagem gerada Scania azul).
+     * Override: NEXT_PUBLIC_LOGIN_IMAGE=/branding/outra-foto.jpg
      */
     loginImage: process.env.NEXT_PUBLIC_LOGIN_IMAGE ?? "/branding/login.jpg",
     loginImageAlt: "Caminhão Scania azul — TSV Transportes",
