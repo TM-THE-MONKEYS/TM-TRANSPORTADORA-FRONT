@@ -108,30 +108,39 @@ export function FuelView() {
   const canGoForward = isCompetenciaWithinLimit(nextCompetencia.mes, nextCompetencia.ano)
 
   const { data: driversPage } = useSWR("fuel-drivers", () => listDrivers(1, 100))
-  const { data: freightsPage } = useSWR("fuel-freights", () => listFreights(1, 100))
-  const {
-    data: refills,
-    error: refillsError,
-    isLoading: loadingRefills,
-    mutate: refreshRefills,
-  } = useSWR(
-    ["fuel-refills-all", competencia.mes, competencia.ano],
-    () => listAllFuelRefills(1, 100, competencia),
-  )
 
   const canManageFuel = usePermission(PERMISSIONS.freightWrite) || isAdminRole(user?.role)
 
   const drivers = driversPage?.items ?? []
   const currentDriverId = user ? resolveDriverIdForUser(user, drivers) : null
   const canRegisterFuel = (isMotorista && Boolean(currentDriverId)) || canManageFuel
+  /** Escopo motorista: nunca listar fretes/abastecimentos de outros. */
+  const scopedDriverId = isMotorista ? currentDriverId : undefined
+
+  const { data: freightsPage } = useSWR(
+    ["fuel-freights", scopedDriverId ?? "all"],
+    () =>
+      listFreights(1, 100, scopedDriverId ? { driverId: scopedDriverId } : undefined),
+  )
+  const {
+    data: refills,
+    error: refillsError,
+    isLoading: loadingRefills,
+    mutate: refreshRefills,
+  } = useSWR(
+    ["fuel-refills-all", competencia.mes, competencia.ano, scopedDriverId ?? "all"],
+    () =>
+      listAllFuelRefills(1, 100, competencia, scopedDriverId ? { driverId: scopedDriverId } : undefined),
+  )
 
   const eligibleFreights = useMemo(() => {
     if (!freightsPage?.items) return []
+    if (isMotorista && !currentDriverId) return []
     return filterFreightsForFuel(freightsPage.items, {
-      driverId: isMotorista ? currentDriverId : undefined,
+      driverId: scopedDriverId,
       includeClosed: allowClosedFuel,
     })
-  }, [freightsPage?.items, isMotorista, currentDriverId, allowClosedFuel])
+  }, [freightsPage?.items, isMotorista, currentDriverId, scopedDriverId, allowClosedFuel])
 
   const freightMap = useMemo(
     () => new Map((freightsPage?.items ?? []).map((f) => [f.id, f])),
@@ -140,7 +149,8 @@ export function FuelView() {
 
   const visibleRefills = useMemo(() => {
     const all = refills ?? []
-    if (!isMotorista || !currentDriverId) return all
+    if (!isMotorista) return all
+    if (!currentDriverId) return []
     return all.filter((r) => r.driver_id === currentDriverId)
   }, [refills, isMotorista, currentDriverId])
 
@@ -567,7 +577,11 @@ export function FuelView() {
             <ListSearchField
               value={fuelSearch}
               onChange={setFuelSearch}
-              placeholder="Buscar por frete, posto ou motorista..."
+              placeholder={
+                isMotorista
+                  ? "Buscar por frete ou posto..."
+                  : "Buscar por frete, posto ou motorista..."
+              }
               className="w-full sm:w-64"
             />
           </div>
@@ -577,7 +591,9 @@ export function FuelView() {
             <thead>
               <tr className="border-y bg-muted/40">
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Frete</th>
-                <th className="px-5 py-3 text-left font-medium text-muted-foreground">Motorista</th>
+                {!isMotorista && (
+                  <th className="px-5 py-3 text-left font-medium text-muted-foreground">Motorista</th>
+                )}
                 <th className="px-5 py-3 text-left font-medium text-muted-foreground">Descrição</th>
                 <th className="px-5 py-3 text-right font-medium text-muted-foreground">Km</th>
                 <th className="px-5 py-3 text-right font-medium text-muted-foreground">Litros</th>
@@ -591,26 +607,37 @@ export function FuelView() {
             <tbody>
               {loadingRefills ? (
                 <tr>
-                  <td colSpan={canManageFuel ? 8 : 7} className="px-5 py-10 text-center text-muted-foreground">
+                  <td
+                    colSpan={canManageFuel ? (isMotorista ? 7 : 8) : isMotorista ? 6 : 7}
+                    className="px-5 py-10 text-center text-muted-foreground"
+                  >
                     Carregando histórico...
                   </td>
                 </tr>
               ) : refillsError ? (
                 <tr>
-                  <td colSpan={canManageFuel ? 8 : 7} className="px-5 py-10 text-center text-destructive">
+                  <td
+                    colSpan={canManageFuel ? (isMotorista ? 7 : 8) : isMotorista ? 6 : 7}
+                    className="px-5 py-10 text-center text-destructive"
+                  >
                     Não foi possível carregar o histórico. Verifique se a API está no ar e tente
                     novamente.
                   </td>
                 </tr>
               ) : searchFilteredRefills.length === 0 ? (
                 <tr>
-                  <td colSpan={canManageFuel ? 8 : 7} className="p-0">
+                  <td
+                    colSpan={canManageFuel ? (isMotorista ? 7 : 8) : isMotorista ? 6 : 7}
+                    className="p-0"
+                  >
                     <EmptyState
                       title={fuelSearch ? "Nenhum resultado encontrado" : "Nenhum abastecimento registrado"}
                       description={
                         fuelSearch
                           ? "Tente ajustar o termo de busca."
-                          : "Registre o primeiro abastecimento usando o formulário acima."
+                          : isMotorista
+                            ? "Quando você registrar um abastecimento nos seus fretes, ele aparece aqui."
+                            : "Registre o primeiro abastecimento usando o formulário acima."
                       }
                       className="rounded-none border-0"
                     />
@@ -632,9 +659,11 @@ export function FuelView() {
                           {freight?.code ?? entry.freight_code ?? entry.freight_id.slice(0, 8)}
                         </Link>
                       </td>
-                      <td className="px-5 py-3 text-muted-foreground">
-                        {resolveDriverDisplayName(entry, drivers)}
-                      </td>
+                      {!isMotorista && (
+                        <td className="px-5 py-3 text-muted-foreground">
+                          {resolveDriverDisplayName(entry, drivers)}
+                        </td>
+                      )}
                       <td className="px-5 py-3 text-muted-foreground">
                         {entry.posto ?? entry.cidade ?? "Abastecimento"}
                         {entry.posto && entry.cidade ? ` · ${entry.cidade}` : ""}

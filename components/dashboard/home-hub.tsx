@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import { useAuth } from "@/components/providers/auth-provider"
 import { getAllowedNavRoutes, HOME_NAV_ROUTE } from "@/lib/rbac/permissions"
 import { getNavIcon } from "@/lib/navigation/nav-icons"
@@ -57,13 +56,12 @@ export function HomeHub() {
      */
     <div className="-m-4 flex min-h-[calc(100dvh-7.75rem)] flex-col md:-m-6">
       <div className="relative flex min-h-[calc(100dvh-7.75rem)] flex-1 flex-col">
-        <Image
-          src={siteConfig.branding.loginImage}
-          alt=""
-          fill
-          className="object-cover object-center"
-          priority
-          sizes="100vw"
+        {/* Mesmo asset e carregamento do login (`siteConfig.branding.loginImage`) — sem next/image cache */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${siteConfig.branding.loginImage})` }}
+          role="img"
+          aria-label={siteConfig.branding.loginImageAlt}
         />
         {/* Gradiente: leitura no bloco de conteúdo; foto ainda respira */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/70" />

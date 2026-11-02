@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import useSWR, { mutate } from "swr"
-import { BadgePercent, Calendar, IdCard, Pencil, Plus, Trash2, TrendingDown, TrendingUp } from "lucide-react"
+import { BadgePercent, Calendar, IdCard, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
@@ -16,13 +16,11 @@ import { QueryErrorState } from "@/components/shared/query-error-state"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { ListPage } from "@/components/shared/list-page"
 import { ListSearchField } from "@/components/shared/list-search-field"
-import { ListStatTile } from "@/components/shared/list-stat-tile"
 import { ListFilterBar } from "@/components/shared/list-filter-bar"
 import { ListPagination } from "@/components/shared/list-pagination"
 import { StatusFilterChips } from "@/components/shared/status-filter-chips"
 import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { listDrivers } from "@/lib/api/services/drivers"
-import { getFreightsSummary } from "@/lib/api/services/freight"
 import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
 import {
   DRIVER_STATUS_LABELS,
@@ -31,11 +29,9 @@ import {
   formatCommissionPct,
 } from "@/lib/motoristas/driver-status"
 import { formatDateBR } from "@/lib/format/dates"
-import { formatBRL } from "@/lib/format/currency"
 import { findActiveFreightByDriver } from "@/lib/freight/active-trip"
 import { ActiveTripLink } from "@/components/shared/active-trip-link"
-import { DRIVER_STATUS_TONE, STATUS_TONE, statusDotClass } from "@/lib/ui/status-colors"
-import { useCompetencia } from "@/hooks/use-competencia"
+import { DRIVER_STATUS_TONE, statusDotClass } from "@/lib/ui/status-colors"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
@@ -137,7 +133,6 @@ function DriverCard({
 export function DriversListView() {
   const router = useRouter()
   const canWrite = usePermission(PERMISSIONS.driversWrite)
-  const { competencia, shift, canGoForward } = useCompetencia()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<DriverStatus | "all">("all")
   const [page, setPage] = useState(1)
@@ -146,32 +141,12 @@ export function DriversListView() {
   const [deleting, setDeleting] = useState(false)
   const [filterTruckId, setFilterTruckId] = useState<string | undefined>()
 
-  useEffect(() => {
-    setPage(1)
-  }, [competencia.mes, competencia.ano])
-
-  const { data: summary, isLoading: loadingSummary, error: summaryError } = useSWR(
-    ["freights-summary-drivers", competencia.mes, competencia.ano, filterTruckId],
-    () => getFreightsSummary({ competencia, truckId: filterTruckId }),
-    { keepPreviousData: true },
-  )
-
   const { data, isLoading, error, mutate: revalidate } = useSWR(
-    [
-      "drivers",
-      page,
-      pageSize,
-      search,
-      statusFilter,
-      competencia.mes,
-      competencia.ano,
-      filterTruckId,
-    ],
+    ["drivers", page, pageSize, search, statusFilter, filterTruckId],
     () =>
       listDrivers(page, pageSize, {
         search: search.trim() || undefined,
         status: statusFilter === "all" ? undefined : statusFilter,
-        competencia,
         truckId: filterTruckId,
       }),
   )
@@ -212,36 +187,16 @@ export function DriversListView() {
           }
         />
       }
-      stats={
-        <div className="grid grid-cols-2 gap-3">
-          <ListStatTile
-            icon={TrendingUp}
-            label="Faturamento bruto"
-            value={
-              loadingSummary ? "..." : summaryError ? "—" : formatBRL(summary?.faturamento_bruto ?? 0)
-            }
-            accent={STATUS_TONE.success.bg}
-          />
-          <ListStatTile
-            icon={TrendingDown}
-            label="Gastos"
-            value={loadingSummary ? "..." : summaryError ? "—" : formatBRL(summary?.gastos ?? 0)}
-            accent={STATUS_TONE.danger.bg}
-          />
-        </div>
-      }
       toolbar={
         <div className="space-y-3">
           <ListFilterBar
             variant="glass"
-            competencia={competencia}
-            onCompetenciaShift={shift}
-            nextDisabled={!canGoForward}
             driverId={undefined}
             onDriverChange={() => {}}
             truckId={filterTruckId}
             onTruckChange={(id) => { setFilterTruckId(id); setPage(1) }}
             showDriverFilter={false}
+            showCompetencia={false}
           />
           <ListSearchField
             value={search}
@@ -283,7 +238,7 @@ export function DriversListView() {
           description={
             hasSearchOrStatus
               ? "Nenhum motorista encontrado com os filtros aplicados."
-              : "Nenhum motorista nesta competência."
+              : "Cadastre o primeiro motorista para começar."
           }
           actionLabel={
             hasSearchOrStatus

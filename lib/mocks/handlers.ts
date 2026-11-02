@@ -240,6 +240,12 @@ export async function mockListDrivers(
         (d.cpf ?? "").toLowerCase().includes(q),
     )
   }
+  items = [...items].sort((a, b) => {
+    const rank = (s: DriverStatus) => (s === "ativo" ? 0 : 1)
+    const byStatus = rank(a.status) - rank(b.status)
+    if (byStatus !== 0) return byStatus
+    return a.name.localeCompare(b.name, "pt-BR")
+  })
   return paginate(items, page, pageSize)
 }
 
@@ -664,10 +670,16 @@ export async function mockRegisterFuelRefill(data: {
   return refill
 }
 
-export async function mockListFuelRefills(page = 1, size = 100, freightId?: string) {
+export async function mockListFuelRefills(
+  page = 1,
+  size = 100,
+  freightId?: string,
+  driverId?: string,
+) {
   await delay(100)
   let items = mockStore.fuelRefills ?? []
   if (freightId) items = items.filter((r) => r.freight_id === freightId)
+  if (driverId) items = items.filter((r) => r.driver_id === driverId)
   const start = (page - 1) * size
   const slice = items.slice(start, start + size)
   return {

@@ -95,12 +95,14 @@ async function fetchFuelRefillsPage(
   page: number,
   size: number,
   competencia?: { mes: number; ano: number },
+  driverId?: string,
 ): Promise<Paginated<FuelRefill>> {
   const qs = new URLSearchParams({ page: String(page), size: String(size) })
   if (competencia) {
     qs.set("competencia_mes", String(competencia.mes))
     qs.set("competencia_ano", String(competencia.ano))
   }
+  if (driverId) qs.set("driver_id", driverId)
   const res = await apiRequest<Paginated<Record<string, unknown>>>(
     `/fuel?${qs}`,
     { auth: true },
@@ -112,14 +114,21 @@ async function fetchFuelRefillsPage(
   }
 }
 
-/** Agrega abastecimentos de todos os fretes (fallback se GET /fuel indisponível). */
-async function listFuelRefillsAggregatedByFreights(size: number): Promise<FuelRefill[]> {
+/** Agrega abastecimentos de fretes (fallback se GET /fuel indisponível). */
+async function listFuelRefillsAggregatedByFreights(
+  size: number,
+  driverId?: string,
+): Promise<FuelRefill[]> {
   const { listFreights } = await import("@/lib/api/services/freight")
   const byId = new Map<string, FuelRefill>()
   let freightPage = 1
 
   while (freightPage <= 50) {
-    const freights = await listFreights(freightPage, size)
+    const freights = await listFreights(
+      freightPage,
+      size,
+      driverId ? { driverId } : undefined,
+    )
     if (freights.items.length === 0) break
 
     const batches = await Promise.all(
@@ -130,7 +139,10 @@ async function listFuelRefillsAggregatedByFreights(size: number): Promise<FuelRe
       ),
     )
     for (const items of batches) {
-      for (const item of items) byId.set(item.id, item)
+      for (const item of items) {
+        if (driverId && item.driver_id !== driverId) continue
+        byId.set(item.id, item)
+      }
     }
 
     if (!freights.has_next && freights.items.length < size) break
@@ -140,16 +152,21 @@ async function listFuelRefillsAggregatedByFreights(size: number): Promise<FuelRe
   return sortFuelRefillsNewestFirst([...byId.values()])
 }
 
+export type FuelListFilters = {
+  driverId?: string
+}
+
 /** Histórico geral — origem: `tm_fuel_refills` via GET /api/v1/fuel. */
 export async function listAllFuelRefills(
   page = 1,
   size = 100,
   competencia?: { mes: number; ano: number },
+  filters?: FuelListFilters,
 ): Promise<FuelRefill[]> {
   const safeSize = Math.min(size, MAX_PAGE_SIZE)
 
   if (shouldUseMocks()) {
-    const res = await mock.mockListFuelRefills(page, safeSize)
+    const res = await mock.mockListFuelRefills(page, safeSize, undefined, filters?.driverId)
     let items = res.items
     if (competencia) {
       items = items.filter((r) => {
@@ -165,15 +182,25 @@ export async function listAllFuelRefills(
     let currentPage = page
 
     while (currentPage <= 50) {
-      const batch = await fetchFuelRefillsPage(currentPage, safeSize, competencia)
+      const batch = await fetchFuelRefillsPage(
+        currentPage,
+        safeSize,
+        competencia,
+        filters?.driverId,
+      )
       collected.push(...batch.items)
       if (!batch.has_next) break
       currentPage++
     }
 
-    return sortFuelRefillsNewestFirst(collected)
+    let items = sortFuelRefillsNewestFirst(collected)
+    // Defesa: se a API ignorar driver_id, ainda restringe no client.
+    if (filters?.driverId) {
+      items = items.filter((r) => r.driver_id === filters.driverId)
+    }
+    return items
   } catch {
-    return listFuelRefillsAggregatedByFreights(safeSize)
+    return listFuelRefillsAggregatedByFreights(safeSize, filters?.driverId)
   }
 }
 

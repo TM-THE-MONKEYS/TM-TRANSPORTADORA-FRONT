@@ -53,6 +53,9 @@ import { formatDateTimeBR } from "@/lib/format/dates"
 import { formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
 import { MANUAL_FREIGHT_COST_TYPES } from "@/lib/freight/costs"
 import { FREIGHT_STATUS_FLOW, FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
+import { isMotoristaRole } from "@/lib/fuel/eligibility"
+import { resolveDriverIdForUser } from "@/lib/drivers/resolve-driver"
+import { EmptyState } from "@/components/shared/empty-state"
 import {
   statusSoftClass,
   TRACKING_STATUS_TONE,
@@ -88,7 +91,9 @@ export function FreightDetailView({ id }: { id: string }) {
   const canStatus = usePermission(PERMISSIONS.freightStatus)
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const isAdmin = canAdminManageClosedFreight(user?.role)
+  const isMotorista = isMotoristaRole(user)
   const { drivers, trucks } = useOperationContext({ freights: false })
+  const linkedDriverId = user ? resolveDriverIdForUser(user, drivers) : null
   const { data: freight, error: freightError, isLoading: freightLoading, mutate: mutateFreight } =
     useSWR(["freight", id], () => getFreight(id))
   const { data: events, mutate: mutateEvents } = useSWR(["freight-events", id], () =>
@@ -140,6 +145,27 @@ export function FreightDetailView({ id }: { id: string }) {
 
   if (freightLoading || !freight) return <Skeleton className="h-96 w-full" />
 
+  if (
+    isMotorista &&
+    linkedDriverId &&
+    freight.driver_id &&
+    freight.driver_id !== linkedDriverId
+  ) {
+    return (
+      <AppCanvas>
+        <div className="space-y-4">
+          <PageHeader title="Frete" description="Acesso restrito" />
+          <EmptyState
+            title="Frete de outro motorista"
+            description="Você só pode abrir fretes atribuídos a você."
+            actionLabel="Voltar aos meus fretes"
+            onAction={() => router.push("/dashboard/fretes")}
+          />
+        </div>
+      </AppCanvas>
+    )
+  }
+
   const flowIdx = FREIGHT_STATUS_FLOW.indexOf(freight.status)
   const closed = isFreightClosed(freight.status)
   const canEditClosed = closed && isAdmin
@@ -150,6 +176,7 @@ export function FreightDetailView({ id }: { id: string }) {
   const driverName = drivers.find((d) => d.id === freight.driver_id)?.name
   const truck = trucks.find((t) => t.id === freight.truck_id)
   const routeStops = formatFreightRouteStops(freight)
+  const showMoney = !isMotorista
 
   async function handleOccurrence() {
     if (!occDesc.trim()) return
@@ -291,7 +318,9 @@ export function FreightDetailView({ id }: { id: string }) {
       <div className="mb-6 flex flex-wrap gap-4">
         <FreightStatusBadge status={freight.status} />
         <span className="text-sm text-muted-foreground">{freight.cargo_description}</span>
-        <span className="font-medium">{formatBRL(freight.value_brl)}</span>
+        {showMoney && (
+          <span className="font-medium">{formatBRL(freight.value_brl)}</span>
+        )}
         {isFreightInTransit(freight.status) && (
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", statusSoftClass("progress"))}>
             Viagem em percurso
@@ -426,14 +455,16 @@ export function FreightDetailView({ id }: { id: string }) {
         ))}
       </div>
 
-      <FreightFinancialBreakdown freightId={id} className="mb-6" />
+      {showMoney && <FreightFinancialBreakdown freightId={id} className="mb-6" />}
 
       <Tabs defaultValue="timeline">
         <TabsList>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="ocorrencias">Ocorrências</TabsTrigger>
           <TabsTrigger value="comprovantes">Comprovantes</TabsTrigger>
-          <TabsTrigger value="custos">Custos / Abastecimento</TabsTrigger>
+          {showMoney && (
+            <TabsTrigger value="custos">Custos / Abastecimento</TabsTrigger>
+          )}
           <TabsTrigger value="rastreamento">Rastreamento</TabsTrigger>
         </TabsList>
         <TabsContent value="timeline" className="mt-4">
@@ -493,63 +524,65 @@ export function FreightDetailView({ id }: { id: string }) {
                   />
                 </div>
 
-                {/* Optional cost link */}
-                <div className="glass-subtle space-y-3 p-3">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="occ-cost-enabled"
-                      checked={occCostEnabled}
-                      onCheckedChange={(checked) => {
-                        const enabled = checked === true
-                        setOccCostEnabled(enabled)
-                        if (!enabled) setOccCostValorDisplay("")
-                      }}
-                    />
-                    <Label htmlFor="occ-cost-enabled" className="cursor-pointer font-medium">
-                      Vincular custo a esta ocorrência
-                    </Label>
-                  </div>
-
-                  {occCostEnabled && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="occ-cost-tipo">Tipo de custo</Label>
-                        <Select value={occCostTipo} onValueChange={setOccCostTipo}>
-                          <SelectTrigger id="occ-cost-tipo">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {MANUAL_FREIGHT_COST_TYPES.map((t) => (
-                              <SelectItem key={t.value} value={t.value}>
-                                {t.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="occ-cost-valor">Valor (R$)</Label>
-                        <Input
-                          id="occ-cost-valor"
-                          inputMode="decimal"
-                          placeholder="0,00"
-                          value={occCostValorDisplay}
-                          onChange={(e) =>
-                            setOccCostValorDisplay(formatMoneyInput(e.target.value))
-                          }
-                        />
-                      </div>
-                      <p className="col-span-full text-xs text-muted-foreground">
-                        O valor será lançado como custo real e descontará da margem do frete.
-                        A descrição da ocorrência será usada como referência.
-                      </p>
+                {/* Custo na ocorrência: só quem tem freight:write (motorista não vê valores). */}
+                {canWrite && (
+                  <div className="glass-subtle space-y-3 p-3">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="occ-cost-enabled"
+                        checked={occCostEnabled}
+                        onCheckedChange={(checked) => {
+                          const enabled = checked === true
+                          setOccCostEnabled(enabled)
+                          if (!enabled) setOccCostValorDisplay("")
+                        }}
+                      />
+                      <Label htmlFor="occ-cost-enabled" className="cursor-pointer font-medium">
+                        Vincular custo a esta ocorrência
+                      </Label>
                     </div>
-                  )}
-                </div>
+
+                    {occCostEnabled && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="occ-cost-tipo">Tipo de custo</Label>
+                          <Select value={occCostTipo} onValueChange={setOccCostTipo}>
+                            <SelectTrigger id="occ-cost-tipo">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MANUAL_FREIGHT_COST_TYPES.map((t) => (
+                                <SelectItem key={t.value} value={t.value}>
+                                  {t.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="occ-cost-valor">Valor (R$)</Label>
+                          <Input
+                            id="occ-cost-valor"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={occCostValorDisplay}
+                            onChange={(e) =>
+                              setOccCostValorDisplay(formatMoneyInput(e.target.value))
+                            }
+                          />
+                        </div>
+                        <p className="col-span-full text-xs text-muted-foreground">
+                          O valor será lançado como custo real e descontará da margem do frete.
+                          A descrição da ocorrência será usada como referência.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3">
                   <Button onClick={handleOccurrence} disabled={!occDesc.trim()}>
-                    Registrar ocorrência{occCostEnabled ? " + custo" : ""}
+                    Registrar ocorrência{canWrite && occCostEnabled ? " + custo" : ""}
                   </Button>
                 </div>
 
@@ -589,43 +622,45 @@ export function FreightDetailView({ id }: { id: string }) {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="custos" className="mt-4 space-y-4">
-          {!closed && (canWrite || isAdmin) && (
+        {showMoney && (
+          <TabsContent value="custos" className="mt-4 space-y-4">
+            {!closed && (canWrite || isAdmin) && (
+              <Card variant="glass" size="sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Lançar gasto da viagem</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FreightAddCostForm
+                    freightId={id}
+                    onAdded={() => {}}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Para abastecimento com controle de litros e km, use{" "}
+                    <Link
+                      href="/dashboard/abastecimento"
+                      className="text-primary hover:underline"
+                    >
+                      Abastecimento →
+                    </Link>
+                  </p>
+                </CardContent>
+              </Card>
+            )}
             <Card variant="glass" size="sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Lançar gasto da viagem</CardTitle>
+              <CardHeader>
+                <CardTitle className="text-base">Histórico de custos</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <FreightAddCostForm
-                  freightId={id}
-                  onAdded={() => {}}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Para abastecimento com controle de litros e km, use{" "}
-                  <Link
-                    href="/dashboard/abastecimento"
-                    className="text-primary hover:underline"
-                  >
-                    Abastecimento →
-                  </Link>
-                </p>
+              <CardContent>
+                <FreightExpensesList freightId={id} />
+                {canEditClosed && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Para gastos retroativos adicionais, use o painel administrativo acima.
+                  </p>
+                )}
               </CardContent>
             </Card>
-          )}
-          <Card variant="glass" size="sm">
-            <CardHeader>
-              <CardTitle className="text-base">Histórico de custos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FreightExpensesList freightId={id} />
-              {canEditClosed && (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Para gastos retroativos adicionais, use o painel administrativo acima.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+          </TabsContent>
+        )}
         <TabsContent value="rastreamento" className="mt-4">
           <Card variant="glass" size="sm">
             <CardHeader>
