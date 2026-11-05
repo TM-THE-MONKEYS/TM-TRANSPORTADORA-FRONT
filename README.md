@@ -24,7 +24,6 @@ Com `NEXT_PUBLIC_USE_MOCKS=true`:
 
 | E-mail | Senha | Perfil |
 |--------|-------|--------|
-| admin@tmtransportadora.com.br | Admin@123! | Admin (igual seed backend) |
 | admin@demo.tm | demo1234 | Admin |
 | operacional@demo.tm | demo1234 | Operacional |
 | financeiro@demo.tm | demo1234 | Financeiro |
@@ -39,11 +38,7 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 NEXT_PUBLIC_USE_MOCKS=false
 ```
 
-3. Login seed do backend:
-
-| E-mail | Senha |
-|--------|-------|
-| admin@tmtransportadora.com.br | Admin@123! |
+3. O backend não traz usuário no repositório. No `.env` local do back, defina `SEED_ADMIN_EMAIL` e `SEED_ADMIN_PASSWORD` e rode o seed.
 
 ## Variáveis de ambiente
 
