@@ -23,7 +23,8 @@ import { useAuth } from "@/components/providers/auth-provider"
 import { DataTable } from "@/components/dados/data-table"
 import { EntityEditDialog, type EditField } from "@/components/dados/entity-edit-dialog"
 import { deleteClient, listClients, updateClient } from "@/lib/api/services/clients"
-import { listDrivers, updateDriver, deleteDriver } from "@/lib/api/services/drivers"
+import { listDrivers, updateDriver } from "@/lib/api/services/drivers"
+import { deleteDriverWithAccount } from "@/lib/motoristas/delete-driver-account"
 import {
   createFinanceEntry,
   deleteFinanceEntry,
@@ -103,6 +104,12 @@ const EDIT_FIELDS: Partial<Record<EntityTabId, EditField[]>> = {
     { key: "cpf_cnpj", label: "CPF / CNPJ", type: "text", placeholder: "000.000.000-00" },
     { key: "email", label: "E-mail", type: "text", placeholder: "contato@empresa.com" },
     { key: "telefone", label: "Telefone", type: "text", placeholder: "(11) 90000-0000" },
+    {
+      key: "prazo_pagamento_dias",
+      label: "Prazo pagamento (dias)",
+      type: "number",
+      placeholder: "30",
+    },
   ],
   fretes: [
     { key: "status", label: "Status", type: "select", options: FREIGHT_STATUS_OPTIONS, required: true },
@@ -163,11 +170,13 @@ function toEditValues(entity: EntityTabId, row: Record<string, unknown>): Record
 
 function parseEditPayload(entity: EntityTabId, values: Record<string, string>): Record<string, unknown> {
   if (entity === "clientes") {
+    const prazoRaw = values.prazo_pagamento_dias?.trim()
     return {
       nome: values.nome.trim(),
       cpf_cnpj: values.cpf_cnpj.trim() || undefined,
       email: values.email.trim() || undefined,
       telefone: values.telefone.trim() || undefined,
+      prazo_pagamento_dias: prazoRaw ? Number(prazoRaw) : null,
     }
   }
   if (entity === "fretes") {
@@ -255,7 +264,7 @@ function PaginatedEntityPanel<T>({
   const hasNext = data?.has_next ?? page < totalPages
 
   return (
-    <Card>
+    <Card variant="glass" size="sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-base">{TAB_LABELS[entity]}</CardTitle>
         {canCreate && onCreate && (
@@ -356,7 +365,7 @@ function FlatEntityPanel<T>({
   pageSizeOptions,
 }: FlatPanelProps<T>) {
   return (
-    <Card>
+    <Card variant="glass" size="sm">
       <CardHeader className="pb-4">
         <CardTitle className="text-base">{title}</CardTitle>
         {readOnlyNote && (
@@ -718,7 +727,7 @@ export function DadosView() {
     setDeleting(true)
     try {
       if (deleteEntity === "fretes") await deleteFreight(deleteId)
-      else if (deleteEntity === "motoristas") await deleteDriver(deleteId)
+      else if (deleteEntity === "motoristas") await deleteDriverWithAccount(deleteId)
       else if (deleteEntity === "frota") await deleteTruck(deleteId)
       else if (deleteEntity === "financeiro") await deleteFinanceEntry(deleteId)
       else if (deleteEntity === "clientes") await deleteClient(deleteId)

@@ -37,16 +37,6 @@ export const DEMO_BRANCHES: Branch[] = [
 ]
 
 export const DEMO_USERS: Record<string, AuthUser & { password: string }> = {
-  "admin@tmtransportadora.com.br": {
-    id: "user-admin-seed",
-    email: "admin@tmtransportadora.com.br",
-    name: "Admin TM",
-    role: "admin",
-    tenant_id: DEMO_TENANT.id,
-    branch_id: null,
-    permissions: [],
-    password: "Admin@123!",
-  },
   "admin@demo.tm": {
     id: "user-admin",
     email: "admin@demo.tm",
@@ -299,4 +289,7 @@ export const DEMO_KPIS: DashboardKpis = {
   operational_costs_brl: 198200,
   maintenance_alerts: 2,
   financial_pending: 5,
+  on_time_deliveries: 2,
+  deliveries_with_deadline: 3,
+  cnh_alerts: 1,
 }

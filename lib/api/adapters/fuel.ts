@@ -18,6 +18,7 @@ export function mapFuelRefillFromApi(raw: Record<string, unknown>): FuelRefill {
     valor_total: Number(raw.valor_total ?? 0),
     valor_litro: raw.valor_litro != null ? Number(raw.valor_litro) : null,
     km_atual: raw.km_atual != null ? Number(raw.km_atual) : null,
+    tanque_cheio: Boolean(raw.tanque_cheio ?? false),
     posto: posto ?? observacoes,
     cidade: (raw.cidade as string | null) ?? null,
     estado: (raw.estado as string | null) ?? null,

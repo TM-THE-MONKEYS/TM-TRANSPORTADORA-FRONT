@@ -7,13 +7,15 @@ import useSWR from "swr"
 import { Pencil, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
+import { AppCanvas } from "@/components/layout/app-canvas"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/shared/page-header"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { TruckImplementsPanel } from "@/components/frota/truck-implements-panel"
-import { getTruck, deleteTruck } from "@/lib/api/services/fleet"
+import { getTruck, getTruckConsumption, deleteTruck } from "@/lib/api/services/fleet"
+import { formatBRL } from "@/lib/format/currency"
 import { formatDateBR } from "@/lib/format/dates"
 import { findActiveFreightByTruck } from "@/lib/freight/active-trip"
 import { getEffectiveTruckStatus, TRUCK_STATUS_LABELS } from "@/lib/fleet/truck-availability"
@@ -27,8 +29,9 @@ export function TruckDetailView({ id }: { id: string }) {
   const canWrite = usePermission(PERMISSIONS.fleetWrite)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const { freights } = useOperationContext()
+  const { freights } = useOperationContext({ drivers: false, trucks: false })
   const { data: truck } = useSWR(["truck", id], () => getTruck(id))
+  const { data: consumption } = useSWR(["truck-consumption", id], () => getTruckConsumption(id))
   const activeTrip = truck ? findActiveFreightByTruck(freights, truck.id) : undefined
   const effectiveStatus = truck ? getEffectiveTruckStatus(truck, freights) : null
 
@@ -49,6 +52,7 @@ export function TruckDetailView({ id }: { id: string }) {
   if (!truck) return <Skeleton className="h-96 w-full" />
 
   return (
+    <AppCanvas>
     <div>
       <PageHeader
         title={truck.plate}
@@ -84,7 +88,7 @@ export function TruckDetailView({ id }: { id: string }) {
           <TabsTrigger value="implementos">Implementos</TabsTrigger>
         </TabsList>
         <TabsContent value="dados" className="mt-4">
-          <Card>
+          <Card variant="glass" size="sm">
             <CardContent className="grid gap-2 pt-6 sm:grid-cols-2">
               <p>
                 <span className="text-muted-foreground">Status:</span>{" "}
@@ -100,9 +104,38 @@ export function TruckDetailView({ id }: { id: string }) {
               <p><span className="text-muted-foreground">Consumo médio:</span> {truck.avg_consumption_km_l ?? "—"} km/l</p>
             </CardContent>
           </Card>
+          {consumption && (
+            <Card variant="glass" size="sm" className="mt-4">
+              <CardContent className="grid gap-2 pt-6 sm:grid-cols-2">
+                <p>
+                  <span className="text-muted-foreground">Consumo real:</span>{" "}
+                  {consumption.consumo_real_km_l != null
+                    ? `${consumption.consumo_real_km_l.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km/l`
+                    : "— (marque tanque cheio nos abastecimentos)"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Desvio vs cadastro:</span>{" "}
+                  {consumption.desvio_pct != null
+                    ? `${consumption.desvio_pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`
+                    : "—"}
+                  {consumption.desvio_relevante ? " (relevante)" : ""}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Custo combustível:</span>{" "}
+                  {formatBRL(consumption.custo_combustivel)}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Custo/km:</span>{" "}
+                  {consumption.custo_por_km != null
+                    ? formatBRL(consumption.custo_por_km)
+                    : "—"}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
         <TabsContent value="documentacao" className="mt-4">
-          <Card>
+          <Card variant="glass" size="sm">
             <CardContent className="pt-6 space-y-2">
               <p>Seguro: {formatDateBR(truck.insurance_expires_at)}</p>
               <p>Licenciamento: {formatDateBR(truck.license_expires_at)}</p>
@@ -125,5 +158,6 @@ export function TruckDetailView({ id }: { id: string }) {
         onConfirm={handleDelete}
       />
     </div>
+    </AppCanvas>
   )
 }

@@ -8,6 +8,7 @@ import { ArrowRight, MapPin, Trash2, Upload } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AppCanvas } from "@/components/layout/app-canvas"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
@@ -42,6 +43,7 @@ import {
   getFreight,
   getFreightEvents,
   getFreightOccurrences,
+  getFreightStatusHistory,
   updateFreight,
   updateFreightStatus,
 } from "@/lib/api/services/freight"
@@ -51,7 +53,12 @@ import { formatBRL } from "@/lib/format/currency"
 import { formatDateTimeBR } from "@/lib/format/dates"
 import { formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
 import { MANUAL_FREIGHT_COST_TYPES } from "@/lib/freight/costs"
+import { CANCEL_REASON_OPTIONS, DELAY_REASON_OPTIONS } from "@/lib/freight/reasons"
 import { FREIGHT_STATUS_FLOW, FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
+import {
+  statusChangeSourceLabel,
+  statusChangeTitle,
+} from "@/lib/freight/status-history"
 import {
   statusSoftClass,
   TRACKING_STATUS_TONE,
@@ -68,7 +75,7 @@ import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { useOperationContext } from "@/hooks/use-operation-context"
 import { cn } from "@/lib/utils"
-import type { FreightStatus } from "@/types"
+import type { CancelReason, DelayReason, FreightStatus } from "@/types"
 
 const NONE = "__none__"
 
@@ -87,12 +94,18 @@ export function FreightDetailView({ id }: { id: string }) {
   const canStatus = usePermission(PERMISSIONS.freightStatus)
   const canWrite = usePermission(PERMISSIONS.freightWrite)
   const isAdmin = canAdminManageClosedFreight(user?.role)
-  const { drivers, trucks } = useOperationContext()
+  const { drivers, trucks } = useOperationContext({ freights: false })
   const { data: freight, error: freightError, isLoading: freightLoading, mutate: mutateFreight } =
     useSWR(["freight", id], () => getFreight(id))
   const { data: events, mutate: mutateEvents } = useSWR(["freight-events", id], () =>
     getFreightEvents(id),
   )
+  const {
+    data: statusHistory,
+    error: historyError,
+    isLoading: historyLoading,
+    mutate: mutateHistory,
+  } = useSWR(["freight-status-history", id], () => getFreightStatusHistory(id))
   const { data: occurrences, mutate: mutateOcc } = useSWR(["freight-occ", id], () =>
     getFreightOccurrences(id),
   )
@@ -107,8 +120,12 @@ export function FreightDetailView({ id }: { id: string }) {
   const [occCostValorDisplay, setOccCostValorDisplay] = useState("")
   const [savingAssign, setSavingAssign] = useState(false)
   const [statusDraft, setStatusDraft] = useState<FreightStatus>("em_transporte")
+  const [cancelReason, setCancelReason] = useState<CancelReason | "">("")
+  const [delayReason, setDelayReason] = useState<DelayReason | "">("")
   const [statusSaving, setStatusSaving] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [purgeOpen, setPurgeOpen] = useState(false)
+  const [purgeConfirm, setPurgeConfirm] = useState("")
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
@@ -117,21 +134,23 @@ export function FreightDetailView({ id }: { id: string }) {
 
   if (freightError) {
     return (
-      <div className="space-y-4">
-        <PageHeader title="Frete" description="Não foi possível carregar o frete." />
-        <Card>
-          <CardContent className="space-y-3 pt-6">
-            <p className="text-sm text-destructive">
-              {freightError instanceof Error
-                ? freightError.message
-                : "Erro ao carregar dados do frete."}
-            </p>
-            <Button variant="outline" onClick={() => void mutateFreight()}>
-              Tentar novamente
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AppCanvas>
+        <div className="space-y-4">
+          <PageHeader title="Frete" description="Não foi possível carregar o frete." />
+          <Card variant="glass" size="sm">
+            <CardContent className="space-y-3 pt-6">
+              <p className="text-sm text-destructive">
+                {freightError instanceof Error
+                  ? freightError.message
+                  : "Erro ao carregar dados do frete."}
+              </p>
+              <Button variant="outline" onClick={() => void mutateFreight()}>
+                Tentar novamente
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AppCanvas>
     )
   }
 
@@ -190,12 +209,22 @@ export function FreightDetailView({ id }: { id: string }) {
 
   async function handleStatusApply() {
     if (statusDraft === freight!.status) return
+    if (statusDraft === "cancelado" && !cancelReason) {
+      toast.error("Informe o motivo do cancelamento")
+      return
+    }
     setStatusSaving(true)
     try {
-      await updateFreightStatus(id, statusDraft)
+      await updateFreightStatus(id, statusDraft, {
+        motivo_cancelamento: cancelReason || undefined,
+        motivo_atraso: delayReason || undefined,
+      })
       toast.success(`Status alterado para ${FREIGHT_STATUS_LABELS[statusDraft]}`)
+      setCancelReason("")
+      setDelayReason("")
       await mutateFreight()
       mutateEvents()
+      void mutateHistory()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao alterar status")
     } finally {
@@ -214,6 +243,20 @@ export function FreightDetailView({ id }: { id: string }) {
     } finally {
       setDeleting(false)
       setDeleteOpen(false)
+    }
+  }
+
+  async function handlePurgeFreight() {
+    if (purgeConfirm.trim() !== "PURGAR") return
+    setDeleting(true)
+    try {
+      await deleteFreight(id, { purge: true })
+      toast.success("Frete apagado do banco")
+      router.push("/dashboard/fretes")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao apagar frete")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -236,6 +279,7 @@ export function FreightDetailView({ id }: { id: string }) {
   const statusSelectValue = statusDraft
 
   return (
+    <AppCanvas>
     <div>
       <PageHeader
         title={freight.code}
@@ -265,9 +309,50 @@ export function FreightDetailView({ id }: { id: string }) {
                     ))}
                   </SelectContent>
                 </Select>
+                {statusDraft === "cancelado" && statusDraft !== freight.status && (
+                  <Select
+                    value={cancelReason || undefined}
+                    onValueChange={(v) => setCancelReason(v as CancelReason)}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Motivo cancelamento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CANCEL_REASON_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {statusDraft === "entregue" && statusDraft !== freight.status && (
+                  <Select
+                    value={delayReason || "__none__"}
+                    onValueChange={(v) =>
+                      setDelayReason(v === "__none__" ? "" : (v as DelayReason))
+                    }
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Motivo atraso (se houver)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Sem atraso</SelectItem>
+                      {DELAY_REASON_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Button
                   size="sm"
-                  disabled={statusDraft === freight.status || statusSaving}
+                  disabled={
+                    statusDraft === freight.status ||
+                    statusSaving ||
+                    (statusDraft === "cancelado" && !cancelReason)
+                  }
                   onClick={handleStatusApply}
                 >
                   {statusSaving ? "Salvando..." : "Alterar status"}
@@ -296,10 +381,10 @@ export function FreightDetailView({ id }: { id: string }) {
       </div>
 
       {closed && !isAdmin && (
-        <div className="mb-6 rounded-lg border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        <Card variant="glass" size="sm" className="mb-6 px-4 py-3 text-sm text-muted-foreground">
           Frete encerrado ({freight.status === "entregue" ? "entregue" : "cancelado"}). Edição
           restrita — contate um administrador para reabrir ou lançar gastos retroativos.
-        </div>
+        </Card>
       )}
 
       {canEditClosed && (
@@ -307,7 +392,7 @@ export function FreightDetailView({ id }: { id: string }) {
       )}
 
       {(freight.stops?.length ?? 0) > 0 && (
-        <Card className="mb-6">
+        <Card variant="glass" size="sm" className="mb-6">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <MapPin className="h-4 w-4 text-primary" />
@@ -349,7 +434,7 @@ export function FreightDetailView({ id }: { id: string }) {
       )}
 
       {canAssign && (
-        <Card className="mb-6">
+        <Card variant="glass" size="sm" className="mb-6">
           <CardHeader>
             <CardTitle className="text-base">Operação — motorista e veículo</CardTitle>
           </CardHeader>
@@ -432,10 +517,50 @@ export function FreightDetailView({ id }: { id: string }) {
           <TabsTrigger value="custos">Custos / Abastecimento</TabsTrigger>
           <TabsTrigger value="rastreamento">Rastreamento</TabsTrigger>
         </TabsList>
-        <TabsContent value="timeline" className="mt-4">
-          <Card>
+        <TabsContent value="timeline" className="mt-4 space-y-4">
+          <Card variant="glass" size="sm">
             <CardHeader>
-              <CardTitle>Histórico do frete</CardTitle>
+              <CardTitle>Mudanças de status</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {historyLoading ? (
+                <Skeleton className="h-16 w-full" />
+              ) : historyError ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-destructive">
+                    {historyError instanceof Error
+                      ? historyError.message
+                      : "Não foi possível carregar o histórico."}
+                  </p>
+                  <Button type="button" variant="outline" onClick={() => void mutateHistory()}>
+                    Tentar de novo
+                  </Button>
+                </div>
+              ) : (statusHistory ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma mudança de status registrada.
+                </p>
+              ) : (
+                (statusHistory ?? []).map((entry) => (
+                  <div key={entry.id} className="border-l-2 border-primary pl-4">
+                    <p className="font-medium">{statusChangeTitle(entry)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {statusChangeSourceLabel(entry.source)}
+                    </p>
+                    {entry.motivo ? (
+                      <p className="text-sm text-muted-foreground">{entry.motivo}</p>
+                    ) : null}
+                    <p className="text-xs text-muted-foreground">
+                      {formatDateTimeBR(entry.changed_at)}
+                    </p>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+          <Card variant="glass" size="sm">
+            <CardHeader>
+              <CardTitle>Eventos de rastreamento</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {(events ?? []).length === 0 ? (
@@ -456,7 +581,7 @@ export function FreightDetailView({ id }: { id: string }) {
         </TabsContent>
         <TabsContent value="ocorrencias" className="mt-4 space-y-4">
           {canAddOccurrence ? (
-            <Card>
+            <Card variant="glass" size="sm">
               <CardContent className="space-y-4 pt-6">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -490,7 +615,7 @@ export function FreightDetailView({ id }: { id: string }) {
                 </div>
 
                 {/* Optional cost link */}
-                <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                <div className="glass-subtle space-y-3 p-3">
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id="occ-cost-enabled"
@@ -556,14 +681,14 @@ export function FreightDetailView({ id }: { id: string }) {
               </CardContent>
             </Card>
           ) : (
-            <Card>
+            <Card variant="glass" size="sm">
               <CardContent className="py-6 text-sm text-muted-foreground">
                 Frete encerrado — novas ocorrências só podem ser registradas por um administrador.
               </CardContent>
             </Card>
           )}
           {(occurrences ?? []).map((o) => (
-            <Card key={o.id}>
+            <Card key={o.id} variant="glass" size="sm">
               <CardContent className="pt-4">
                 <p className="font-medium">{o.type}</p>
                 <p className="text-sm">{o.description}</p>
@@ -573,7 +698,7 @@ export function FreightDetailView({ id }: { id: string }) {
           ))}
         </TabsContent>
         <TabsContent value="comprovantes" className="mt-4">
-          <Card>
+          <Card variant="glass" size="sm">
             <CardContent className="flex flex-col items-center gap-4 py-12">
               <Upload className="h-10 w-10 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
@@ -587,7 +712,7 @@ export function FreightDetailView({ id }: { id: string }) {
         </TabsContent>
         <TabsContent value="custos" className="mt-4 space-y-4">
           {!closed && (canWrite || isAdmin) && (
-            <Card>
+            <Card variant="glass" size="sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Lançar gasto da viagem</CardTitle>
               </CardHeader>
@@ -608,7 +733,7 @@ export function FreightDetailView({ id }: { id: string }) {
               </CardContent>
             </Card>
           )}
-          <Card>
+          <Card variant="glass" size="sm">
             <CardHeader>
               <CardTitle className="text-base">Histórico de custos</CardTitle>
             </CardHeader>
@@ -623,7 +748,7 @@ export function FreightDetailView({ id }: { id: string }) {
           </Card>
         </TabsContent>
         <TabsContent value="rastreamento" className="mt-4">
-          <Card>
+          <Card variant="glass" size="sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-primary" />
@@ -675,12 +800,25 @@ export function FreightDetailView({ id }: { id: string }) {
           <DialogHeader>
             <DialogTitle>Excluir frete</DialogTitle>
             <DialogDescription>
-              O frete <strong>{freight.code}</strong> será removido (exclusão lógica). Custos,
-              abastecimentos, pedágios e lançamentos financeiros vinculados também serão excluídos.
-              Deseja continuar?
+              O frete <strong>{freight.code}</strong> e os registros vinculados saem das
+              listagens. Os dados permanecem no banco.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
+            {isAdmin && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={deleting}
+                onClick={() => {
+                  setDeleteOpen(false)
+                  setPurgeConfirm("")
+                  setPurgeOpen(true)
+                }}
+              >
+                Apagar definitivamente
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
               Cancelar
             </Button>
@@ -690,6 +828,46 @@ export function FreightDetailView({ id }: { id: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={purgeOpen}
+        onOpenChange={(open) => {
+          setPurgeOpen(open)
+          if (!open) setPurgeConfirm("")
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apagar frete de forma permanente</DialogTitle>
+            <DialogDescription>
+              Remove o frete <strong>{freight.code}</strong>, os registros vinculados e o
+              histórico de status do banco. Use só para dados de teste.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="purge-confirm">Digite PURGAR para confirmar</Label>
+            <Input
+              id="purge-confirm"
+              value={purgeConfirm}
+              onChange={(event) => setPurgeConfirm(event.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPurgeOpen(false)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handlePurgeFreight}
+              disabled={deleting || purgeConfirm.trim() !== "PURGAR"}
+            >
+              {deleting ? "Apagando..." : "Apagar definitivamente"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+    </AppCanvas>
   )
 }

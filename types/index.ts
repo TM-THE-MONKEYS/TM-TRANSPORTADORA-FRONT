@@ -91,6 +91,7 @@ export interface Customer {
   email?: string
   phone?: string
   telefone?: string      // backend field
+  prazo_pagamento_dias?: number | null
 }
 
 // ── Trucks ───────────────────────────────────────────────────────────────────
@@ -153,7 +154,7 @@ export interface Driver {
   photo_url?: string | null
   commission_pct?: number
   created_at: string
-  /** Returned once on creation when password is auto-generated. Never stored. */
+  /** Returned once when account is created (POST .../account). Never stored. */
   temporary_password?: string | null
 }
 
@@ -218,6 +219,18 @@ export interface FreightOrder {
   updated_at: string
 }
 
+export interface StatusHistoryEntry {
+  id: string
+  entity_type: "freight" | "driver" | "truck"
+  entity_id: string
+  from_status: string | null
+  to_status: string
+  changed_by_user_id: string | null
+  changed_at: string
+  source: "api" | "tracking" | "system"
+  motivo: string | null
+}
+
 export interface FreightEvent {
   id: string
   freight_id: string
@@ -259,6 +272,14 @@ export interface FreightSummary {
 export type FinanceEntryType = "receita" | "despesa"
 export type FinanceEntryStatus = "pendente" | "pago" | "cancelado" | "vencido"
 
+export type PaymentMethod =
+  | "pix"
+  | "boleto"
+  | "transferencia"
+  | "dinheiro"
+  | "cartao"
+  | "outros"
+
 export interface FinanceEntry {
   id: string
   tipo: FinanceEntryType
@@ -269,6 +290,7 @@ export interface FinanceEntry {
   data_vencimento?: string
   data_pagamento?: string
   observacoes?: string | null
+  forma_pagamento?: PaymentMethod | null
   freight_id?: string
   created_at: string
   updated_at: string
@@ -401,6 +423,39 @@ export interface DashboardKpis {
   operational_costs_brl: number
   maintenance_alerts: number
   financial_pending: number
+  on_time_deliveries: number
+  deliveries_with_deadline: number
+  cnh_alerts: number
+}
+
+export type CancelReason =
+  | "cliente_desistiu"
+  | "carga_indisponivel"
+  | "problema_veiculo"
+  | "problema_motorista"
+  | "clima"
+  | "preco"
+  | "outros"
+
+export type DelayReason =
+  | "transito"
+  | "clima"
+  | "fila_cliente"
+  | "avaria"
+  | "documentacao"
+  | "outros"
+
+export interface TruckConsumption {
+  truck_id: string
+  plate: string
+  consumo_cadastrado_km_l: number | null
+  consumo_real_km_l: number | null
+  desvio_pct: number | null
+  desvio_relevante: boolean
+  km_rodado_total: number
+  custo_combustivel: number
+  custo_pedagio: number
+  custo_por_km: number | null
 }
 
 export interface DashboardFilters {
@@ -409,4 +464,6 @@ export interface DashboardFilters {
   branch_id?: string
   customer_id?: string
   truck_id?: string
+  driver_id?: string
+  competencia?: { mes: number; ano: number }
 }

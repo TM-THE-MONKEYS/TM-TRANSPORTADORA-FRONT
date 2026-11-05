@@ -18,6 +18,7 @@ export interface FuelRefill {
   valor_total: number
   valor_litro: number | null
   km_atual: number | null
+  tanque_cheio?: boolean
   posto: string | null
   cidade: string | null
   estado: string | null
@@ -32,6 +33,7 @@ export interface FuelRefillCreate {
   litros: number
   valor_total: number
   km_atual?: number
+  tanque_cheio?: boolean
   posto?: string
   cidade?: string
   estado?: string
@@ -52,6 +54,7 @@ export async function registerFuelRefill(data: FuelRefillCreate): Promise<FuelRe
             litros: data.litros,
             valor_total: data.valor_total,
             km_atual: data.km_atual,
+            tanque_cheio: data.tanque_cheio ?? false,
             posto: data.posto,
             cidade: data.cidade,
             estado: data.estado,

@@ -28,9 +28,10 @@ import {
   updateFinanceEntry,
 } from "@/lib/api/services/finance"
 import { FIXED_EXPENSE_CATEGORIES } from "@/lib/api/services/fixed-expenses"
+import { PAYMENT_METHOD_OPTIONS } from "@/lib/finance/payment-method"
 import { competenciaDefaultDate, formatCompetenciaLabel } from "@/lib/format/dates"
 import { cn } from "@/lib/utils"
-import type { FinanceEntry, FinanceEntryStatus, FinanceEntryType } from "@/types"
+import type { FinanceEntry, PaymentMethod } from "@/types"
 
 const CATEGORY_OTHER = "Outra"
 
@@ -49,6 +50,15 @@ const entrySchema = z
     ),
     status: z.enum(["pendente", "pago", "cancelado", "vencido"] as const),
     data_vencimento: z.string().optional(),
+    forma_pagamento: z.enum([
+      "pix",
+      "boleto",
+      "transferencia",
+      "dinheiro",
+      "cartao",
+      "outros",
+      "none",
+    ] as const),
   })
   .refine(
     (data) => {
@@ -74,6 +84,7 @@ function toFormValues(
     valor: String(entry.valor),
     status: entry.status,
     data_vencimento: entry.data_vencimento ?? "",
+    forma_pagamento: entry.forma_pagamento ?? "none",
   }
 }
 
@@ -112,10 +123,14 @@ export function EntryDialog({
       valor: "",
       status: "pendente",
       data_vencimento: defaultVencimento,
+      forma_pagamento: "none",
     },
   })
 
   const categoriaSelect = watch("categoriaSelect")
+  const statusWatch = watch("status")
+  const tipoWatch = watch("tipo")
+  const showPaymentMethod = tipoWatch === "receita" || statusWatch === "pago"
 
   useEffect(() => {
     if (!open) return
@@ -130,6 +145,7 @@ export function EntryDialog({
         valor: "",
         status: "pendente",
         data_vencimento: defaultVencimento,
+        forma_pagamento: "none",
       })
     }
   }, [open, entry, defaultVencimento, reset])
@@ -143,6 +159,8 @@ export function EntryDialog({
     const valor = parseFloat(values.valor.replace(",", "."))
     const vencimento =
       values.data_vencimento || (!isEdit ? defaultVencimento : undefined)
+    const forma: PaymentMethod | null =
+      values.forma_pagamento === "none" ? null : values.forma_pagamento
 
     try {
       const payload = {
@@ -152,6 +170,7 @@ export function EntryDialog({
         valor,
         status: values.status,
         data_vencimento: vencimento,
+        forma_pagamento: forma,
       }
       if (isEdit && entry) {
         await updateFinanceEntry(entry.id, payload)
@@ -299,6 +318,31 @@ export function EntryDialog({
               />
             </div>
           </div>
+
+          {showPaymentMethod && (
+            <div className="space-y-1.5">
+              <Label htmlFor="fin-forma">Forma de pagamento</Label>
+              <Controller
+                control={control}
+                name="forma_pagamento"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="fin-forma">
+                      <SelectValue placeholder="Opcional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Não informar</SelectItem>
+                      {PAYMENT_METHOD_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

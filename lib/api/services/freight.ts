@@ -16,8 +16,11 @@ import { addTrackingUpdate, getTrackingTimeline } from "@/lib/api/services/track
 import { mergeFreightCostsWithFuel } from "@/lib/freight/freight-expenses"
 import { revalidateFleetAndFreightCaches } from "@/lib/freight/sync-fleet-status"
 import { listFuelRefillsByFreight } from "@/lib/api/services/fuel"
+import { parseLocalDate } from "@/lib/format/dates"
 import * as mock from "@/lib/mocks/handlers"
 import type {
+  CancelReason,
+  DelayReason,
   FreightCost,
   FreightEvent,
   FreightOccurrence,
@@ -25,11 +28,15 @@ import type {
   FreightStatus,
   FreightSummary,
   Paginated,
+  StatusHistoryEntry,
 } from "@/types"
 
 export interface FreightListFilters {
   driverId?: string
   truckId?: string
+  clientId?: string
+  status?: FreightStatus
+  search?: string
   competencia?: { mes: number; ano: number }
 }
 
@@ -38,10 +45,13 @@ export async function listFreights(
   pageSize = 20,
   filters?: FreightListFilters,
 ): Promise<Paginated<FreightOrder>> {
-  if (shouldUseMocks()) return mock.mockListFreights(page, pageSize)
+  if (shouldUseMocks()) return mock.mockListFreights(page, pageSize, filters)
   const qs = new URLSearchParams({ page: String(page), size: String(pageSize) })
   if (filters?.driverId) qs.set("driver_id", filters.driverId)
   if (filters?.truckId) qs.set("truck_id", filters.truckId)
+  if (filters?.clientId) qs.set("client_id", filters.clientId)
+  if (filters?.status) qs.set("status", filters.status)
+  if (filters?.search?.trim()) qs.set("search", filters.search.trim())
   if (filters?.competencia) {
     qs.set("competencia_mes", String(filters.competencia.mes))
     qs.set("competencia_ano", String(filters.competencia.ano))
@@ -58,7 +68,26 @@ export async function getFreightsSummary(
     let items = [...mockStore.freights]
     if (filters?.driverId) items = items.filter((f) => f.driver_id === filters.driverId)
     if (filters?.truckId) items = items.filter((f) => f.truck_id === filters.truckId)
+    if (filters?.clientId) items = items.filter((f) => f.customer_id === filters.clientId)
     if (filters?.status) items = items.filter((f) => f.status === filters.status)
+    if (filters?.competencia) {
+      items = items.filter((f) => {
+        const ref = f.deadline_at ?? f.created_at
+        if (!ref) return false
+        const d = parseLocalDate(ref)
+        return d.getMonth() + 1 === filters.competencia!.mes && d.getFullYear() === filters.competencia!.ano
+      })
+    }
+    if (filters?.search?.trim()) {
+      const q = filters.search.trim().toLowerCase()
+      items = items.filter(
+        (f) =>
+          f.code.toLowerCase().includes(q) ||
+          (f.customer_name ?? "").toLowerCase().includes(q) ||
+          f.origin_city.toLowerCase().includes(q) ||
+          f.destination_city.toLowerCase().includes(q),
+      )
+    }
     const now = new Date()
     return {
       faturamento_bruto: items.reduce((s, f) => s + f.value_brl, 0),
@@ -77,7 +106,9 @@ export async function getFreightsSummary(
   const qs = new URLSearchParams()
   if (filters?.driverId) qs.set("driver_id", filters.driverId)
   if (filters?.truckId) qs.set("truck_id", filters.truckId)
+  if (filters?.clientId) qs.set("client_id", filters.clientId)
   if (filters?.status) qs.set("status", filters.status)
+  if (filters?.search?.trim()) qs.set("search", filters.search.trim())
   if (filters?.competencia) {
     qs.set("competencia_mes", String(filters.competencia.mes))
     qs.set("competencia_ano", String(filters.competencia.ano))
@@ -135,24 +166,49 @@ export async function advanceFreightStatus(id: string): Promise<FreightOrder> {
   return afterFreightMutation(freight)
 }
 
-export async function updateFreightStatus(id: string, status: FreightStatus): Promise<FreightOrder> {
+export async function updateFreightStatus(
+  id: string,
+  status: FreightStatus,
+  options?: {
+    motivo_cancelamento?: CancelReason
+    motivo_atraso?: DelayReason
+  },
+): Promise<FreightOrder> {
   const freight = shouldUseMocks()
     ? await mock.mockUpdateFreightStatus(id, status)
     : await apiRequest<FreightOrder>(`/freights/${id}/status`, {
         method: "PATCH",
-        body: { status },
+        body: {
+          status,
+          ...(options?.motivo_cancelamento
+            ? { motivo_cancelamento: options.motivo_cancelamento }
+            : {}),
+          ...(options?.motivo_atraso ? { motivo_atraso: options.motivo_atraso } : {}),
+        },
         auth: true,
       })
   return afterFreightMutation(freight)
 }
 
-export async function deleteFreight(id: string): Promise<void> {
+export async function deleteFreight(
+  id: string,
+  options?: { purge?: boolean },
+): Promise<void> {
   if (shouldUseMocks()) {
     await mock.mockDeleteFreight(id)
     revalidateFleetAndFreightCaches()
     return
   }
-  await apiRequest(`/freights/${id}`, { method: "DELETE", auth: true })
+  const params = new URLSearchParams()
+  if (options?.purge) {
+    params.set("purge", "true")
+    params.set("confirmacao", "PURGAR")
+  }
+  const query = params.toString()
+  await apiRequest(`/freights/${id}${query ? `?${query}` : ""}`, {
+    method: "DELETE",
+    auth: true,
+  })
   revalidateFleetAndFreightCaches()
 }
 
@@ -162,6 +218,13 @@ export async function getFreightEvents(freightId: string): Promise<FreightEvent[
   const timeline = await getTrackingTimeline(freightId)
   const updates = trackingUpdatesWithoutOccurrences(timeline.updates ?? [])
   return updates.map(mapTrackingUpdateToFreightEvent)
+}
+
+export async function getFreightStatusHistory(
+  freightId: string,
+): Promise<StatusHistoryEntry[]> {
+  if (shouldUseMocks()) return []
+  return apiRequest<StatusHistoryEntry[]>(`/freights/${freightId}/history`, { auth: true })
 }
 
 /** Ocorrências persistidas em tracking (tag [[ocorrencia:tipo]]). */
@@ -214,6 +277,32 @@ export async function getFreightCosts(freightId: string): Promise<FreightCost[]>
   ])
 
   return mergeFreightCostsWithFuel(apiCosts, fuelPage.items)
+}
+
+export type FreightCostSummaryRow = {
+  freight_id: string
+  total_costs: number
+}
+
+/**
+ * Totais de custo por frete (batch) — evita N+1 de `getFreightCosts` na listagem.
+ * `GET /freights/costs-summary?ids=...`
+ */
+export async function getFreightsCostsSummary(
+  ids: string[],
+): Promise<Record<string, number>> {
+  if (ids.length === 0) return {}
+  if (shouldUseMocks()) return mock.mockGetFreightsCostsSummary(ids)
+
+  const qs = new URLSearchParams({ ids: ids.join(",") })
+  const rows = await apiRequest<FreightCostSummaryRow[]>(`/freights/costs-summary?${qs}`, {
+    auth: true,
+  })
+  const map: Record<string, number> = {}
+  for (const row of rows) {
+    map[row.freight_id] = row.total_costs
+  }
+  return map
 }
 
 export async function addFreightCost(

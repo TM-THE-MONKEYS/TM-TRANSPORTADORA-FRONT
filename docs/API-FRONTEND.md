@@ -178,7 +178,7 @@ Público. Sem autenticação.
 
 **Body:**
 ```json
-{ "email": "admin@tmtransportadora.com.br", "password": "Admin@123!" }
+{ "email": "usuario@example.com", "password": "<senha>" }
 ```
 
 **Resposta 200:** `LoginResponse`
@@ -531,6 +531,28 @@ interface TruckRead {
 
 ---
 
+### GET `/trucks/{truck_id}/consumption`
+
+Consumo real entre abastecimentos com `tanque_cheio=true`, desvio vs cadastro e custo/km.
+
+**Resposta 200:**
+```typescript
+interface TruckConsumption {
+  truck_id: string;
+  plate: string;
+  consumo_cadastrado_km_l: number | null;
+  consumo_real_km_l: number | null;
+  desvio_pct: number | null;
+  desvio_relevante: boolean;
+  km_rodado_total: number;
+  custo_combustivel: number;
+  custo_pedagio: number;
+  custo_por_km: number | null;
+}
+```
+
+---
+
 ### DELETE `/trucks/{truck_id}`
 
 **Resposta 204**  
@@ -576,6 +598,7 @@ interface Address {
   "cpf_cnpj": "12345678000199",
   "email": "contato@abc.com.br",
   "telefone": "1133334444",
+  "prazo_pagamento_dias": 30,
   "endereco": { "cidade": "São Paulo", "estado": "SP" },
   "observacoes": null
 }
@@ -587,13 +610,13 @@ interface Address {
 
 ### GET `/clients/{client_id}`
 
-**Resposta 200:** `ClientRead` (com `endereco` como objeto JSON)
+**Resposta 200:** `ClientRead` (com `endereco` como objeto JSON; inclui `prazo_pagamento_dias`)
 
 ---
 
 ### PATCH `/clients/{client_id}`
 
-**Body (opcionais):** `nome`, `email`, `telefone`, `endereco`, `observacoes`, `is_active`
+**Body (opcionais):** `nome`, `email`, `telefone`, `endereco`, `observacoes`, `is_active`, `prazo_pagamento_dias`
 
 ---
 
@@ -703,6 +726,9 @@ interface FreightRead {
   freight_type: "carga_geral";
   status: FreightStatus;
   deadline_at: string | null;
+  coletado_em: string | null;
+  delivered_at: string | null;
+  delivery_real_origin: "registrada" | "tracking" | "updated_at" | null;
   responsible_id: string | null;
   truck_id: string | null;
   driver_id: string | null;
@@ -731,16 +757,46 @@ Avança um passo no fluxo linear. Sem body.
 
 ### PATCH `/freights/{freight_id}/status`
 
-**Body:** `{ "status": "confirmado" }`
+**Body:**
+```json
+{
+  "status": "cancelado",
+  "motivo_cancelamento": "cliente_desistiu",
+  "motivo_cancelamento_detalhe": "opcional",
+  "motivo_atraso": "transito"
+}
+```
 
-Atualiza status com validação de transição.
+Atualiza status com validação de transição. `motivo_cancelamento` obrigatório ao cancelar. `motivo_atraso` obrigatório se entrega ficar fora do prazo previsto.
+
+---
+
+### GET `/freights/{freight_id}/history`
+
+```typescript
+interface StatusHistoryEntry {
+  id: string;
+  entity_type: "freight" | "driver" | "truck";
+  entity_id: string;
+  from_status: string | null;
+  to_status: string;
+  changed_by_user_id: string | null;
+  changed_at: string;
+  source: "api" | "tracking" | "system";
+  motivo: string | null;
+}
+```
 
 ---
 
 ### DELETE `/freights/{freight_id}`
 
+Exclusão lógica. Filhos operacionais e lançamentos financeiros recebem `deleted_at` e saem das listagens.
+
+**Query:** `purge=true` e `confirmacao=PURGAR` apagam as linhas de forma permanente. Só **admin**.
+
 **Resposta 204**  
-**Erros:** `403` só permite excluir `orcamento` ou `cancelado`
+**Erros:** `400` purga sem confirmação; `403` papel ou status não permitido
 
 ---
 
@@ -853,9 +909,12 @@ interface CashFlow {
   "data_vencimento": "2026-06-10",
   "data_pagamento": null,
   "status": "pendente",
+  "forma_pagamento": "pix",
   "observacoes": null
 }
 ```
+
+`forma_pagamento`: `pix` | `boleto` | `transferencia` | `dinheiro` | `cartao` | `outros`
 
 ---
 
@@ -914,6 +973,8 @@ interface TrackingTimeline {
 
 ### GET `/dashboard/kpis`
 
+**Query (aplicada só em entregas no prazo):** `competencia_mes`, `competencia_ano`, `driver_id`, `truck_id`, `client_id`. Os demais KPIs ignoram esses filtros.
+
 **Resposta 200:**
 ```typescript
 interface DashboardKpis {
@@ -922,8 +983,11 @@ interface DashboardKpis {
   available_drivers: number;
   monthly_revenue_brl: number;
   operational_costs_brl: number;
-  maintenance_alerts: number;
+  maintenance_alerts: number; // data (30d) OU km próximo (margem configurável)
   financial_pending: number;
+  on_time_deliveries: number;
+  deliveries_with_deadline: number;
+  cnh_alerts: number; // CNH vencida ou a vencer em 30 dias
 }
 ```
 
@@ -944,6 +1008,8 @@ interface FreightStatusCount {
 ### GET `/dashboard/revenue-series`
 
 **Query:** `days` (padrão `30`, max `365`)
+
+Receitas com status `pago` agrupadas por `data_pagamento`. Sem data no momento do pagamento, o backend grava o dia atual em `America/Sao_Paulo`.
 
 **Resposta 200:**
 ```typescript
@@ -1033,11 +1099,7 @@ const freights = await api<PagedResponse<FreightListItem>>(
 
 ## Credenciais de desenvolvimento (seed)
 
-| Campo | Valor |
-|-------|-------|
-| Email | `admin@tmtransportadora.com.br` |
-| Senha | `Admin@123!` |
-| Role | `admin` |
+O seed não grava e-mail nem senha no repositório. No ambiente local, use `SEED_ADMIN_EMAIL` e `SEED_ADMIN_PASSWORD`.
 
 ---
 
