@@ -37,16 +37,6 @@ export const DEMO_BRANCHES: Branch[] = [
 ]
 
 export const DEMO_USERS: Record<string, AuthUser & { password: string }> = {
-  "admin@tmtransportadora.com.br": {
-    id: "user-admin-seed",
-    email: "admin@tmtransportadora.com.br",
-    name: "Admin TM",
-    role: "admin",
-    tenant_id: DEMO_TENANT.id,
-    branch_id: null,
-    permissions: [],
-    password: "Admin@123!",
-  },
   "admin@demo.tm": {
     id: "user-admin",
     email: "admin@demo.tm",
