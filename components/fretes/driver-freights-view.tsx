@@ -46,7 +46,33 @@ import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
-import type { FreightOrder, FreightStatus } from "@/types"
+import type { FreightOrder, FreightStatus, Paginated } from "@/types"
+
+function patchFreightInPage(
+  page: Paginated<FreightOrder> | undefined,
+  freightId: string,
+  patch: Partial<FreightOrder>,
+): Paginated<FreightOrder> | undefined {
+  if (!page) return undefined
+  return {
+    ...page,
+    items: page.items.map((f) => (f.id === freightId ? { ...f, ...patch } : f)),
+  }
+}
+
+function requirePatchedPage(
+  page: Paginated<FreightOrder> | undefined,
+  freightId: string,
+  patch: Partial<FreightOrder>,
+): Paginated<FreightOrder> {
+  return patchFreightInPage(page, freightId, patch) ?? {
+    items: [],
+    total: 0,
+    page: 1,
+    page_size: 20,
+    pages: 0,
+  }
+}
 
 const STATUS_ORDER: Array<FreightStatus | "all"> = [
   "all",
@@ -98,12 +124,13 @@ export function DriverFreightsView() {
     setPage(1)
   }
 
+  const searchKey = search.trim()
   const filters = {
     competencia,
     driverId: linkedDriverId ?? undefined,
     truckId: filterTruckId,
     status: statusFilter === "all" ? undefined : statusFilter,
-    search: search.trim() || undefined,
+    search: searchKey || undefined,
   }
 
   const { data, isLoading, error, mutate } = useSWR(
@@ -115,16 +142,17 @@ export function DriverFreightsView() {
           pageSize,
           competencia.mes,
           competencia.ano,
-          filterTruckId,
+          filterTruckId ?? "",
           statusFilter,
-          search,
+          searchKey,
         ]
       : null,
     () => listFreights(page, pageSize, filters),
+    { keepPreviousData: true },
   )
 
   const items = data?.items ?? []
-  const hasSearchOrStatus = statusFilter !== "all" || search.trim() !== ""
+  const hasSearchOrStatus = statusFilter !== "all" || searchKey !== ""
   const inProgress = items.filter(
     (f) =>
       f.status === "em_transporte" ||
@@ -135,12 +163,23 @@ export function DriverFreightsView() {
 
   async function handleAdvance(e: React.MouseEvent, freight: FreightOrder) {
     e.stopPropagation()
+    const next = nextFreightStatus(freight.status)
+    if (!next) return
     setAdvancing(freight.id)
     try {
-      await advanceFreightStatus(freight.id)
-      await mutate()
-      const next = nextFreightStatus(freight.status)
-      if (next) toast.success(`${freight.code} → ${FREIGHT_STATUS_LABELS[next]}`)
+      await mutate(
+        async (current) => {
+          const updated = await advanceFreightStatus(freight.id)
+          return requirePatchedPage(current, freight.id, updated)
+        },
+        {
+          optimisticData: (current) =>
+            requirePatchedPage(current, freight.id, { status: next }),
+          rollbackOnError: true,
+          revalidate: true,
+        },
+      )
+      toast.success(`${freight.code} → ${FREIGHT_STATUS_LABELS[next]}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao avançar status")
     } finally {

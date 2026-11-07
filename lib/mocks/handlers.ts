@@ -428,7 +428,7 @@ export async function mockCreateFreight(
     updated_at: new Date().toISOString(),
   }
   mockStore.freights = [freight, ...mockStore.freights]
-  if (freight.value_brl > 0) {
+  if (freight.value_brl != null && freight.value_brl > 0) {
     const { ensureMockFreightRevenue } = await import("@/lib/mocks/finance-sync")
     ensureMockFreightRevenue(freight)
   }

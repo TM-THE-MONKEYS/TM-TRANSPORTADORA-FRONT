@@ -38,7 +38,7 @@ export function ensureMockFreightRevenue(freight: FreightOrder): void {
   const exists = mockFinanceEntries.some(
     (e) => e.freight_id === freight.id && e.tipo === "receita",
   )
-  if (exists || freight.value_brl <= 0) return
+  if (exists || freight.value_brl == null || freight.value_brl <= 0) return
 
   mockFinanceEntries.unshift({
     id: generateId("fin"),

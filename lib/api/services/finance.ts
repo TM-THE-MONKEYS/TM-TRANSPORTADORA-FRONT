@@ -170,7 +170,7 @@ async function syncMockFinanceFromFreights(): Promise<{ receitas: number; despes
     const hasRevenue = mockFinanceEntries.some(
       (e) => e.freight_id === freight.id && e.tipo === "receita",
     )
-    if (!hasRevenue && freight.value_brl > 0) {
+    if (!hasRevenue && freight.value_brl != null && freight.value_brl > 0) {
       const { ensureMockFreightRevenue } = await import("@/lib/mocks/finance-sync")
       ensureMockFreightRevenue(freight)
       receitas++

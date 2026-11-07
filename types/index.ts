@@ -205,7 +205,8 @@ export interface FreightOrder {
   destination_cep?: string | null
   cargo_description: string
   weight_kg?: number | null
-  value_brl: number
+  /** Null when API redacts money (role motorista). */
+  value_brl: number | null
   freight_type: string
   status: FreightStatus
   deadline_at?: string | null

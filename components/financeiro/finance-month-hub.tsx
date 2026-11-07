@@ -1,16 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import useSWR from "swr"
 import { toast } from "sonner"
 import { Settings2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { CompetenciaNavigator } from "@/components/shared/competencia-navigator"
 import { EntityFilterSelect } from "@/components/shared/entity-filter-select"
 import { FinanceEntriesTable } from "@/components/financeiro/finance-entries-table"
 import { FinancePendingFixedList } from "@/components/financeiro/finance-pending-fixed-list"
 import { ListPagination } from "@/components/shared/list-pagination"
-import { FinanceCharts } from "@/components/financeiro/finance-charts"
 import {
   getFixedExpenseLaunchStatus,
   launchFixedExpense,
@@ -28,7 +29,14 @@ import { formatCompetenciaLabel } from "@/lib/format/dates"
 import { SEMANTIC } from "@/lib/ui/status-colors"
 import { cn } from "@/lib/utils"
 import type { FinanceEntry, FinanceEntryStatus, FinanceEntryType } from "@/types"
-import { Skeleton } from "@/components/ui/skeleton"
+
+const FinanceCharts = dynamic(
+  () => import("@/components/financeiro/finance-charts").then((m) => m.FinanceCharts),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-40 w-full rounded-xl" />,
+  },
+)
 
 const DEFAULT_PAGE_SIZE = 50
 const PAGE_SIZE_OPTIONS = [25, 50, 100]

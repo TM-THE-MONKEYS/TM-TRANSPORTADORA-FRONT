@@ -220,11 +220,19 @@ export function FreightDetailView({ id }: { id: string }) {
 
   async function handleStatusApply() {
     if (statusDraft === freight!.status) return
+    const previous = freight!
+    const nextStatus = statusDraft
     setStatusSaving(true)
     try {
-      await updateFreightStatus(id, statusDraft)
-      toast.success(`Status alterado para ${FREIGHT_STATUS_LABELS[statusDraft]}`)
-      await mutateFreight()
+      await mutateFreight(
+        async () => updateFreightStatus(id, nextStatus),
+        {
+          optimisticData: { ...previous, status: nextStatus },
+          rollbackOnError: true,
+          revalidate: true,
+        },
+      )
+      toast.success(`Status alterado para ${FREIGHT_STATUS_LABELS[nextStatus]}`)
       mutateEvents()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao alterar status")

@@ -87,9 +87,9 @@ export async function getFreightsSummary(
     }
     const now = new Date()
     return {
-      faturamento_bruto: items.reduce((s, f) => s + f.value_brl, 0),
+      faturamento_bruto: items.reduce((s, f) => s + (f.value_brl ?? 0), 0),
       gastos: 0,
-      margem: items.reduce((s, f) => s + f.value_brl, 0),
+      margem: items.reduce((s, f) => s + (f.value_brl ?? 0), 0),
       quantidade_fretes: items.length,
       com_atraso: items.filter(
         (f) =>

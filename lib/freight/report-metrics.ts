@@ -87,12 +87,13 @@ export function buildFreightReportMetrics(
   const totalExpenses = driverCommission
   const totalSpent = totalCosts + driverCommission
 
-  const revenueBase = receivedPaid > 0 ? receivedPaid : freight.value_brl
+  const freightValue = freight.value_brl ?? 0
+  const revenueBase = receivedPaid > 0 ? receivedPaid : freightValue
 
   return {
     tripDurationLabel: label,
     tripInProgress: inProgress,
-    freightValue: freight.value_brl,
+    freightValue,
     totalCosts,
     driverCommission,
     driverCommissionEstimated,

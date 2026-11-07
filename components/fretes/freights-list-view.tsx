@@ -16,6 +16,13 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CardContent } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/page-header"
 import { EmptyState } from "@/components/shared/empty-state"
@@ -32,6 +39,7 @@ import {
   advanceFreightStatus,
   getFreightsCostsSummary,
   getFreightsSummary,
+  listCustomers,
   listFreights,
 } from "@/lib/api/services/freight"
 import { formatFreightRouteShort } from "@/lib/freight/route-label"
@@ -51,16 +59,16 @@ import { useOperationContext } from "@/hooks/use-operation-context"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { cn } from "@/lib/utils"
-import type { FreightOrder, FreightStatus } from "@/types"
+import type { FreightOrder, FreightStatus, Paginated } from "@/types"
 
 function FreightCostSummary({
   valueBrl,
   totalCosts,
 }: {
-  valueBrl: number
+  valueBrl: number | null | undefined
   totalCosts: number | undefined
 }) {
-  if (totalCosts == null || totalCosts <= 0) return null
+  if (valueBrl == null || totalCosts == null || totalCosts <= 0) return null
 
   const margin = valueBrl - totalCosts
 
@@ -95,6 +103,32 @@ function isOverdue(f: FreightOrder): boolean {
   return new Date(f.deadline_at) < new Date()
 }
 
+function patchFreightInPage(
+  page: Paginated<FreightOrder> | undefined,
+  freightId: string,
+  patch: Partial<FreightOrder>,
+): Paginated<FreightOrder> | undefined {
+  if (!page) return undefined
+  return {
+    ...page,
+    items: page.items.map((f) => (f.id === freightId ? { ...f, ...patch } : f)),
+  }
+}
+
+function requirePatchedPage(
+  page: Paginated<FreightOrder> | undefined,
+  freightId: string,
+  patch: Partial<FreightOrder>,
+): Paginated<FreightOrder> {
+  return patchFreightInPage(page, freightId, patch) ?? {
+    items: [],
+    total: 0,
+    page: 1,
+    page_size: 20,
+    pages: 0,
+  }
+}
+
 export function FreightsListView() {
   const router = useRouter()
   const canWrite = usePermission(PERMISSIONS.freightWrite)
@@ -104,6 +138,7 @@ export function FreightsListView() {
 
   const [filterDriverId, setFilterDriverId] = useState<string | undefined>()
   const [filterTruckId, setFilterTruckId] = useState<string | undefined>()
+  const [filterClientId, setFilterClientId] = useState<string | undefined>()
 
   const [statusFilter, setStatusFilter] = useState<FreightStatus | "all">("all")
   const [search, setSearch] = useState("")
@@ -119,61 +154,91 @@ export function FreightsListView() {
     setPage(1)
   }
 
+  const searchKey = search.trim()
   const filters = {
     competencia,
     driverId: filterDriverId,
     truckId: filterTruckId,
+    clientId: filterClientId,
     status: statusFilter === "all" ? undefined : statusFilter,
-    search: search.trim() || undefined,
+    search: searchKey || undefined,
   }
 
+  const listKey = [
+    "freights-list",
+    page,
+    pageSize,
+    competencia.mes,
+    competencia.ano,
+    filterDriverId ?? "",
+    filterTruckId ?? "",
+    filterClientId ?? "",
+    statusFilter,
+    searchKey,
+  ] as const
+
+  const summaryKey = [
+    "freights-summary",
+    competencia.mes,
+    competencia.ano,
+    filterDriverId ?? "",
+    filterTruckId ?? "",
+    filterClientId ?? "",
+    statusFilter,
+    searchKey,
+  ] as const
+
   const { data, isLoading, error, mutate } = useSWR(
-    [
-      "freights-list",
-      page,
-      pageSize,
-      competencia.mes,
-      competencia.ano,
-      filterDriverId,
-      filterTruckId,
-      statusFilter,
-      search,
-    ],
+    listKey,
     () => listFreights(page, pageSize, filters),
+    { keepPreviousData: true },
   )
 
   const { data: summary, isLoading: loadingSummary, error: summaryError } = useSWR(
-    [
-      "freights-summary",
-      competencia.mes,
-      competencia.ano,
-      filterDriverId,
-      filterTruckId,
-      statusFilter,
-      search,
-    ],
+    summaryKey,
     () => getFreightsSummary(filters),
     { keepPreviousData: true },
   )
 
+  const { data: customers } = useSWR("customers", listCustomers, {
+    revalidateOnFocus: false,
+  })
+
   const items = data?.items ?? []
-  const freightIds = items.map((f) => f.id)
+  // Chave estável por ids da página; só dispara após a lista ter dados (batch único).
+  const costsKey =
+    data && data.items.length > 0 && !isLoading
+      ? (["freights-costs-summary", data.items.map((f) => f.id).join(",")] as const)
+      : null
+
   const { data: costsByFreightId } = useSWR(
-    freightIds.length > 0 ? ["freights-costs-summary", ...freightIds] : null,
-    () => getFreightsCostsSummary(freightIds),
+    costsKey,
+    () => getFreightsCostsSummary(data!.items.map((f) => f.id)),
     { revalidateOnFocus: false },
   )
   const overdueCount = summaryError ? null : (summary?.com_atraso ?? 0)
-  const hasSearchOrStatus = statusFilter !== "all" || search.trim() !== ""
+  const hasSearchOrStatus =
+    statusFilter !== "all" || searchKey !== "" || Boolean(filterClientId)
 
   async function handleAdvance(e: React.MouseEvent, freight: FreightOrder) {
     e.stopPropagation()
+    const next = nextFreightStatus(freight.status)
+    if (!next) return
     setAdvancing(freight.id)
     try {
-      await advanceFreightStatus(freight.id)
-      await mutate()
-      const next = nextFreightStatus(freight.status)
-      if (next) toast.success(`${freight.code} → ${FREIGHT_STATUS_LABELS[next]}`)
+      await mutate(
+        async (current) => {
+          const updated = await advanceFreightStatus(freight.id)
+          return requirePatchedPage(current, freight.id, updated)
+        },
+        {
+          optimisticData: (current) =>
+            requirePatchedPage(current, freight.id, { status: next }),
+          rollbackOnError: true,
+          revalidate: true,
+        },
+      )
+      toast.success(`${freight.code} → ${FREIGHT_STATUS_LABELS[next]}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao avançar status")
     } finally {
@@ -227,16 +292,53 @@ export function FreightsListView() {
       }
       toolbar={
         <div className="space-y-3">
-          <ListFilterBar
-            variant="glass"
-            competencia={competencia}
-            onCompetenciaShift={shift}
-            nextDisabled={!canGoForward}
-            driverId={filterDriverId}
-            onDriverChange={(id) => { setFilterDriverId(id); setPage(1) }}
-            truckId={filterTruckId}
-            onTruckChange={(id) => { setFilterTruckId(id); setPage(1) }}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <ListFilterBar
+              variant="glass"
+              competencia={competencia}
+              onCompetenciaShift={shift}
+              nextDisabled={!canGoForward}
+              driverId={filterDriverId}
+              onDriverChange={(id) => { setFilterDriverId(id); setPage(1) }}
+              truckId={filterTruckId}
+              onTruckChange={(id) => { setFilterTruckId(id); setPage(1) }}
+              showClear={false}
+            />
+            <Select
+              value={filterClientId ?? "all"}
+              onValueChange={(v) => {
+                setFilterClientId(v === "all" ? undefined : v)
+                setPage(1)
+              }}
+            >
+              <SelectTrigger className="h-8 w-[180px] border-foreground/15 bg-background/60 text-xs">
+                <SelectValue placeholder="Cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos clientes</SelectItem>
+                {(customers ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(filterDriverId || filterTruckId || filterClientId) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 px-2 text-xs text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                onClick={() => {
+                  setFilterDriverId(undefined)
+                  setFilterTruckId(undefined)
+                  setFilterClientId(undefined)
+                  setPage(1)
+                }}
+              >
+                Limpar
+              </Button>
+            )}
+          </div>
           <ListSearchField
             value={search}
             onChange={(value) => {
@@ -260,7 +362,7 @@ export function FreightsListView() {
         </div>
       }
     >
-      {isLoading ? (
+      {isLoading && !data ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -291,6 +393,7 @@ export function FreightsListView() {
               ? () => {
                   setSearch("")
                   setStatusFilter("all")
+                  setFilterClientId(undefined)
                 }
               : canWrite
                 ? () => router.push("/dashboard/fretes/novo")
