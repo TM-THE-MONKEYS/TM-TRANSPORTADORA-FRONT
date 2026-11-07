@@ -58,7 +58,7 @@ export function toFreightCreatePayload(
       cidade: data.destination_city,
       estado: data.destination_state,
     },
-    valor_frete: Number(data.value_brl),
+    valor_frete: Number(data.value_brl ?? 0),
     status: data.status ?? "em_transporte",
     data_entrega_prevista: data.deadline_at ? data.deadline_at.slice(0, 10) : null,
     observacoes: data.cargo_description,
@@ -74,7 +74,9 @@ export function toFreightUpdatePayload(data: Partial<FreightOrder>): Record<stri
   const payload: Record<string, unknown> = {}
   if (data.driver_id !== undefined) payload.driver_id = data.driver_id
   if (data.truck_id !== undefined) payload.truck_id = data.truck_id
-  if (data.value_brl !== undefined) payload.valor_frete = data.value_brl
+  if (data.value_brl !== undefined && data.value_brl !== null) {
+    payload.valor_frete = data.value_brl
+  }
   if (data.status !== undefined) payload.status = data.status
   if (data.deadline_at !== undefined) {
     payload.data_entrega_prevista = data.deadline_at ? data.deadline_at.slice(0, 10) : null

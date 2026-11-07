@@ -58,7 +58,28 @@ const nextConfig: NextConfig = {
     return [{ source: "/api/backend-health", destination: `${publicApiUrl}/health` }]
   },
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }]
+    return [
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/branding/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      // HTML/dashboard autenticado: só security headers (sem long-cache).
+      { source: "/(.*)", headers: securityHeaders },
+    ]
   },
   images: {
     remotePatterns: [

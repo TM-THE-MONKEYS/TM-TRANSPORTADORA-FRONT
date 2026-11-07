@@ -1,20 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import useSWR from "swr"
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts"
 import {
   AlertTriangle,
   ArrowRight,
@@ -69,6 +58,32 @@ function statusFill(status: string): string {
   return "var(--color-chart-1)"
 }
 
+const chartSkeleton = (
+  <Skeleton className="h-full min-h-[10rem] w-full rounded-lg bg-foreground/10" />
+)
+
+const DashboardRevenueChart = dynamic(
+  () =>
+    import("@/components/dashboard/dashboard-chart-widgets").then((m) => m.DashboardRevenueChart),
+  { ssr: false, loading: () => chartSkeleton },
+)
+
+const StatusDonut = dynamic(
+  () => import("@/components/dashboard/dashboard-chart-widgets").then((m) => m.StatusDonut),
+  {
+    ssr: false,
+    loading: () => (
+      <Skeleton className="mx-auto h-[160px] w-full max-w-[240px] rounded-full bg-foreground/10" />
+    ),
+  },
+)
+
+const FreightStatusChartCard = dynamic(
+  () =>
+    import("@/components/dashboard/dashboard-chart-widgets").then((m) => m.FreightStatusChartCard),
+  { ssr: false, loading: () => chartSkeleton },
+)
+
 /** Select translúcido sobre vidro (sem "caixa branca"). */
 const GLASS_SELECT = "h-8 border-foreground/15 bg-background/60 text-xs"
 
@@ -76,31 +91,6 @@ const GLASS_SELECT = "h-8 border-foreground/15 bg-background/60 text-xs"
 const GHOST_QUIET = "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
 
 const CARD_TITLE = "tracking-tight"
-
-/** Tooltip Recharts com o vidro do dashboard (variáveis `--glass-*` do `.dashboard-canvas`). */
-const chartTooltipProps = {
-  contentStyle: {
-    fontSize: 12,
-    borderRadius: 12,
-    border: "1px solid var(--glass-border)",
-    background: "color-mix(in oklch, var(--glass-bg) 88%, transparent)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    boxShadow: "0 8px 24px -8px var(--glass-shadow)",
-    color: "var(--foreground)",
-  } satisfies React.CSSProperties,
-  labelStyle: { color: "var(--foreground)", fontWeight: 600 },
-  itemStyle: { color: "var(--foreground)" },
-}
-
-const axisTick = { fontSize: 11, fill: "var(--muted-foreground)" }
-
-/** Só linhas horizontais, bem sutis. (Spread em <CartesianGrid>: Recharts não enxerga wrappers.) */
-const chartGridProps = {
-  vertical: false,
-  stroke: "var(--foreground)",
-  strokeOpacity: 0.08,
-}
 
 function formatChartDate(iso: string) {
   const d = new Date(iso)
@@ -420,58 +410,7 @@ export function DashboardView() {
                 </CardHeader>
                 <CardContent>
                   <div className="h-[min(22rem,42vh)] min-h-[16rem]">
-                    {revenueError ? (
-                      <EmptyChart label="Não foi possível carregar a receita" />
-                    ) : revenueChartData.length === 0 ? (
-                      <EmptyChart label="Sem receitas no período" />
-                    ) : (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart
-                          data={revenueChartData}
-                          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                        >
-                          <defs>
-                            <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="var(--color-chart-2)" stopOpacity={0.3} />
-                              <stop offset="100%" stopColor="var(--color-chart-2)" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid {...chartGridProps} />
-                          <XAxis
-                            dataKey="label"
-                            tick={axisTick}
-                            interval="preserveStartEnd"
-                            tickLine={false}
-                            axisLine={false}
-                          />
-                          <YAxis
-                            tick={axisTick}
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(v) =>
-                              v >= 1000 ? `R$${(v / 1000).toFixed(0)}k` : `R$${v}`
-                            }
-                          />
-                          <Tooltip
-                            formatter={(v: number) => [formatBRL(v), "Receita"]}
-                            labelFormatter={(label) => String(label)}
-                            {...chartTooltipProps}
-                            cursor={{ stroke: "var(--foreground)", strokeOpacity: 0.2 }}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="revenue"
-                            stroke="var(--color-chart-2)"
-                            strokeWidth={2}
-                            fill="url(#revenueGradient)"
-                            dot={false}
-                            activeDot={{ r: 5, strokeWidth: 0 }}
-                            animationDuration={650}
-                            animationEasing="ease-out"
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    )}
+                    <DashboardRevenueChart data={revenueChartData} error={revenueError} />
                   </div>
                 </CardContent>
               </Card>
@@ -636,59 +575,6 @@ export function DashboardView() {
 
 /* ── Sub-components ─────────────────────────────────────────────────────── */
 
-/**
- * Donut com remount + animação só após mount (SWR/cache pulava o entrance do Recharts).
- */
-function StatusDonut({
-  data,
-  dataKey,
-}: {
-  data: { status: string; label: string; count: number }[]
-  dataKey: string
-}) {
-  const [play, setPlay] = useState(false)
-
-  useEffect(() => {
-    setPlay(false)
-    const id = requestAnimationFrame(() => setPlay(true))
-    return () => cancelAnimationFrame(id)
-  }, [dataKey])
-
-  return (
-    <div className="mx-auto h-[160px] w-full max-w-[240px]">
-      {play ? (
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart key={dataKey}>
-            <Pie
-              data={data}
-              dataKey="count"
-              nameKey="label"
-              cx="50%"
-              cy="50%"
-              innerRadius={58}
-              outerRadius={78}
-              paddingAngle={2}
-              stroke="none"
-              isAnimationActive
-              animationBegin={0}
-              animationDuration={800}
-              animationEasing="ease-out"
-            >
-              {data.map((entry) => (
-                <Cell key={entry.status} fill={statusFill(entry.status)} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(v: number, name: string) => [`${v} frete(s)`, name]}
-              {...chartTooltipProps}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      ) : null}
-    </div>
-  )
-}
-
 function StatusBar({ pct, color }: { pct: number; color: string }) {
   const [width, setWidth] = useState(0)
 
@@ -713,67 +599,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <p className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-foreground/70">
       {children}
     </p>
-  )
-}
-
-function EmptyChart({ label }: { label: string }) {
-  return (
-    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-      {label}
-    </div>
-  )
-}
-
-function FreightStatusChartCard({
-  data,
-  total,
-  compact,
-}: {
-  data: { status: string; label: string; count: number }[]
-  total: number
-  compact?: boolean
-}) {
-  if (compact) return null
-  return (
-    <Card variant="glass-subtle" size="sm">
-      <CardHeader className="pb-2">
-        <CardTitle className={CARD_TITLE}>Distribuição de fretes</CardTitle>
-        <CardDescription>
-          {total > 0 ? `${total} fretes no total` : "Sem fretes cadastrados"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[min(20rem,38vh)] min-h-[14rem]">
-          {data.length === 0 ? (
-            <EmptyChart label="Sem dados para exibir" />
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid {...chartGridProps} />
-                <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={false} />
-                <YAxis allowDecimals={false} tick={axisTick} tickLine={false} axisLine={false} />
-                <Tooltip
-                  formatter={(v: number) => [`${v} frete(s)`, "Quantidade"]}
-                  labelFormatter={(l) => String(l)}
-                  {...chartTooltipProps}
-                  cursor={{ stroke: "var(--foreground)", strokeOpacity: 0.2 }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="var(--color-chart-1)"
-                  fill="var(--color-chart-1)"
-                  fillOpacity={0.15}
-                  strokeWidth={2}
-                  animationDuration={650}
-                  animationEasing="ease-out"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </CardContent>
-    </Card>
   )
 }
 

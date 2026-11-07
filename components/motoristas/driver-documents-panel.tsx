@@ -75,7 +75,13 @@ function DocumentPreview({ driverId, doc }: { driverId: string; doc: DriverDocum
   if (doc.content_type.startsWith("image/")) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={url} alt={doc.filename} className="h-24 w-full rounded-md object-cover" />
+      <img
+        src={url}
+        alt={doc.filename}
+        loading="lazy"
+        decoding="async"
+        className="h-24 w-full rounded-md object-cover"
+      />
     )
   }
 
