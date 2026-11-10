@@ -198,6 +198,9 @@ export const mockFreights: FreightOrder[] = [
     deadline_at: "2026-05-25",
     truck_id: "truck-1",
     driver_id: "drv-2",
+    // Sem KM inicial — demo do fluxo "Iniciar viagem" no motorista
+    km_inicial: null,
+    km_final: null,
     stops: [
       {
         id: "stop-1",
@@ -229,6 +232,8 @@ export const mockFreights: FreightOrder[] = [
     status: "em_transporte",
     truck_id: "truck-1",
     driver_id: "drv-1",
+    km_inicial: null,
+    km_final: null,
     created_at: "2026-05-19T10:00:00Z",
     updated_at: "2026-05-19T10:00:00Z",
   },

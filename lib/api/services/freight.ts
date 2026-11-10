@@ -2,6 +2,7 @@ import { apiRequest } from "@/lib/api/client"
 import { shouldUseMocks } from "@/lib/api/config"
 import {
   mapFreightCostFromApi,
+  mapFreightFromApi,
   mapTrackingUpdateToFreightEvent,
   toFreightCreatePayload,
   toFreightUpdatePayload,
@@ -53,7 +54,11 @@ export async function listFreights(
     qs.set("competencia_mes", String(filters.competencia.mes))
     qs.set("competencia_ano", String(filters.competencia.ano))
   }
-  return apiRequest(`/freights?${qs}`, { auth: true })
+  const result = await apiRequest<Paginated<FreightOrder>>(`/freights?${qs}`, { auth: true })
+  return {
+    ...result,
+    items: (result.items ?? []).map((item) => mapFreightFromApi(item as FreightOrder)),
+  }
 }
 
 export async function getFreightsSummary(
@@ -120,7 +125,47 @@ export async function getFreight(id: string): Promise<FreightOrder> {
     if (!f) throw new Error("Frete não encontrado")
     return f
   }
-  return apiRequest(`/freights/${id}`, { auth: true })
+  const raw = await apiRequest<Record<string, unknown>>(`/freights/${id}`, { auth: true })
+  return mapFreightFromApi(raw)
+}
+
+export type StartFreightTripInput = {
+  km_inicial: number
+  check_docs: boolean
+  check_veiculo: boolean
+  check_carga: boolean
+}
+
+export async function startFreightTrip(
+  id: string,
+  data: StartFreightTripInput,
+): Promise<FreightOrder> {
+  const freight = shouldUseMocks()
+    ? await mock.mockStartFreightTrip(id, data)
+    : mapFreightFromApi(
+        await apiRequest<Record<string, unknown>>(`/freights/${id}/start-trip`, {
+          method: "POST",
+          body: data,
+          auth: true,
+        }),
+      )
+  return afterFreightMutation(freight)
+}
+
+export async function endFreightOdometer(
+  id: string,
+  data: { km_final: number },
+): Promise<FreightOrder> {
+  const freight = shouldUseMocks()
+    ? await mock.mockEndFreightOdometer(id, data)
+    : mapFreightFromApi(
+        await apiRequest<Record<string, unknown>>(`/freights/${id}/odometer-end`, {
+          method: "POST",
+          body: data,
+          auth: true,
+        }),
+      )
+  return afterFreightMutation(freight)
 }
 
 export async function createFreight(

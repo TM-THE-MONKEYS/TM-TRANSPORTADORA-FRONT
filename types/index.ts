@@ -213,6 +213,14 @@ export interface FreightOrder {
   responsible_id?: string | null
   truck_id?: string | null
   driver_id?: string | null
+  /** KM no início da viagem — ausente na listagem até o back incluir no ListItem. */
+  km_inicial?: number | null
+  km_final?: number | null
+  km_inicial_registrado_em?: string | null
+  km_final_registrado_em?: string | null
+  check_docs?: boolean
+  check_veiculo?: boolean
+  check_carga?: boolean
   /** Entregas intermediárias antes do destino final */
   stops?: FreightStop[]
   created_at: string

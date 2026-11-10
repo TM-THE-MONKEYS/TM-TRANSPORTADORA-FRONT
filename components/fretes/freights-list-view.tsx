@@ -44,9 +44,9 @@ import {
 } from "@/lib/api/services/freight"
 import { formatFreightRouteShort } from "@/lib/freight/route-label"
 import { formatBRL } from "@/lib/format/currency"
-import { formatWeightKg } from "@/lib/format/numbers"
+import { formatKm, formatWeightKg } from "@/lib/format/numbers"
 import { formatDateBR } from "@/lib/format/dates"
-import { getDriverName, getTruckLabel } from "@/lib/freight/active-trip"
+import { getDriverName, getTruckLabel, isTripStarted } from "@/lib/freight/active-trip"
 import { FREIGHT_STATUS_LABELS, nextFreightStatus } from "@/lib/freight/status"
 import {
   freightStatusAccent,
@@ -428,6 +428,17 @@ export function FreightsListView() {
                     <div className="mb-1 flex flex-wrap items-center gap-2">
                       <span className="font-bold tracking-tight">{f.code}</span>
                       <FreightStatusBadge status={f.status} />
+                      {"km_inicial" in f && (
+                        isTripStarted(f) ? (
+                          <Badge variant="success" className="px-1.5 py-0 text-[10px]">
+                            KM OK · {formatKm(f.km_inicial)}
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="px-1.5 py-0 text-[10px]">
+                            KM pendente
+                          </Badge>
+                        )
+                      )}
                       {overdue && (
                         <Badge variant="destructive" className="px-1.5 py-0 text-[10px]">
                           Atrasado

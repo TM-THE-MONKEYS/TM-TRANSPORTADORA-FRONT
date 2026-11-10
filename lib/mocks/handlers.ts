@@ -484,6 +484,111 @@ export async function mockAdvanceFreightStatus(id: string): Promise<FreightOrder
   return mockUpdateFreightStatus(id, next)
 }
 
+export async function mockStartFreightTrip(
+  id: string,
+  data: {
+    km_inicial: number
+    check_docs: boolean
+    check_veiculo: boolean
+    check_carga: boolean
+  },
+): Promise<FreightOrder> {
+  await delay(200)
+  const freight = mockStore.freights.find((f) => f.id === id)
+  if (!freight) throw new Error("Frete não encontrado")
+  if (freight.km_inicial != null) {
+    throw new ApiError(409, "Viagem já iniciada para este frete")
+  }
+  if (!(data.check_docs && data.check_veiculo && data.check_carga)) {
+    throw new ApiError(422, "Todos os checks devem ser confirmados")
+  }
+  if (!(data.km_inicial > 0)) {
+    throw new ApiError(422, "KM inicial deve ser maior que zero")
+  }
+  if (freight.truck_id) {
+    const truck = mockStore.trucks.find((t) => t.id === freight.truck_id)
+    if (truck && data.km_inicial < truck.mileage_km) {
+      throw new ApiError(
+        400,
+        `KM inicial (${data.km_inicial}) não pode ser menor que o KM do caminhão (${truck.mileage_km})`,
+      )
+    }
+  }
+  const now = new Date().toISOString()
+  const updated = await mockUpdateFreight(id, {
+    km_inicial: data.km_inicial,
+    check_docs: data.check_docs,
+    check_veiculo: data.check_veiculo,
+    check_carga: data.check_carga,
+    km_inicial_registrado_em: now,
+  })
+  if (updated.truck_id) {
+    const tIdx = mockStore.trucks.findIndex((t) => t.id === updated.truck_id)
+    if (tIdx >= 0) {
+      const truck = mockStore.trucks[tIdx]
+      if (truck.status !== "em_manutencao" && truck.status !== "inativo") {
+        mockStore.trucks[tIdx] = {
+          ...truck,
+          status: "em_viagem",
+          mileage_km: Math.max(truck.mileage_km, data.km_inicial),
+        }
+      }
+    }
+  }
+  mockStore.freightEvents.push({
+    id: generateId("evt"),
+    freight_id: id,
+    status: updated.status,
+    title: `Viagem iniciada — KM ${data.km_inicial}`,
+    created_at: now,
+  })
+  return updated
+}
+
+export async function mockEndFreightOdometer(
+  id: string,
+  data: { km_final: number },
+): Promise<FreightOrder> {
+  await delay(200)
+  const freight = mockStore.freights.find((f) => f.id === id)
+  if (!freight) throw new Error("Frete não encontrado")
+  if (freight.km_inicial == null) {
+    throw new ApiError(400, "Registre o KM inicial antes do KM final")
+  }
+  if (!(data.km_final > 0)) {
+    throw new ApiError(422, "KM final deve ser maior que zero")
+  }
+  if (data.km_final < freight.km_inicial) {
+    throw new ApiError(
+      400,
+      `KM final (${data.km_final}) não pode ser menor que o KM inicial (${freight.km_inicial})`,
+    )
+  }
+  const now = new Date().toISOString()
+  const updated = await mockUpdateFreight(id, {
+    km_final: data.km_final,
+    km_final_registrado_em: now,
+  })
+  if (updated.truck_id) {
+    const tIdx = mockStore.trucks.findIndex((t) => t.id === updated.truck_id)
+    if (tIdx >= 0) {
+      const truck = mockStore.trucks[tIdx]
+      mockStore.trucks[tIdx] = {
+        ...truck,
+        mileage_km: Math.max(truck.mileage_km, data.km_final),
+      }
+    }
+  }
+  mockStore.freightEvents.push({
+    id: generateId("evt"),
+    freight_id: id,
+    status: updated.status,
+    title: `KM final registrado — ${data.km_final}`,
+    created_at: now,
+  })
+  return updated
+}
+
 export async function mockUpdateFreightStatus(id: string, status: FreightStatus): Promise<FreightOrder> {
   const updated = await mockUpdateFreight(id, { status })
   mockStore.freightEvents.push({

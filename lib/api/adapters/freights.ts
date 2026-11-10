@@ -1,5 +1,22 @@
 import type { FreightCost, FreightEvent, FreightOrder, FreightStop, TrackingUpdate } from "@/types"
 
+/** Normaliza frete da API → `FreightOrder` (inclui KM / checklist de viagem). */
+export function mapFreightFromApi(raw: Record<string, unknown> | FreightOrder): FreightOrder {
+  const r = raw as Record<string, unknown>
+  return {
+    ...(raw as FreightOrder),
+    km_inicial: (r.km_inicial as number | null | undefined) ?? null,
+    km_final: (r.km_final as number | null | undefined) ?? null,
+    km_inicial_registrado_em:
+      (r.km_inicial_registrado_em as string | null | undefined) ?? null,
+    km_final_registrado_em:
+      (r.km_final_registrado_em as string | null | undefined) ?? null,
+    check_docs: Boolean(r.check_docs ?? false),
+    check_veiculo: Boolean(r.check_veiculo ?? false),
+    check_carga: Boolean(r.check_carga ?? false),
+  }
+}
+
 function parseLitrosFromCostDescription(descricao: string | null): number | null {
   if (!descricao) return null
   const match = descricao.match(/([\d.,]+)\s*L/i)

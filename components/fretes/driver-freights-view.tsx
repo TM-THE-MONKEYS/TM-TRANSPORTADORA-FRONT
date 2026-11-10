@@ -26,13 +26,16 @@ import { ListPagination } from "@/components/shared/list-pagination"
 import { StatusFilterChips } from "@/components/shared/status-filter-chips"
 import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
+import {
+  EndOdometerDialog,
+  StartTripDialog,
+} from "@/components/fretes/start-trip-dialog"
 import { useAuth } from "@/components/providers/auth-provider"
 import { advanceFreightStatus, listFreights } from "@/lib/api/services/freight"
-import { listDrivers } from "@/lib/api/services/drivers"
 import { formatFreightRouteShort } from "@/lib/freight/route-label"
 import { formatWeightKg } from "@/lib/format/numbers"
 import { formatDateBR } from "@/lib/format/dates"
-import { getTruckLabel } from "@/lib/freight/active-trip"
+import { getTruckLabel, isTripStarted, needsTripStart } from "@/lib/freight/active-trip"
 import { FREIGHT_STATUS_LABELS, nextFreightStatus } from "@/lib/freight/status"
 import {
   freightStatusAccent,
@@ -104,16 +107,16 @@ export function DriverFreightsView() {
   const { trucks } = useOperationContext({ freights: false, drivers: false })
   const { competencia, shift, canGoForward } = useCompetencia()
 
-  const { data: driversPage } = useSWR("driver-freights-drivers", () => listDrivers(1, 100), {
-    revalidateOnFocus: false,
-  })
+  // Vínculo vem de user.driver_id; evita GET /drivers (403 para motorista).
   const linkedDriverId =
-    user != null ? resolveDriverIdForUser(user, driversPage?.items ?? []) : null
+    user != null ? resolveDriverIdForUser(user, []) : null
 
   const [filterTruckId, setFilterTruckId] = useState<string | undefined>()
   const [statusFilter, setStatusFilter] = useState<FreightStatus | "all">("all")
   const [search, setSearch] = useState("")
   const [advancing, setAdvancing] = useState<string | null>(null)
+  const [startTripFreight, setStartTripFreight] = useState<FreightOrder | null>(null)
+  const [endOdometerFreight, setEndOdometerFreight] = useState<FreightOrder | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
@@ -165,6 +168,11 @@ export function DriverFreightsView() {
     e.stopPropagation()
     const next = nextFreightStatus(freight.status)
     if (!next) return
+    // Entrega exige KM final primeiro.
+    if (next === "entregue" && freight.km_final == null) {
+      setEndOdometerFreight(freight)
+      return
+    }
     setAdvancing(freight.id)
     try {
       await mutate(
@@ -187,7 +195,45 @@ export function DriverFreightsView() {
     }
   }
 
-  if (user && driversPage && !linkedDriverId) {
+  async function advanceAfterOdometer(freight: FreightOrder) {
+    const next = nextFreightStatus(freight.status)
+    if (next !== "entregue") {
+      await mutate(
+        (current) => requirePatchedPage(current, freight.id, freight),
+        { revalidate: false },
+      )
+      return
+    }
+    setAdvancing(freight.id)
+    try {
+      await mutate(
+        async (current) => {
+          const updated = await advanceFreightStatus(freight.id)
+          return requirePatchedPage(current, freight.id, updated)
+        },
+        {
+          optimisticData: (current) =>
+            requirePatchedPage(current, freight.id, {
+              ...freight,
+              status: "entregue",
+            }),
+          rollbackOnError: true,
+          revalidate: true,
+        },
+      )
+      toast.success(`${freight.code} → ${FREIGHT_STATUS_LABELS.entregue}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao marcar entrega")
+      await mutate(
+        (current) => requirePatchedPage(current, freight.id, freight),
+        { revalidate: false },
+      )
+    } finally {
+      setAdvancing(null)
+    }
+  }
+
+  if (user && !linkedDriverId) {
     return (
       <ListPage
         header={
@@ -365,7 +411,34 @@ export function DriverFreightsView() {
                   </div>
 
                   <div className="flex shrink-0 flex-col items-end gap-2">
-                    {canStatus && nextStatus && (
+                    {canStatus && needsTripStart(f) ? (
+                      <Button
+                        size="sm"
+                        className="h-7 gap-1 px-2 text-[11px] font-medium"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setStartTripFreight(f)
+                        }}
+                      >
+                        Iniciar viagem
+                      </Button>
+                    ) : canStatus &&
+                      isTripStarted(f) &&
+                      f.km_final == null &&
+                      nextStatus === "entregue" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 px-2 text-[11px] font-medium"
+                        disabled={isAdvancing}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEndOdometerFreight(f)
+                        }}
+                      >
+                        KM final / Entregar
+                      </Button>
+                    ) : canStatus && nextStatus ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -382,7 +455,7 @@ export function DriverFreightsView() {
                           </>
                         )}
                       </Button>
-                    )}
+                    ) : null}
                   </div>
 
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
@@ -405,6 +478,31 @@ export function DriverFreightsView() {
           ) : null}
         </div>
       )}
+
+      <StartTripDialog
+        freight={startTripFreight}
+        open={startTripFreight != null}
+        onOpenChange={(open) => {
+          if (!open) setStartTripFreight(null)
+        }}
+        onSuccess={(updated) => {
+          void mutate(
+            (current) => requirePatchedPage(current, updated.id, updated),
+            { revalidate: false },
+          )
+        }}
+      />
+
+      <EndOdometerDialog
+        freight={endOdometerFreight}
+        open={endOdometerFreight != null}
+        onOpenChange={(open) => {
+          if (!open) setEndOdometerFreight(null)
+        }}
+        onSuccess={(updated) => {
+          void advanceAfterOdometer(updated)
+        }}
+      />
     </ListPage>
   )
 }
