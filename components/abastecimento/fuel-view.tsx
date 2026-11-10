@@ -107,7 +107,11 @@ export function FuelView() {
   const nextCompetencia = shiftCompetencia(competencia.mes, competencia.ano, 1)
   const canGoForward = isCompetenciaWithinLimit(nextCompetencia.mes, nextCompetencia.ano)
 
-  const { data: driversPage } = useSWR("fuel-drivers", () => listDrivers(1, 100))
+  // Motorista não tem drivers:read — o vínculo vem de user.driver_id (auth/me|login).
+  const { data: driversPage } = useSWR(
+    isMotorista ? null : "fuel-drivers",
+    () => listDrivers(1, 100),
+  )
 
   const canManageFuel = usePermission(PERMISSIONS.freightWrite) || isAdminRole(user?.role)
 

@@ -28,7 +28,6 @@ import { ClickableListCard } from "@/components/shared/clickable-list-card"
 import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { useAuth } from "@/components/providers/auth-provider"
 import { advanceFreightStatus, listFreights } from "@/lib/api/services/freight"
-import { listDrivers } from "@/lib/api/services/drivers"
 import { formatFreightRouteShort } from "@/lib/freight/route-label"
 import { formatWeightKg } from "@/lib/format/numbers"
 import { formatDateBR } from "@/lib/format/dates"
@@ -104,11 +103,9 @@ export function DriverFreightsView() {
   const { trucks } = useOperationContext({ freights: false, drivers: false })
   const { competencia, shift, canGoForward } = useCompetencia()
 
-  const { data: driversPage } = useSWR("driver-freights-drivers", () => listDrivers(1, 100), {
-    revalidateOnFocus: false,
-  })
+  // Vínculo vem de user.driver_id; evita GET /drivers (403 para motorista).
   const linkedDriverId =
-    user != null ? resolveDriverIdForUser(user, driversPage?.items ?? []) : null
+    user != null ? resolveDriverIdForUser(user, []) : null
 
   const [filterTruckId, setFilterTruckId] = useState<string | undefined>()
   const [statusFilter, setStatusFilter] = useState<FreightStatus | "all">("all")
@@ -187,7 +184,7 @@ export function DriverFreightsView() {
     }
   }
 
-  if (user && driversPage && !linkedDriverId) {
+  if (user && !linkedDriverId) {
     return (
       <ListPage
         header={
