@@ -35,6 +35,10 @@ import { FreightStatusBadge } from "@/components/fretes/freight-status-badge"
 import { FreightClosedAdminPanel } from "@/components/fretes/freight-closed-admin-panel"
 import { FreightAddCostForm } from "@/components/fretes/freight-add-cost-form"
 import { FreightFinancialBreakdown } from "@/components/fretes/freight-financial-breakdown"
+import {
+  EndOdometerDialog,
+  StartTripDialog,
+} from "@/components/fretes/start-trip-dialog"
 import { FreightExpensesList } from "@/components/shared/freight-expenses-list"
 import {
   addFreightCost,
@@ -50,7 +54,7 @@ import { getTrackingTimeline } from "@/lib/api/services/tracking"
 import { trackingUpdatesWithoutOccurrences } from "@/lib/freight/occurrences"
 import { formatBRL } from "@/lib/format/currency"
 import { formatDateTimeBR } from "@/lib/format/dates"
-import { formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
+import { formatKm, formatMoneyInput, parseMoneyInput } from "@/lib/format/numbers"
 import { MANUAL_FREIGHT_COST_TYPES } from "@/lib/freight/costs"
 import { FREIGHT_STATUS_FLOW, FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
 import { isMotoristaRole } from "@/lib/fuel/eligibility"
@@ -66,8 +70,9 @@ import {
   isFreightClosed,
 } from "@/lib/freight/closed-freight"
 import { formatFreightRouteShort, formatFreightRouteStops } from "@/lib/freight/route-label"
-import { isFreightInTransit } from "@/lib/freight/active-trip"
+import { isFreightInTransit, isTripStarted, needsTripStart } from "@/lib/freight/active-trip"
 import { useAuth } from "@/components/providers/auth-provider"
+import { Badge } from "@/components/ui/badge"
 import { usePermission } from "@/hooks/use-permission"
 import { PERMISSIONS } from "@/lib/rbac/permissions"
 import { useOperationContext } from "@/hooks/use-operation-context"
@@ -116,6 +121,8 @@ export function FreightDetailView({ id }: { id: string }) {
   const [statusSaving, setStatusSaving] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [startTripOpen, setStartTripOpen] = useState(false)
+  const [endOdoOpen, setEndOdoOpen] = useState(false)
 
   useEffect(() => {
     if (freight?.status) setStatusDraft(freight.status)
@@ -177,6 +184,21 @@ export function FreightDetailView({ id }: { id: string }) {
   const truck = trucks.find((t) => t.id === freight.truck_id)
   const routeStops = formatFreightRouteStops(freight)
   const showMoney = !isMotorista
+  const tripStarted = isTripStarted(freight)
+  const tripPending = needsTripStart(freight)
+  const canManageTrip =
+    canStatus &&
+    (isAdmin ||
+      user?.role === "operacional" ||
+      user?.role === "operador" ||
+      (isMotorista &&
+        linkedDriverId != null &&
+        freight.driver_id === linkedDriverId))
+  const canEndOdometer =
+    canManageTrip &&
+    tripStarted &&
+    freight.km_final == null &&
+    (freight.status === "em_transporte" || freight.status === "entregue")
 
   async function handleOccurrence() {
     if (!occDesc.trim()) return
@@ -323,18 +345,94 @@ export function FreightDetailView({ id }: { id: string }) {
         }
       />
 
-      <div className="mb-6 flex flex-wrap gap-4">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
         <FreightStatusBadge status={freight.status} />
+        {tripPending ? (
+          <Badge variant="destructive" className="px-1.5 py-0 text-[10px]">
+            KM início pendente
+          </Badge>
+        ) : tripStarted ? (
+          <Badge variant="success" className="px-1.5 py-0 text-[10px]">
+            KM início {formatKm(freight.km_inicial)}
+          </Badge>
+        ) : null}
+        {freight.km_final != null && (
+          <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+            KM final {formatKm(freight.km_final)}
+          </Badge>
+        )}
         <span className="text-sm text-muted-foreground">{freight.cargo_description}</span>
         {showMoney && (
           <span className="font-medium">{formatBRL(freight.value_brl)}</span>
         )}
-        {isFreightInTransit(freight.status) && (
+        {isFreightInTransit(freight.status) && tripStarted && (
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", statusSoftClass("progress"))}>
             Viagem em percurso
           </span>
         )}
       </div>
+
+      {(tripPending || tripStarted) && (
+        <Card variant="glass" size="sm" className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Odômetro da viagem</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  KM inicial
+                </p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {tripStarted ? formatKm(freight.km_inicial) : "Pendente"}
+                </p>
+                {freight.km_inicial_registrado_em && (
+                  <p className="text-xs text-muted-foreground">
+                    {formatDateTimeBR(freight.km_inicial_registrado_em)}
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  KM final
+                </p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {freight.km_final != null ? formatKm(freight.km_final) : "—"}
+                </p>
+                {freight.km_final_registrado_em && (
+                  <p className="text-xs text-muted-foreground">
+                    {formatDateTimeBR(freight.km_final_registrado_em)}
+                  </p>
+                )}
+              </div>
+            </div>
+            {tripStarted && (freight.check_docs || freight.check_veiculo || freight.check_carga) && (
+              <p className="text-xs text-muted-foreground">
+                Checklist:{" "}
+                {[
+                  freight.check_docs ? "Documentos" : null,
+                  freight.check_veiculo ? "Veículo" : null,
+                  freight.check_carga ? "Carga" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {canManageTrip && tripPending && (
+                <Button size="sm" onClick={() => setStartTripOpen(true)}>
+                  Iniciar viagem
+                </Button>
+              )}
+              {canEndOdometer && (
+                <Button size="sm" variant="outline" onClick={() => setEndOdoOpen(true)}>
+                  Registrar KM final
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {closed && !isAdmin && (
         <Card variant="glass" size="sm" className="mb-6 px-4 py-3 text-sm text-muted-foreground">
@@ -737,6 +835,23 @@ export function FreightDetailView({ id }: { id: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <StartTripDialog
+        freight={freight}
+        open={startTripOpen}
+        onOpenChange={setStartTripOpen}
+        onSuccess={(updated) => {
+          void mutateFreight(updated, { revalidate: false })
+        }}
+      />
+      <EndOdometerDialog
+        freight={freight}
+        open={endOdoOpen}
+        onOpenChange={setEndOdoOpen}
+        onSuccess={(updated) => {
+          void mutateFreight(updated, { revalidate: false })
+        }}
+      />
     </div>
     </AppCanvas>
   )

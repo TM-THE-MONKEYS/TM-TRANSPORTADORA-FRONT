@@ -8,7 +8,9 @@ import {
   AlertTriangle,
   ArrowRight,
   CircleDollarSign,
+  CirclePause,
   Package,
+  Route,
   SlidersHorizontal,
   TrendingDown,
   TrendingUp,
@@ -41,6 +43,7 @@ import {
   getRevenueSeries,
 } from "@/lib/api/services/dashboard"
 import { getCashFlow } from "@/lib/api/services/finance"
+import { listTrucks } from "@/lib/api/services/fleet"
 import { listCustomers } from "@/lib/api/services/freight"
 import { formatBRL } from "@/lib/format/currency"
 import { FREIGHT_STATUS_LABELS } from "@/lib/freight/status"
@@ -158,6 +161,18 @@ export function DashboardView() {
     () => getRevenueSeries(30),
   )
   const { data: customers } = useSWR("customers", listCustomers)
+  const { data: fleetPage, isLoading: loadingFleet } = useSWR(
+    "dashboard-fleet-now",
+    () => listTrucks(1, 100),
+    { revalidateOnFocus: false },
+  )
+  const fleetNow = useMemo(() => {
+    const trucks = fleetPage?.items ?? []
+    return {
+      emViagem: trucks.filter((t) => t.status === "em_viagem").length,
+      parado: trucks.filter((t) => t.status === "disponivel").length,
+    }
+  }, [fleetPage?.items])
   const {
     data: cashFlow,
     isLoading: loadingCashFlow,
@@ -343,6 +358,28 @@ export function DashboardView() {
               />
             </div>
             )}
+          </section>
+
+          <section>
+            <SectionLabel>Frota agora</SectionLabel>
+            <div className="grid gap-3 @sm:grid-cols-2 md:gap-4">
+              <DashboardKpiCard
+                label="Em viagem"
+                value={String(fleetNow.emViagem)}
+                hint="Caminhões com status em viagem"
+                icon={Route}
+                tone="success"
+                loading={loadingFleet}
+              />
+              <DashboardKpiCard
+                label="Parado"
+                value={String(fleetNow.parado)}
+                hint="Caminhões disponíveis na base"
+                icon={CirclePause}
+                tone="danger"
+                loading={loadingFleet}
+              />
+            </div>
           </section>
 
           {/* KPIs financeiros */}
